@@ -22,6 +22,8 @@ For now this providers are supported:
 
 **SMBFileProvider :** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from Windows and SMB2/3 is now replacing AFP protocol on MacOS too. I Implemented data types and some basic functions but main interface is not implemented yet!
 
+**DropboxFileProvider :** not implemented yet!
+
 ### Initialization
 
 For LocalFileProvider if you want to deal with `Documents` folder
