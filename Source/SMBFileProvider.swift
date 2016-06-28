@@ -115,56 +115,56 @@ class SMBFileProvider: NSObject, FileProvider, NSStreamDelegate {
         
     func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) { 
-            
+            self.NotImplemented()
         }
     }
     
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
-        
+        NotImplemented()
     }
     
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        
+        NotImplemented()
     }
     
     func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        
+        NotImplemented()
     }
     
     func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler) {
-        
+        NotImplemented()
     }
     
     func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
-        
+        NotImplemented()
     }
 }
 

@@ -112,6 +112,7 @@ class LocalFileProvider: FileProvider {
                 dispatch_async(dispatch_get_main_queue(), {
                     self.delegate?.fileproviderCreateModifyNotify(self, path: atPath)
                 })
+            } else {
                 completionHandler?(error: self.throwError(atPath, code: NSURLError.CannotCreateFile))
             }
         }
@@ -266,9 +267,5 @@ extension LocalFileProvider {
                 completionHandler?(error: e)
             }
         }
-    }
-    
-    func extendedAttributes(path: String) -> FileExtendedAttributes {
-        return FileExtendedAttributes(fileURL: self.absoluteURL(path))
     }
 }

@@ -169,6 +169,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 return
             }
             completionHandler?(error: error)
+            dispatch_async(dispatch_get_main_queue(), {
+                self.delegate?.fileproviderCreateModifyNotify(self, path: atPath)
+            })
         }.resume()
     }
     
@@ -177,6 +180,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "PUT"
         session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
             completionHandler?(error: error)
+            dispatch_async(dispatch_get_main_queue(), {
+                self.delegate?.fileproviderCreateModifyNotify(self, path: path)
+            })
         }.resume()
     }
     
@@ -191,8 +197,12 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
-                if code == .MultiStatus, let data = data {
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
+                if code == .OK {
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.delegate?.fileproviderMoveNotify(self, fromPath: path, toPath: toPath)
+                    })
+                } else if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
@@ -202,6 +212,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderMoveNotify(self, fromPath: path, toPath: toPath)
+                })
                 return
             }
             completionHandler?(error: error)
@@ -219,14 +232,21 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
-                if code == .MultiStatus, let data = data {
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
+                if code == .OK {
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.delegate?.fileproviderCopyNotify(self, fromPath: path, toPath: toPath)
+                    })
+                } else if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
                             completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                         }
                     }
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.delegate?.fileproviderCopyNotify(self, fromPath: path, toPath: toPath)
+                    })
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
@@ -243,14 +263,21 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "DELETE"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
         session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
-                if code == .MultiStatus, let data = data {
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
+                if code == .OK {
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.delegate?.fileproviderRemoveNotify(self, path: path)
+                    })
+                } else if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
                             completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                         }
                     }
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.delegate?.fileproviderRemoveNotify(self, path: path)
+                    })
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
@@ -265,6 +292,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "PUT"
         session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
             completionHandler?(error: error)
+            dispatch_async(dispatch_get_main_queue(), {
+                self.delegate?.fileproviderCreateModifyNotify(self, path: toPath)
+            })
         }.resume()
     }
     
