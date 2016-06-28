@@ -24,6 +24,8 @@ For now this providers are supported:
 
 **DropboxFileProvider :** not implemented yet!
 
+Your pull requests are being welcomed/
+
 ### Initialization
 
 For LocalFileProvider if you want to deal with `Documents` folder
@@ -109,7 +111,7 @@ Creating new directory:
 Creating new file from data stream:
 
 	let data = "hello world!".dataUsingEncoding(NSUTF8StringEncoding)
-	let file = FileObject(absoluteURL: NSURL(), name: "old.txt", size: -1, createdDate: NSDate(), modifiedDate: NSDate(), fileType: .Regular, isHidden: false, isReadOnly: true)
+	let file = FileObject(name: "old.txt", createdDate: NSDate(), modifiedDate: NSDate(), isHidden: false, isReadOnly: true)
 	documentsFileProvider.createFile(fileAttribs: file, atPath: "/", contents: data, completionHandler: nil)
 
 ### Copy and Move/Rename Files

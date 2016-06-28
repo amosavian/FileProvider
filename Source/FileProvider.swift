@@ -74,6 +74,17 @@ class FileObject {
         self.isHidden = isHidden
         self.isReadOnly = isReadOnly
     }
+    
+    init(name: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
+        self.absoluteURL = NSURL()
+        self.name = name
+        self.size = -1
+        self.createdDate = createdDate
+        self.modifiedDate = modifiedDate
+        self.fileType = .Regular
+        self.isHidden = isHidden
+        self.isReadOnly = isReadOnly
+    }
 }
 
 
