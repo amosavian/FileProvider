@@ -21,7 +21,7 @@ func decode<T>(data: NSData) -> T {
     return pointer.move()
 }
 
-class SMBFileProvider: NSObject, FileProvider, NSStreamDelegate {
+class SMBFileProvider: FileProvider {
     var type: String = "Samba"
     var isPathRelative: Bool = true
     var baseURL: NSURL?
@@ -32,9 +32,6 @@ class SMBFileProvider: NSObject, FileProvider, NSStreamDelegate {
     
     typealias FileObjectClass = FileObject
     
-    var inputStream: NSInputStream?
-    var outputStream: NSOutputStream?
-    
     init? (baseURL: NSURL, credential: NSURLCredential, afterInitialized: SimpleCompletionHandler) {
         guard baseURL.scheme.lowercaseString == "smb" else {
             return nil
@@ -43,79 +40,12 @@ class SMBFileProvider: NSObject, FileProvider, NSStreamDelegate {
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
         //let url = baseURL.absoluteString
         self.credential = credential
-        super.init()
-        
-        connect()
-    }
-    
-    func connect() -> Bool {
-        guard let hostStr = self.baseURL?.host else {
-            return false
-        }
-        var readStream : Unmanaged<CFReadStream>?
-        var writeStream : Unmanaged<CFWriteStream>?
-        let host : CFString = NSString(string: hostStr)
-        let port : UInt32 = self.baseURL?.port?.unsignedIntValue ?? 80
-        
-        CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, host, port, &readStream, &writeStream)
-        
-        inputStream = readStream?.takeRetainedValue()
-        outputStream = writeStream?.takeRetainedValue()
-        
-        guard let inputStream = inputStream, outputStream = outputStream else {
-            return false
-        }
-        
-        inputStream.delegate = self
-        outputStream.delegate = self
-        
-        inputStream.scheduleInRunLoop(NSRunLoop.currentRunLoop(), forMode: NSDefaultRunLoopMode)
-        outputStream.scheduleInRunLoop(NSRunLoop.currentRunLoop(), forMode: NSDefaultRunLoopMode)
-        
-        inputStream.open()
-        outputStream.open()
-        return true
-    }
-    
-    func stream(aStream: NSStream, handleEvent eventCode: NSStreamEvent) {
-        switch (eventCode) {
-        case NSStreamEvent.ErrorOccurred:
-            NSLog("ErrorOccurred")
-        case NSStreamEvent.EndEncountered:
-            NSLog("EndEncountered")
-        case NSStreamEvent.None:
-            NSLog("None")
-        case NSStreamEvent.HasBytesAvailable:
-            NSLog("HasBytesAvaible")
-            var buffer = [UInt8](count: 4096, repeatedValue: 0)
-            if ( aStream == inputStream) {
-                while (inputStream!.hasBytesAvailable ?? false) {
-                    let len = inputStream!.read(&buffer, maxLength: buffer.count)
-                    if(len > 0) {
-                        let output = NSString(bytes: &buffer, length: buffer.count, encoding: NSUTF8StringEncoding)
-                        if (output != ""){
-                            NSLog("server said: %@", output!)
-                        }
-                    }
-                }
-            }
-        case NSStreamEvent.OpenCompleted:
-            NSLog("OpenCompleted")
-        case NSStreamEvent.HasSpaceAvailable:
-            NSLog("HasSpaceAvailable")
-        default:
-            NSLog("allZeros")
-        }
-    }
-    
-    deinit {
-        inputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
-        outputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
     }
         
     func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
+        NotImplemented()
         dispatch_async(dispatch_queue) { 
-            self.NotImplemented()
+            
         }
     }
     
@@ -255,6 +185,21 @@ extension SMBFileProvider {
             }
         }
         return result
+    }
+    
+    func negotiateAndConnectV2() -> UInt64? {
+        guard let sockt = TCPSocketTransmitter(baseURL: self.baseURL!) else {
+            return nil
+        }
+        sockt.connect()
+        let negHeader = HeaderV2(command: .NEGOTIATE, creditRequestResponse: 0, messageId: 0, treeId: 0, sessionId: 0)
+        let negMessage = NSData()
+        self.createSMBMessage(negHeader, blocks: [(params: nil, message: negMessage)])
+        _ = try? sockt.send(data: nil)
+        sockt.waitForResponse()
+        print(sockt.dataRecieved)
+        
+        return 0
     }
     
     private func smbTimeToUnix(smbTime: UInt64) -> UInt {
@@ -538,7 +483,7 @@ extension SMBFileProvider {
         var signatureLo: UInt64
         var signatureHi: UInt64
         
-        init(command: CommandsV2, status: NTStatus = .SUCCESS, creditCharge: UInt16, creditRequestResponse: UInt16, flags: FlagsV2, nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64,signatureLo: UInt64, signatureHi: UInt64) {
+        init(command: CommandsV2, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: FlagsV2 = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64,signatureLo: UInt64 = 0, signatureHi: UInt64 = 0) {
             self.protocolID = self.dynamicType.protocolConst
             self.structSize = 64
             self.status = status.rawValue

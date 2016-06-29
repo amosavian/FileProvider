@@ -158,7 +158,7 @@ extension FileProvider {
     }
     
     func NotImplemented() {
-        assert(false, "method not implemented")
+        assertionFailure("method not implemented")
     }
 }
 

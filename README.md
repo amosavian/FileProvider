@@ -2,7 +2,7 @@
 
 This Swift library provide a swifty way to deal with local and remote files and directories in same way. This library provides implementaion of WebDav and SMB/CIFS (incomplete) and local files.
 
-All functions are async recalls and it wont block your main thread.
+All functions are async calls and it wont block your main thread.
 
 ## Installation
 
@@ -16,11 +16,11 @@ Each provider has a specific class which conforms to FileProvider protocol and s
 
 For now this providers are supported:
 
-**LocalFileProvider :** a wrapper for NSFileManager with some additions like searching and reading a portion of file
+**LocalFileProvider :** a wrapper for `NSFileManager` with some additions like searching and reading a portion of file
 
 **WebDAVFileProvider :** WebDAV protocol is usual file transmission system on Macs
 
-**SMBFileProvider :** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from Windows and SMB2/3 is now replacing AFP protocol on MacOS too. I Implemented data types and some basic functions but main interface is not implemented yet!
+**SMBFileProvider :** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from Windows and SMB2/3 is now replacing AFP protocol on MacOS. I Implemented data types and some basic functions but *main interface is not implemented yet!*
 
 **DropboxFileProvider :** not implemented yet!
 
@@ -50,6 +50,8 @@ For interaction with UI, set delegate variable of `FileProvider` object
 ### Delegate
 
 For updating User interface please consider using delegate method instead of completion handlers. Delegate methods are guaranteed to run in main thread to avoid bugs.
+
+Your class should conforms `FileProviderDelegate` class:
 
 	override func viewDidLoad() {
 		documentsFileProvider.delegate = self
@@ -126,7 +128,7 @@ Creating new file from data stream:
 
 	documentsFileProvider.removeItemAtPath(path: "new.txt", completionHandler: nil)
 
-Caution: This method will not delete directories with content.
+***Caution:*** This method will not delete directories with content.
 
 
 ### Retrieve Content of File
@@ -142,7 +144,7 @@ THere is two method for this purpose, one of them loads entire file into NSData 
 	
 If you want to retrieve a portion of file you should can `contentsAtPath` method with offset and length arguments. Please note first byte of file has offset: 0.
 
-	documentsFileProvider.contentsAtPath(path: "old.txt:, offset: 2, length: 5, completionHandler: {
+	documentsFileProvider.contentsAtPath(path: "old.txt", offset: 2, length: 5, completionHandler: {
 		(contents: NSData?, error: ErrorType?) -> Void
 		if let contents = contents {
 			print(String(data: contents, encoding: NSUTF8StringEncoding)) // "llo w"
@@ -152,6 +154,6 @@ If you want to retrieve a portion of file you should can `contentsAtPath` method
 ### Write Data To Files
 
 	let data = "What's up Newyork!".dataUsingEncoding(NSUTF8StringEncoding)
-	documentsFileProvider.writeContentsAtPath(path: "old, contents data: data, atomically: true, completionHandler: nil)
+	documentsFileProvider.writeContentsAtPath(path: "old.txt", contents data: data, atomically: true, completionHandler: nil)
 
 
