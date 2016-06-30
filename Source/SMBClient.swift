@@ -8,7 +8,18 @@
 
 import Foundation
 
-class SMBProtocolTransmitter: TCPSocketTransmitter {
+protocol SMBRequest {
+    func data() -> NSData
+}
+
+protocol SMBResponse {
+    init? (data: NSData)
+}
+
+// This client implementation is for little-endian platform, namely x86, x64 & arm
+// For big-endian platforms like PowerPC, there must be a huge overhaul
+
+class SMBProtocolClient: TCPSocketClient {
     class func digestSMBMessage(data: NSData) throws -> (header: FileProviderSMBHeader, blocks: [(params: [UInt16], message: NSData?)]) {
         guard data.length > 30 else {
             throw NSURLError.BadServerResponse
@@ -79,12 +90,16 @@ class SMBProtocolTransmitter: TCPSocketTransmitter {
     }
     
     func negotiateToSMB2() -> SMB2.NegotiateResponse? {
-        let negHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: 0, treeId: 0, sessionId: 0)
+        let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: 0, treeId: 0, sessionId: 0)
         let negMessage = NSData()
-        SMBProtocolTransmitter.createSMBMessage(negHeader, blocks: [(params: nil, message: negMessage)])
-        _ = try? self.send(data: nil)
+        SMBProtocolClient.createSMBMessage(smbHeader, blocks: [(params: nil, message: negMessage)])
+        do {
+            try self.send(data: nil)
+        } catch _ {
+            return nil
+        }
         self.waitForResponse()
-        if let response = try? SMBProtocolTransmitter.digestSMBMessage(dataRecieved) where response.blocks.count > 0 {
+        if let response = try? SMBProtocolClient.digestSMBMessage(dataRecieved) where response.blocks.count > 0 {
             if let message = response.blocks[0].message {
                 return SMB2.NegotiateResponse(data: message)
             }
@@ -482,17 +497,9 @@ struct SMB2 {
         case INVALID                = 0xFFFF
     }
     
-    struct NegotiateContextType: OptionSetType {
-        let rawValue: UInt16
-        
-        init(rawValue: UInt16) {
-            self.rawValue = rawValue
-        }
-        static let PREAUTH_INTEGRITY_CAPABILITIES   = NegotiateContextType(rawValue: 0x0001)
-        static let ENCRYPTION_CAPABILITIES          = NegotiateContextType(rawValue: 0x0002)
-    }
+    // MARK: SMB2 Negotiating
     
-    struct NegotiateRequest {
+    struct NegotiateRequest: SMBRequest {
         let request: NegotiateRequest.Header
         let dialects: [UInt16]
         let contexts: [(type: NegotiateContextType, data: NSData)]
@@ -515,6 +522,7 @@ struct SMB2 {
             dialectData.increaseLengthBy(pad)
             request.contextOffset = UInt32(sizeof(request.dynamicType.self)) + UInt32(dialectData.length)
             request.contextCount = UInt16(contexts.count)
+            
             let contextData = NSMutableData()
             for context in contexts {
                 var contextType = context.type.rawValue
@@ -544,12 +552,12 @@ struct SMB2 {
                 return SMBTime(time: time)
             }
             
-            init(singing: NegotiateSinging, capabilities: GlobalCapabilities, guid: uuid_t? = nil, clientStartTime: SMBTime? = nil) {
+            init(singing: NegotiateSinging = [.ENABLED], capabilities: GlobalCapabilities, guid: uuid_t? = nil, clientStartTime: SMBTime? = nil) {
                 self.size = 36
                 self.dialectCount = 0
-                self.singing = [.ENABLED]
+                self.singing = singing
                 self.reserved = 0
-                self.capabilities = []
+                self.capabilities = capabilities
                 self.guid = guid ?? (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
                 if let clientStartTime = clientStartTime {
                     let time = clientStartTime.time
@@ -565,7 +573,7 @@ struct SMB2 {
         }
     }
     
-    struct NegotiateResponse {
+    struct NegotiateResponse: SMBResponse {
         let header: NegotiateResponse.Header
         let buffer: NSData?
         let contexts: [(type: NegotiateContextType, data: NSData)]
@@ -576,7 +584,7 @@ struct SMB2 {
             }
             let headerData = data.subdataWithRange(NSRange(location: 0, length: sizeof(NegotiateResponse.Header.self)))
             self.header = decode(headerData)
-            if Int(header.size) != sizeof(NegotiateResponse.Header.self) {
+            if Int(header.size) != 65 {
                 return nil
             }
             let bufOffset = Int(self.header.bufferOffset)
@@ -586,10 +594,14 @@ struct SMB2 {
             } else {
                 self.buffer = nil
             }
-            /*if self.header.contextCount > 0 && self.header.contextOffset > 0 {
+            let contextCount = Int(self.header.contextCount)
+            let contextOffset = Int(self.header.contextOffset)
+            if  contextCount > 0 &&  contextOffset > 0 {
                 // TODO: NegotiateResponse context support for SMB3
-            }*/
-            self.contexts = []
+                self.contexts = []
+            } else {
+                self.contexts = []
+            }
         }
         
         struct Header {
@@ -620,6 +632,16 @@ struct SMB2 {
         static let REQUIRED  = NegotiateSinging(rawValue: 0x0002)
     }
     
+    struct NegotiateContextType: OptionSetType {
+        let rawValue: UInt16
+        
+        init(rawValue: UInt16) {
+            self.rawValue = rawValue
+        }
+        static let PREAUTH_INTEGRITY_CAPABILITIES   = NegotiateContextType(rawValue: 0x0001)
+        static let ENCRYPTION_CAPABILITIES          = NegotiateContextType(rawValue: 0x0002)
+    }
+    
     struct GlobalCapabilities: OptionSetType {
         let rawValue: UInt32
         
@@ -634,6 +656,475 @@ struct SMB2 {
         static let DIRECTORY_LEASING    = GlobalCapabilities(rawValue: 0x00000020)
         static let ENCRYPTION           = GlobalCapabilities(rawValue: 0x00000040)
     }
+    
+    // MARK: SMB2 Session Setup
+    
+    struct SessionSetupRequest: SMBRequest {
+        let header: SessionSetupRequest.Header
+        let buffer: NSData?
+        
+        init(header: SessionSetupRequest.Header, buffer: NSData) {
+            self.header = header
+            self.buffer = buffer
+        }
+        
+        func data() -> NSData {
+            var header = self.header
+            header.bufferOffset = UInt16(sizeofValue(header))
+            header.bufferLength = UInt16(buffer?.length ?? 0)
+            let result = NSMutableData(data: encode(&header))
+            if let buffer = self.buffer {
+                result.appendData(buffer)
+            }
+            return result
+        }
+        
+        struct Header {
+            let size: UInt16
+            let flags: SessionSetupRequest.Flags
+            let signing: SessionSetupSinging
+            let capabilities: GlobalCapabilities
+            private let channel: UInt32
+            var bufferOffset: UInt16
+            var bufferLength: UInt16
+            let sessionId: UInt64
+            
+            init(sessionId: UInt64, flags: SessionSetupRequest.Flags = [], singing: SessionSetupSinging, capabilities: GlobalCapabilities) {
+                self.size = 25
+                self.flags = flags
+                self.signing = singing
+                self.capabilities = capabilities
+                self.channel = 0
+                self.bufferOffset = 0
+                self.bufferLength = 0
+                self.sessionId = sessionId
+            }
+        }
+        
+        // If the client implements the SMB 3.x dialect family
+        struct Flags: OptionSetType {
+            let rawValue: UInt8
+            
+            init(rawValue: UInt8) {
+                self.rawValue = rawValue
+            }
+            
+            static let BINDING = NegotiateSinging(rawValue: 0x01)
+        }
+    }
+    
+    struct SessionSetupResponse: SMBResponse {
+        let header: SessionSetupResponse.Header
+        let buffer: NSData?
+        
+        init? (data: NSData) {
+            if data.length < 64 {
+                return nil
+            }
+            let headerData = data.subdataWithRange(NSRange(location: 0, length: sizeof(SessionSetupResponse.Header.self)))
+            self.header = decode(headerData)
+            if Int(header.size) != 9 {
+                return nil
+            }
+            let bufOffset = Int(self.header.bufferOffset)
+            let bufLen = Int(self.header.bufferLength)
+            if bufOffset > 0 && bufLen > 0 && data.length >= bufOffset + bufLen {
+                self.buffer = data.subdataWithRange(NSRange(location: bufOffset, length: bufLen))
+            } else {
+                self.buffer = nil
+            }
+        }
+        
+        struct Header {
+            let size: UInt16
+            let flags: SessionSetupResponse.Flags
+            let bufferOffset: UInt16
+            let bufferLength: UInt16
+        }
+        
+        struct Flags: OptionSetType {
+            let rawValue: UInt16
+            
+            init(rawValue: UInt16) {
+                self.rawValue = rawValue
+            }
+            
+            static let IS_GUEST     = Flags(rawValue: 0x0001)
+            static let IS_NULL      = Flags(rawValue: 0x0002)
+            static let ENCRYPT_DATA = Flags(rawValue: 0x0004)
+        }
+    }
+    
+    struct SessionSetupSinging: OptionSetType {
+        let rawValue: UInt8
+        
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        static let ENABLED   = NegotiateSinging(rawValue: 0x01)
+        static let REQUIRED  = NegotiateSinging(rawValue: 0x02)
+    }
+    
+    // MARK: SMB2 Log off
+    
+    struct LogOff: SMBRequest, SMBResponse {
+        let size: UInt16
+        let reserved: UInt16
+        
+        init() {
+            self.size = 4
+            self.reserved = 0
+        }
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+        
+        func data() -> NSData {
+            var s = self
+            return encode(&s)
+        }
+    }
+    
+    // MARK: SMB2 Tree Connect
+    
+    struct TreeConnectRequest: SMBRequest {
+        let header: TreeConnectRequest.Header
+        let buffer: NSData?
+        var path: String {
+            return ""
+        }
+        var share: String {
+            return ""
+        }
+        
+        init? (header: TreeConnectRequest.Header, host: String, share: String) {
+            guard !host.containsString("/") && !host.containsString("/") && !share.containsString("/") && !share.containsString("/") else {
+                return nil
+            }
+            self.header = header
+            let path = "\\\\\(host)\\\(share)"
+            self.buffer = path.dataUsingEncoding(NSUTF8StringEncoding)
+        }
+        
+        func data() -> NSData {
+            var header = self.header
+            header.pathOffset = UInt16(sizeofValue(header))
+            header.pathLength = UInt16(buffer?.length ?? 0)
+            let result = NSMutableData(data: encode(&header))
+            if let buffer = self.buffer {
+                result.appendData(buffer)
+            }
+            return result
+        }
+        
+        struct Header {
+            let size: UInt16
+            let flags: TreeConnectRequest.Flags
+            var pathOffset: UInt16
+            var pathLength: UInt16
+            
+            init(flags: TreeConnectRequest.Flags) {
+                self.size = 9
+                self.flags = flags
+                self.pathOffset = 0
+                self.pathLength = 0
+            }
+        }
+        
+        struct Flags: OptionSetType {
+            let rawValue: UInt16
+            
+            init(rawValue: UInt16) {
+                self.rawValue = rawValue
+            }
+            
+            static let SHAREFLAG_CLUSTER_RECONNECT = Flags(rawValue: 0x0001)
+        }
+    }
+    
+    struct TreeConnectResponse: SMBResponse {
+        let size: UInt16  // = 16
+        private let _type: UInt8
+        var type: ShareType {
+            return ShareType(rawValue: _type) ?? .UNKNOWN
+        }
+        private let reserved: UInt8
+        let flags: TreeConnectResponse.ShareFlags
+        let capabilities: TreeConnectResponse.Capabilities
+        let maximalAccess: FileAccessMask
+        
+        init? (data: NSData) {
+            if data.length != 16 {
+                return nil
+            }
+            self = decode(data)
+        }
+        
+        enum ShareType: UInt8 {
+            case UNKNOWN  = 0x00
+            case DISK     = 0x01
+            case PIPE     = 0x02
+            case PRINT    = 0x03
+        }
+        
+        struct ShareFlags: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let DFS                          = ShareFlags(rawValue: 0x00000001)
+            static let DFS_ROOT                     = ShareFlags(rawValue: 0x00000002)
+            static let MANUAL_CACHING               = ShareFlags(rawValue: 0x00000000)
+            static let AUTO_CACHING                 = ShareFlags(rawValue: 0x00000010)
+            static let VDO_CACHING                  = ShareFlags(rawValue: 0x00000020)
+            static let NO_CACHING                   = ShareFlags(rawValue: 0x00000030)
+            static let RESTRICT_EXCLUSIVE_OPENS     = ShareFlags(rawValue: 0x00000100)
+            static let FORCE_SHARED_DELETE          = ShareFlags(rawValue: 0x00000200)
+            static let ALLOW_NAMESPACE_CACHING      = ShareFlags(rawValue: 0x00000400)
+            static let ACCESS_BASED_DIRECTORY_ENUM  = ShareFlags(rawValue: 0x00000800)
+            static let FORCE_LEVELII_OPLOCK         = ShareFlags(rawValue: 0x00001000)
+            static let ENABLE_HASH_V1               = ShareFlags(rawValue: 0x00002000)
+            static let ENABLE_HASH_V2               = ShareFlags(rawValue: 0x00004000)
+            static let ENCRYPT_DATA                 = ShareFlags(rawValue: 0x00008000)
+        }
+        
+        struct Capabilities: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let DFS                      = Capabilities(rawValue: 0x00000008)
+            static let CONTINUOUS_AVAILABILITY  = Capabilities(rawValue: 0x00000010)
+            static let SCALEOUT                 = Capabilities(rawValue: 0x00000020)
+            static let CLUSTER                  = Capabilities(rawValue: 0x00000040)
+            static let ASYMMETRIC               = Capabilities(rawValue: 0x00000080)
+        }
+    }
+    
+    // MARK: SMB2 Tree Disconnect
+    
+    struct TreeDisconnect {
+        let size: UInt16
+        let reserved: UInt16
+        
+        init() {
+            self.size = 4
+            self.reserved = 0
+        }
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+        
+        func data() -> NSData {
+            var logoff = self
+            return encode(&logoff)
+        }
+    }
+    
+    // MARK: SMB2 Create
+    
+    
+    
+    struct FileAccessMask: OptionSetType {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        // File and Printer/Pipe Accesses
+        static let FILE_READ_DATA = FileAccessMask(rawValue: 0x00000001)
+        static let FILE_WRITE_DATA = FileAccessMask(rawValue: 0x00000002)
+        static let FILE_APPEND_DATA = FileAccessMask(rawValue: 0x00000004)
+        static let FILE_EXECUTE = FileAccessMask(rawValue: 0x00000020)
+        // Directory
+        static let FILE_LIST_DIRECTORY = FileAccessMask(rawValue: 0x00000001)
+        static let FILE_ADD_FILE = FileAccessMask(rawValue: 0x00000002)
+        static let FILE_ADD_SUBDIRECTORY = FileAccessMask(rawValue: 0x00000004)
+        static let FILE_TRAVERSE = FileAccessMask(rawValue: 0x00000020)
+        // Generic
+        static let FILE_READ_EA = FileAccessMask(rawValue: 0x00000008)
+        static let FILE_WRITE_EA = FileAccessMask(rawValue: 0x00000010)
+        static let FILE_DELETE_CHILD = FileAccessMask(rawValue: 0x00000040)
+        static let FILE_READ_ATTRIBUTES = FileAccessMask(rawValue: 0x00000080)
+        static let FILE_WRITE_ATTRIBUTES = FileAccessMask(rawValue: 0x00000100)
+        static let DELETE = FileAccessMask(rawValue: 0x00010000)
+        static let READ_CONTROL = FileAccessMask(rawValue: 0x00020000)
+        static let WRITE_DAC = FileAccessMask(rawValue: 0x00040000)
+        static let WRITE_OWNER = FileAccessMask(rawValue: 0x00080000)
+        static let SYNCHRONIZE = FileAccessMask(rawValue: 0x00100000)
+        static let ACCESS_SYSTEM_SECURITY = FileAccessMask(rawValue: 0x01000000)
+        static let MAXIMUM_ALLOWED = FileAccessMask(rawValue: 0x02000000)
+        static let GENERIC_ALL = FileAccessMask(rawValue: 0x10000000)
+        static let GENERIC_EXECUTE = FileAccessMask(rawValue: 0x20000000)
+        static let GENERIC_WRITE = FileAccessMask(rawValue: 0x40000000)
+        static let GENERIC_READ = FileAccessMask(rawValue: 0x80000000)
+    }
+    
+    struct FileAttributes: OptionSetType {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        static let READONLY             = FileAttributes(rawValue: 0x00000001)
+        static let HIDDEN               = FileAttributes(rawValue: 0x00000002)
+        static let SYSTEM               = FileAttributes(rawValue: 0x00000004)
+        static let DIRECTORY            = FileAttributes(rawValue: 0x00000010)
+        static let ARCHIVE              = FileAttributes(rawValue: 0x00000020)
+        static let NORMAL               = FileAttributes(rawValue: 0x00000080)
+        static let TEMPORARY            = FileAttributes(rawValue: 0x00000100)
+        static let SPARSE_FILE          = FileAttributes(rawValue: 0x00000200)
+        static let REPARSE_POINT        = FileAttributes(rawValue: 0x00000400)
+        static let COMPRESSED           = FileAttributes(rawValue: 0x00000800)
+        static let OFFLINE              = FileAttributes(rawValue: 0x00001000)
+        static let NOT_CONTENT_INDEXED  = FileAttributes(rawValue: 0x00002000)
+        static let ENCRYPTED            = FileAttributes(rawValue: 0x00004000)
+        static let INTEGRITY_STREAM     = FileAttributes(rawValue: 0x00008000)
+        static let NO_SCRUB_DATA        = FileAttributes(rawValue: 0x00020000)
+    }
+
+    // MARK: SMB2 Close
+    
+    struct CloseRequest: SMBRequest {
+        let size: UInt16
+        let flags: CloseFlags
+        private let reserved2: UInt32
+        let filePersistantId: UInt64
+        let fileVolatileId: UInt64
+        
+        init(filePersistantId: UInt64, fileVolatileId: UInt64) {
+            self.size = 24
+            self.filePersistantId = filePersistantId
+            self.fileVolatileId = fileVolatileId
+            self.flags = []
+            self.reserved2 = 0
+        }
+        
+        func data() -> NSData {
+            var close = self
+            return encode(&close)
+        }
+    }
+    
+    struct CloseResponse: SMBResponse {
+        let size: UInt16
+        let flags: CloseFlags
+        private let reserved: UInt32
+        let creationTime: SMBTime
+        let lastAccessTime: SMBTime
+        let lastWriteTime: SMBTime
+        let changeTime: SMBTime
+        let allocationSize: UInt64
+        let endOfFile: UInt64
+        let fileAttributes: FileAttributes
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+    }
+    
+    struct CloseFlags: OptionSetType {
+        let rawValue: UInt16
+        
+        init(rawValue: UInt16) {
+            self.rawValue = rawValue
+        }
+        
+        static let POSTQUERY_ATTRIB = Flags(rawValue: 0x0001)
+    }
+    
+    // MARK: SMB2 Flush
+    
+    struct FlushRequest: SMBRequest {
+        let size: UInt16
+        private let reserved: UInt16
+        private let reserved2: UInt32
+        let filePersistantId: UInt64
+        let fileVolatileId: UInt64
+        
+        init(filePersistantId: UInt64, fileVolatileId: UInt64) {
+            self.size = 24
+            self.filePersistantId = filePersistantId
+            self.fileVolatileId = fileVolatileId
+            self.reserved = 0
+            self.reserved2 = 0
+        }
+        
+        func data() -> NSData {
+            var flush = self
+            return encode(&flush)
+        }
+    }
+    
+    struct FlushResponse: SMBResponse {
+        let size: UInt16
+        let reserved: UInt16
+        
+        init() {
+            self.size = 4
+            self.reserved = 0
+        }
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+    }
+    
+    // MARK: SMB2 Read
+    
+    // MARK: SMB2 Write
+    
+    // MARK: SMB2 Lock
+    
+    // MARK: SMB2 IOCTL
+    
+    /*
+     * Device-Platform specific operations, which is defferent from system to system
+     * Should not be implemented in a general SMB client
+    */
+    
+    // MARK: SMB2 Cancel
+    
+    // MARK: SMB2 Echo
+    
+    struct Echo: SMBRequest, SMBResponse {
+        let size: UInt16
+        let reserved: UInt16
+        
+        init() {
+            self.size = 4
+            self.reserved = 0
+        }
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+        
+        func data() -> NSData {
+            var s = self
+            return encode(&s)
+        }
+    }
+    
+    // MARK: SMB2 Query Directory
+    
+    // MARK: SMB2 Change Notify
+    
+    // MARK: SMB2 Query Info
+    
+    // MARK: SMB2 Set Info
+    
+    // MARK: SMB2 Oplock Break
+
 }
 
 // Error Types and Description
@@ -752,7 +1243,11 @@ enum NTStatus: UInt32, ErrorType, CustomStringConvertible {
     case DEVICE_PAPER_EMPTY         = 0x8000000E
     case WRONG_VOLUME               = 0xC0000012
     case DISK_FULL                  = 0xC000007F
-    
+    case BUFFER_TOO_SMALL           = 0xC0000023
+    case BAD_IMPERSONATION_LEVEL    = 0xC00000A5
+    case USER_SESSION_DELETED       = 0xC0000203
+    case NETWORK_SESSION_EXPIRED    = 0xC000035C
+    case SMB_TOO_MANY_UIDS          = 0xC000205A
     
     var description: String {
         switch self {

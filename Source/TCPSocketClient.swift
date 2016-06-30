@@ -8,7 +8,7 @@
 
 import Foundation
 
-class TCPSocketTransmitter: NSObject, NSStreamDelegate {
+class TCPSocketClient: NSObject, NSStreamDelegate {
     static let ports = ["http": 80,
                         "https": 443,
                         "smb": 445,
@@ -42,7 +42,7 @@ class TCPSocketTransmitter: NSObject, NSStreamDelegate {
         self.baseURL = baseURL
         self.secureConnection = secure
         let scheme = baseURL.scheme.lowercaseString
-        let defaultPort = secure ? UInt32(TCPSocketTransmitter.securePorts[scheme] ?? 0) : UInt32(TCPSocketTransmitter.ports[scheme] ?? 0)
+        let defaultPort = secure ? UInt32(TCPSocketClient.securePorts[scheme] ?? 0) : UInt32(TCPSocketClient.ports[scheme] ?? 0)
         self.port = baseURL.port?.unsignedIntValue ?? defaultPort
         if self.port == 0 {
             return nil
