@@ -8,7 +8,7 @@
 
 import Foundation
 
-final class LocalFileObject: FileObject {
+public final class LocalFileObject: FileObject {
     let allocatedSize: Int64
     
     init(absoluteURL: NSURL, name: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
@@ -17,16 +17,18 @@ final class LocalFileObject: FileObject {
     }
 }
 
-class LocalFileProvider: FileProvider {
-    let type = "NSFileManager"
-    var isPathRelative: Bool = true
-    var baseURL: NSURL? = LocalFileProvider.defaultBaseURL()
-    var currentPath: String = ""
-    var dispatch_queue: dispatch_queue_t
-    var delegate: FileProviderDelegate?
-    let credential: NSURLCredential? = nil
+public class LocalFileProvider: FileProvider {
+    public let type = "NSFileManager"
+    public var isPathRelative: Bool = true
+    public var baseURL: NSURL? = LocalFileProvider.defaultBaseURL()
+    public var currentPath: String = ""
+    public var dispatch_queue: dispatch_queue_t
+    public var delegate: FileProviderDelegate?
+    public let credential: NSURLCredential? = nil
     
-    typealias FileObjectClass = LocalFileObject
+    public typealias FileObjectClass = LocalFileObject
+    
+    let fileManager = NSFileManager()
     
     init () {
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_SERIAL)
@@ -42,10 +44,10 @@ class LocalFileProvider: FileProvider {
         return NSURL(fileURLWithPath: paths[0])
     }
     
-    func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [LocalFileObject], error: ErrorType?) -> Void)) {
+    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [LocalFileObject], error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
             do {
-                let contents = try NSFileManager.defaultManager().contentsOfDirectoryAtURL(self.absoluteURL(path), includingPropertiesForKeys: [NSURLNameKey, NSURLFileSizeKey, NSURLFileAllocatedSizeKey, NSURLCreationDateKey, NSURLContentModificationDateKey, NSURLIsHiddenKey, NSURLVolumeIsReadOnlyKey, NSFileGroupOwnerAccountName], options: NSDirectoryEnumerationOptions.SkipsSubdirectoryDescendants)
+                let contents = try self.fileManager.contentsOfDirectoryAtURL(self.absoluteURL(path), includingPropertiesForKeys: [NSURLNameKey, NSURLFileSizeKey, NSURLFileAllocatedSizeKey, NSURLCreationDateKey, NSURLContentModificationDateKey, NSURLIsHiddenKey, NSURLVolumeIsReadOnlyKey, NSFileGroupOwnerAccountName], options: NSDirectoryEnumerationOptions.SkipsSubdirectoryDescendants)
                 let filesAttributes = contents.map({ (fileURL) -> LocalFileObject in
                     return self.attributesOfItemAtURL(fileURL)
                 })
@@ -56,7 +58,7 @@ class LocalFileProvider: FileProvider {
         }
     }
     
-    func attributesOfItemAtURL(fileURL: NSURL) -> LocalFileObject {
+    private func attributesOfItemAtURL(fileURL: NSURL) -> LocalFileObject {
         var namev, sizev, allocated, filetypev, creationDatev, modifiedDatev, hiddenv, readonlyv: AnyObject?
         _ = try? fileURL.getResourceValue(&namev, forKey: NSURLNameKey)
         _ = try? fileURL.getResourceValue(&sizev, forKey: NSURLFileSizeKey)
@@ -70,30 +72,30 @@ class LocalFileProvider: FileProvider {
         return fileAttr
     }
     
-    func attributesOfItemAtPath(path: String, completionHandler: ((attributes: LocalFileObject?, error: ErrorType?) -> Void)) {
+    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: LocalFileObject?, error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
             completionHandler(attributes: self.attributesOfItemAtURL(self.absoluteURL(path)), error: nil)
         }
     }
     
-    func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
+    public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             do {
-                try NSFileManager.defaultManager().createDirectoryAtURL(self.absoluteURL(atPath).URLByAppendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
+                try self.fileManager.createDirectoryAtURL(self.absoluteURL(atPath).URLByAppendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
                 })
             }
         }
     }
     
-    func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
+    public func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             let fileURL = self.absoluteURL(atPath).URLByAppendingPathComponent(fileAttribs.name)
             var attributes = [String : AnyObject]()
@@ -106,125 +108,127 @@ class LocalFileProvider: FileProvider {
             if fileAttribs.isReadOnly {
                 attributes[NSFilePosixPermissions] = NSNumber(short: 365 /*555 o*/)
             }
-            let success = NSFileManager.defaultManager().createFileAtPath(fileURL.path!, contents: data, attributes: attributes)
+            let success = self.fileManager.createFileAtPath(fileURL.path!, contents: data, attributes: attributes)
             if success {
                 do {
                     try fileURL.setResourceValue(fileAttribs.isHidden, forKey: NSURLIsHiddenKey)
                 } catch _ {}
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(fileAttribs.name)))
                 })
             } else {
                 completionHandler?(error: self.throwError(atPath, code: NSURLError.CannotCreateFile))
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(fileAttribs.name)))
                 })
             }
         }
     }
     
-    func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+        // FIXME: progress
         dispatch_async(dispatch_queue) {
-            if !overwrite && NSFileManager.defaultManager().fileExistsAtPath(self.absoluteURL(toPath).path ?? "") {
+            if !overwrite && self.fileManager.fileExistsAtPath(self.absoluteURL(toPath).path ?? "") {
                 completionHandler?(error: self.throwError(toPath, code: NSURLError.CannotMoveFile))
                 return
             }
             do {
-                try NSFileManager.defaultManager().moveItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
+                try self.fileManager.moveItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: path, destPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operation: .Move(source: path, destination: toPath))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: path, destPath: toPath)
+                    self.delegate?.fileproviderFailed(self, operation: .Move(source: path, destination: toPath))
                 })
             }
         }
     }
     
-    func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+        // FIXME: progress, for files > 100mb, monitor file by another thread, for dirs check copied items count
         dispatch_async(dispatch_queue) {
-            if !overwrite && NSFileManager.defaultManager().fileExistsAtPath(self.absoluteURL(toPath).path ?? "") {
+            if !overwrite && self.fileManager.fileExistsAtPath(self.absoluteURL(toPath).path ?? "") {
                 completionHandler?(error: self.throwError(toPath, code: NSURLError.CannotWriteToFile))
                 return
             }
             do {
-                try NSFileManager.defaultManager().copyItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
+                try self.fileManager.copyItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operation: .Copy(source: path, destination: toPath))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                    self.delegate?.fileproviderFailed(self, operation: .Copy(source: path, destination: toPath))
                 })
             }
         }
     }
     
-    func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
+    public func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             do {
-                try NSFileManager.defaultManager().removeItemAtURL(self.absoluteURL(path))
+                try self.fileManager.removeItemAtURL(self.absoluteURL(path))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                    self.delegate?.fileproviderSucceed(self, operation: .Remove(path: path))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                    self.delegate?.fileproviderFailed(self, operation: .Remove(path: path))
                 })
             }
         }
     }
     
-    func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
+    public func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             do {
-                try NSFileManager.defaultManager().copyItemAtURL(localFile, toURL: self.absoluteURL(toPath))
+                try self.fileManager.copyItemAtURL(localFile, toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: localFile.absoluteString, destPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operation: .Copy(source: localFile.absoluteString, destination: toPath))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: localFile.absoluteString, destPath: toPath)
+                    self.delegate?.fileproviderFailed(self, operation: .Copy(source: localFile.absoluteString, destination: toPath))
                 })
             }
         }
     }
     
-    func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
+    public func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             do {
-                try NSFileManager.defaultManager().copyItemAtURL(self.absoluteURL(path), toURL: toLocalURL)
+                try self.fileManager.copyItemAtURL(self.absoluteURL(path), toURL: toLocalURL)
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toLocalURL.absoluteString)
+                    self.delegate?.fileproviderSucceed(self, operation: .Copy(source: path, destination: toLocalURL.absoluteString))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toLocalURL.absoluteString)
+                    self.delegate?.fileproviderFailed(self, operation: .Copy(source: path, destination: toLocalURL.absoluteString))
                 })
             }
         }
     }
     
-    func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    public func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
-            let data = NSFileManager.defaultManager().contentsAtPath(self.absoluteURL(path).path!)
+            let data = self.fileManager.contentsAtPath(self.absoluteURL(path).path!)
             completionHandler(contents: data, error: nil)
         }
     }
     
-    func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         // Unfortunatlely there is no method provided in NSFileManager to read a segment of file.
         // So we have to fallback to POSIX provided methods
         dispatch_async(dispatch_queue) {
@@ -232,7 +236,7 @@ class LocalFileProvider: FileProvider {
             if self.attributesOfItemAtURL(self.absoluteURL(path)).fileType == .Directory {
                 self.throwError(path, code: NSURLError.FileIsDirectory)
             }
-            if !NSFileManager.defaultManager().fileExistsAtPath(aPath) {
+            if !self.fileManager.fileExistsAtPath(aPath) {
                 self.throwError(path, code: NSURLError.FileDoesNotExist)
             }
             let fd_from = open(aPath, O_RDONLY)
@@ -253,18 +257,18 @@ class LocalFileProvider: FileProvider {
         }
     }
     
-    func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler) {
+    public func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             data.writeToURL(self.absoluteURL(path), atomically: atomically)
             dispatch_async(dispatch_get_main_queue(), {
-                self.delegate?.fileproviderSucceed(self, operationType: .Modify, sourcePath: path, destPath: nil)
+                self.delegate?.fileproviderSucceed(self, operation: .Modify(path: path))
             })
         }
     }
     
-    func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) { 
-            let iterator = NSFileManager.defaultManager().enumeratorAtURL(self.absoluteURL(path), includingPropertiesForKeys: nil, options: recursive ? NSDirectoryEnumerationOptions() : .SkipsSubdirectoryDescendants) { (url, e) -> Bool in
+            let iterator = self.fileManager.enumeratorAtURL(self.absoluteURL(path), includingPropertiesForKeys: nil, options: recursive ? NSDirectoryEnumerationOptions() : .SkipsSubdirectoryDescendants) { (url, e) -> Bool in
                 completionHandler(files: [], error: e)
                 return true
             }
@@ -282,18 +286,18 @@ class LocalFileProvider: FileProvider {
 }
 
 extension LocalFileProvider {
-    func createSymbolicLinkAtPath(path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
+    public func createSymbolicLinkAtPath(path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
             do {
-                try NSFileManager.defaultManager().createSymbolicLinkAtURL(self.absoluteURL(path), withDestinationURL: self.absoluteURL(destPath))
+                try self.fileManager.createSymbolicLinkAtURL(self.absoluteURL(path), withDestinationURL: self.absoluteURL(destPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Link, sourcePath: path, destPath: destPath)
+                    self.delegate?.fileproviderSucceed(self, operation: .Link(link: path, target: destPath))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operationType: .Link, sourcePath: path, destPath: destPath)
+                    self.delegate?.fileproviderFailed(self, operation: .Link(link: path, target: destPath))
                 })
             }
         }

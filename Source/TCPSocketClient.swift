@@ -8,8 +8,8 @@
 
 import Foundation
 
-class TCPSocketClient: NSObject, NSStreamDelegate {
-    static let ports = ["http": 80,
+public class TCPSocketClient: NSObject, NSStreamDelegate {
+    public static let ports = ["http": 80,
                         "https": 443,
                         "smb": 445,
                         "ftp": 21,
@@ -19,7 +19,7 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
                         "pop": 110,
                         "smtp": 25,
                         "imap": 143]
-    static let securePorts =  ["https": 443,
+    public static let securePorts =  ["https": 443,
                                "smb": 445,
                                "sftp": 22,
                                "sftp": 2121,
@@ -31,12 +31,23 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
     private var inputStream: NSInputStream?
     private var outputStream: NSOutputStream?
     private var dataToBeSent: NSMutableData = NSMutableData()
-    let dataRecieved: NSMutableData = NSMutableData()
-    
-    let baseURL: NSURL
-    let secureConnection: Bool
+    /// holds data received from server
+    public let dataReceived: NSMutableData = NSMutableData()
+    /// a url with valid scheme, dns or ip host and ports path and query sections will be neglected
+    public let baseURL: NSURL
+    /// a url with valid scheme, dns or ip host and ports path and query sections will be neglected
+    public let secureConnection: Bool
+    /// server's ports which is value between 1 to 65535
     private let port: UInt32
     private var connected = false
+    
+    /**
+     * - parameter baseURL: a url with valid scheme, dns or ip host and ports
+     * path and query sections will be neglected
+     *
+     * **Note** Call `connect()` to establish connection
+     * - parameter secure: establishing connection using an SSL/TLS connection
+     */
     
     init?(baseURL: NSURL, secure: Bool = false) {
         self.baseURL = baseURL
@@ -52,8 +63,14 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
     deinit {
         disconnect()
     }
+
+    /**
+     * Establshes a connection to desired server
+     * - returns: A bool value which indicated there where no system error during
+     * creating connection
+     */
     
-    func connect() -> Bool {
+    public func connect() -> Bool {
         guard let hostStr = baseURL.host else {
             return false
         }
@@ -85,7 +102,11 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
         return true
     }
     
-    func disconnect() {
+    /**
+     * Terminates connection to the server
+     */
+    
+    public func disconnect() {
         inputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
         outputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
         
@@ -102,12 +123,12 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
         self.outputStream = nil
     }
     
-    func stream(aStream: NSStream, handleEvent eventCode: NSStreamEvent) {
+    public func stream(aStream: NSStream, handleEvent eventCode: NSStreamEvent) {
         switch (eventCode) {
         case NSStreamEvent.ErrorOccurred:
-            break
-        case NSStreamEvent.EndEncountered:
             connected = false
+        case NSStreamEvent.EndEncountered:
+            break
         case NSStreamEvent.None:
             break
         case NSStreamEvent.OpenCompleted:
@@ -119,7 +140,7 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
                 while (inputStream!.hasBytesAvailable ?? false) {
                     let len = inputStream!.read(&buffer, maxLength: buffer.count)
                     if len > 0 {
-                        dataRecieved.appendBytes(&buffer, length: len)
+                        dataReceived.appendBytes(&buffer, length: len)
                     }
                 }
             }
@@ -137,7 +158,13 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
         }
     }
     
-    func send(data data: NSData?) throws {
+    /**
+     * Sends data to server
+     * - parameter data: data which is intended to be sent to server
+     * - throws: NSURLError.NetworkConnectionLost in case of server disconnects disgracefully
+     */
+    
+    public func send(data data: NSData?) throws {
         if self.outputStream?.hasSpaceAvailable ?? false {
             if let data = data {
                 dataToBeSent.appendData(data)
@@ -160,7 +187,12 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
         }
     }
     
-    func waitForSendDataPurge() {
+    /**
+     * Put's thread in sleep until all data is sent
+     * **Note:** Don't call this method from main thread
+     */
+    
+    internal func waitForSendDataPurge() {
         if NSThread.isMainThread() {
             assertionFailure("waitForSendDataPurge() method can't be called from main thread")
         }
@@ -174,7 +206,14 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
         }
     }
     
-    func waitForResponse() -> Bool {
+    /**
+     * Put's thread in sleep until all response from server is loaded into tcp stack
+     * server response can be retrieved by `dataReceived` property
+     * **Note:** Don't call this method from main thread
+     * - returns: A Bool value indicates all response loaded from server successfullt
+    */
+    
+    internal func waitForResponse() -> Bool {
         if NSThread.isMainThread() {
             assertionFailure("waitForResponse() method can't be called from main thread")
         }
@@ -191,6 +230,7 @@ class TCPSocketClient: NSObject, NSStreamDelegate {
             }
             
             NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
+            NSThread.currentThread()
             NSThread.sleepForTimeInterval(0.1)
         }
         return false

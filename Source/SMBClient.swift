@@ -33,7 +33,7 @@ class SMBProtocolClient: TCPSocketClient {
             return nil
         }
         self.waitForResponse()
-        let response = try? SMBProtocolClient.digestSMB2Message(dataRecieved)
+        let response = try? SMBProtocolClient.digestSMB2Message(dataReceived)
         return response??.message as? SMB2.NegotiateResponse
     }
     
@@ -264,9 +264,9 @@ struct SMB1 {
                 _securityKey = (UInt16(newValue & 0xffff), UInt16(newValue >> 16))
             }
         }
-        //  connection identifier
+        ///  Connection identifier
         var securityCID: UInt16
-        //  identifier of the sequence of a message over connectionless transports
+        ///  Identifier of the sequence of a message over connectionless transports
         var securitySequenceNumber: UInt16
         private var ununsed: UInt16
         var treeId: UInt16
@@ -310,7 +310,7 @@ struct SMB1 {
         init(rawValue: UInt8) {
             self.rawValue = rawValue
         }
-        /* This bit is set (1) in the NEGOTIATE (0x72) Response if the server supports
+        /** This bit is set (1) in the NEGOTIATE (0x72) Response if the server supports
          * LOCK_AND_READ (0x13) and WRITE_AND_UNLOCK (0x14) commands. */
         static let LOCK_AND_READ_OK       = Flags(rawValue: 0x01)
         static let BUF_AVAIL              = Flags(rawValue: 0x02)
@@ -318,7 +318,7 @@ struct SMB1 {
         static let CANONICALIZED_PATHS    = Flags(rawValue: 0x10)
         static let OPLOCK                 = Flags(rawValue: 0x20)
         static let OPBATCH                = Flags(rawValue: 0x40)
-        /*  When on, this message is being sent from the server in response to a client request. */
+        /**  When on, this message is being sent from the server in response to a client request. */
         static let REPLY                  = Flags(rawValue: 0x80)
     }
     
@@ -328,28 +328,28 @@ struct SMB1 {
         init(rawValue: UInt16) {
             self.rawValue = rawValue
         }
-        /* Client: the message MAY contain long file names. */
+        /** Client: the message MAY contain long file names. */
         static let LONG_NAMES             = Flags2(rawValue: 0x0001)
-        /* Client: the client is aware of extended attributes (EAs). */
+        /** Client: the client is aware of extended attributes (EAs). */
         static let EAS                    = Flags2(rawValue: 0x0002)
-        /* Client: the client is requesting signing (if signing is not yet active) or the message
+        /** Client: the client is requesting signing (if signing is not yet active) or the message
          * being sent is signed. This bit is used on the SMB header of an SESSION_SETUP_ANDX */
         static let SMB_SECURITY_SIGNATURE = Flags2(rawValue: 0x0004)
-        //  Reserved but not implemented.
+        ///  Reserved but not implemented.
         static let IS_LONG_NAME           = Flags2(rawValue: 0x0040)
-        /* client aware of Extended Security negotiation */
+        /** client aware of Extended Security negotiation */
         static let EXT_SEC                = Flags2(rawValue:  0x0800)
-        /* any pathnames in this SMB SHOULD be resolved in the Distributed File System (DFS) */
+        /** any pathnames in this SMB SHOULD be resolved in the Distributed File System (DFS) */
         static let DFS                    = Flags2(rawValue: 0x1000)
-        /*
+        /**
          * This flag is useful only on a read request. If the bit is set, then the client MAY read
          * the file if the client does not have read permission but does have execute permission. */
         static let PAGING_IO              = Flags2(rawValue:  0x2000) // READ_IF_EXECUTE
-        /*
+        /**
          * Client: the server MUST return errors as 32-bit NTSTATUS codes in the response
          * Server: the Status field in the header is formatted as an NTSTATUS cod */
         static let ERR_STATUS             = Flags2(rawValue: 0x4000)
-        /*
+        /**
          * Each field that contains a string in this SMB message MUST be encoded
          * as an array of 16-bit Unicode characters */
         static let UNICODE                = Flags2(rawValue: 0x8000)
@@ -757,7 +757,7 @@ struct SMB2 {
             }
         }
         
-        // If the client implements the SMB 3.x dialect family
+        /// Works the client implements the SMB 3.x dialect family
         struct Flags: OptionSetType {
             let rawValue: UInt8
             
@@ -1078,15 +1078,15 @@ struct SMB2 {
             }
             
             enum ContextNames: String {
-                // extended attributes
+                /// Extended attributes
                 case EA_BUFFER = "ExtA"
-                // security descriptor
+                /// Security descriptor
                 case SD_BUFFER = "SecD"
-                // requesting the open to be durable
+                /// Requesting the open to be durable
                 case DURABLE_HANDLE_REQUEST = "DHnQ"
-                // requesting to reconnect to a durable open after being disconnected
+                /// Requesting to reconnect to a durable open after being disconnected
                 case DURABLE_HANDLE_RECONNECT = "DHnC"
-                // equired allocation size of the newly created file
+                /// Required allocation size of the newly created file
                 case ALLOCATION_SIZE = "AISi"
                 case QUERY_MAXIMAL_ACCESS_REQUEST = "MxAc"
                 case TIMEWARP_TOKEN = "TWrp"
@@ -1124,17 +1124,17 @@ struct SMB2 {
         }
         
         enum CreateDisposition: UInt32 {
-            // If the file already exists, supersede it. Otherwise, create the file.
+            /// If the file already exists, supersede it. Otherwise, create the file.
             case SUPERSEDE      = 0x00000000
-            // If the file already exists, return success; otherwise, fail the operation.
+            /// If the file already exists, return success; otherwise, fail the operation.
             case OPEN           = 0x00000001
-            // If the file already exists, fail the operation; otherwise, create the file.
+            /// If the file already exists, fail the operation; otherwise, create the file.
             case CREATE         = 0x00000002
-            // Open the file if it already exists; otherwise, create the file.
+            /// Open the file if it already exists; otherwise, create the file.
             case OPEN_IF        = 0x00000003
-            // Overwrite the file if it already exists; otherwise, fail the operation.
+            /// Overwrite the file if it already exists; otherwise, fail the operation.
             case OVERWRITE      = 0x00000004
-            // Overwrite the file if it already exists; otherwise, create the file.
+            /// Overwrite the file if it already exists; otherwise, create the file.
             case OVERWRITE_IF   = 0x00000005
         }
         
@@ -1396,7 +1396,8 @@ struct SMB2 {
 
 }
 
-// Error Types and Description
+/// Error Types and Description
+
 enum NTStatus: UInt32, ErrorType, CustomStringConvertible {
     case SUCCESS                        = 0x00000000
     case NOT_IMPLEMENTED                = 0xC0000002

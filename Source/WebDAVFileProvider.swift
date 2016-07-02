@@ -62,9 +62,9 @@ final class WebDavFileObject: FileObject {
 // in case of using this class with unencrypted HTTP connection.
 
 class WebDAVFileProvider: NSObject,  FileProvider {
-    var type: String = "WebDAV"
-    var isPathRelative: Bool = true
-    var baseURL: NSURL?
+    let type: String = "WebDAV"
+    let isPathRelative: Bool = true
+    let baseURL: NSURL?
     var currentPath: String = ""
     var dispatch_queue: dispatch_queue_t
     var delegate: FileProviderDelegate?
@@ -173,9 +173,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
                 if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
                 } else {
-                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
                 }
             })
         }
@@ -189,9 +189,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
                 if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: path.stringByAppendingPathComponent(fileAttribs.name) , destPath: nil)
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: path.stringByAppendingPathComponent(fileAttribs.name)))
                 } else {
-                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: path.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: path.stringByAppendingPathComponent(fileAttribs.name)))
                 }
             })
         }
@@ -214,9 +214,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 defer {
                     dispatch_async(dispatch_get_main_queue(), {
                         if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: path, destPath: toPath)
+                            self.delegate?.fileproviderSucceed(self, operation: .Move(source: path, destination: toPath))
                         } else {
-                            self.delegate?.fileproviderFailed(self, operationType: .Move, sourcePath: path, destPath: toPath)
+                            self.delegate?.fileproviderFailed(self, operation: .Move(source: path, destination: toPath))
                         }
                     })
                 }
@@ -252,9 +252,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 defer {
                     dispatch_async(dispatch_get_main_queue(), {
                         if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                            self.delegate?.fileproviderSucceed(self, operation: .Copy(source: path, destination: toPath))
                         } else {
-                            self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                            self.delegate?.fileproviderFailed(self, operation: .Copy(source: path, destination: toPath))
                         }
                     })
                 }
@@ -286,9 +286,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 defer {
                     dispatch_async(dispatch_get_main_queue(), {
                         if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                            self.delegate?.fileproviderSucceed(self, operation: .Remove(path: path))
                         } else {
-                            self.delegate?.fileproviderFailed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                            self.delegate?.fileproviderFailed(self, operation: .Remove(path: path))
                         }
                     })
                 }
@@ -316,9 +316,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
                 if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: localFile.absoluteString, destPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operation: .Move(source: localFile.absoluteString, destination: toPath))
                 } else {
-                    self.delegate?.fileproviderFailed(self, operationType: .Move, sourcePath: localFile.absoluteString, destPath: toPath)
+                    self.delegate?.fileproviderFailed(self, operation: .Move(source: localFile.absoluteString, destination: toPath))
                 }
             })
         }
@@ -372,9 +372,9 @@ class WebDAVFileProvider: NSObject,  FileProvider {
             defer {
                 dispatch_async(dispatch_get_main_queue(), {
                     if error == nil {
-                        self.delegate?.fileproviderSucceed(self, operationType: .Modify, sourcePath: path, destPath: nil)
+                        self.delegate?.fileproviderSucceed(self, operation: .Modify(path: path))
                     } else {
-                        self.delegate?.fileproviderFailed(self, operationType: .Modify, sourcePath: path, destPath: nil)
+                        self.delegate?.fileproviderFailed(self, operation: .Modify(path: path))
                     }
                 })
             }
@@ -536,19 +536,45 @@ extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDele
     }
     
     func URLSession(session: NSURLSession, task: NSURLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
-        guard let desc = task.taskDescription, let json = jsonToDictionary(desc), let type = json["type"] as? String, let optype = FileOperationType(rawValue: type), let source = json["source"] as? String else {
+        guard let desc = task.taskDescription, let json = jsonToDictionary(desc) else {
             return
         }
+        guard let type = json["type"] as? String, let source = json["source"] as? String else {
+            return
+        }
+        let dest = json["dest"] as? String
+        let op : FileOperation
+        switch type {
+        case "Create":
+            op = .Create(path: source)
+        case "Copy":
+            guard let dest = dest else { return }
+            op = .Copy(source: source, destination: dest)
+        case "Move":
+            guard let dest = dest else { return }
+            op = .Move(source: source, destination: dest)
+        case "Modify":
+            op = .Modify(path: source)
+        case "Remove":
+            op = .Remove(path: source)
+        case "Link":
+            guard let dest = dest else { return }
+            op = .Link(link: source, target: dest)
+        default:
+            return
+        }
+        
         let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
         
-        self.delegate?.fileproviderProgress(self, operationType: optype, progress: progress, sourcePath: source, destPath: json["dest"] as? String)
+        self.delegate?.fileproviderProgress(self, operation: op, progress: progress)
     }
     
     func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String else {
+        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String, dest = json["dest"] as? String else {
             return
         }
-        self.delegate?.fileproviderProgress(self, operationType: .Copy, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite), sourcePath: source, destPath: json["dest"] as? String)
+        
+        self.delegate?.fileproviderProgress(self, operation: .Copy(source: source, destination: dest), progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
     }
     
     func URLSession(session: NSURLSession, task: NSURLSessionTask, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {

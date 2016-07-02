@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum FileType: String {
+public enum FileType: String {
     case Directory
     case Regular
     case SymbolicLink
@@ -54,7 +54,7 @@ protocol FoundationErrorEnum {
 extension NSURLError: FoundationErrorEnum {}
 extension NSCocoaError: FoundationErrorEnum {}
 
-class FileObject {
+public class FileObject {
     let absoluteURL: NSURL?
     let name: String
     let size: Int64
@@ -88,11 +88,11 @@ class FileObject {
 }
 
 
-typealias SimpleCompletionHandler = ((error: ErrorType?) -> Void)?
+public typealias SimpleCompletionHandler = ((error: ErrorType?) -> Void)?
 
-protocol FileProvider: class {
+public protocol FileProvider: class {
     var type: String { get }
-    var isPathRelative: Bool { get set }
+    var isPathRelative: Bool { get }
     var baseURL: NSURL? { get }
     var currentPath: String { get set }
     var dispatch_queue: dispatch_queue_t { get set }
@@ -101,6 +101,9 @@ protocol FileProvider: class {
     
     associatedtype FileObjectClass
     
+    /**
+     *
+    */
     func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void))
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void))
     
@@ -145,7 +148,7 @@ extension FileProvider {
         }
     }
     
-    func throwError(path: String, code: FoundationErrorEnum) -> NSError {
+    internal func throwError(path: String, code: FoundationErrorEnum) -> NSError {
         let fileURL = self.absoluteURL(path)
         let domain: String
         switch code {
@@ -157,24 +160,29 @@ extension FileProvider {
         return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
-    func NotImplemented() {
+    internal func NotImplemented() {
         assertionFailure("method not implemented")
     }
 }
 
-protocol ExtendedFileProvider: FileProvider {
+public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: UIImage?, error: ErrorType?) -> Void))
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
 
-enum FileOperationType: String {
-    case Create, Copy, Move, Modify, Remove, Link
+public enum FileOperation {
+    case Create (path: String)
+    case Copy   (source: String, destination: String)
+    case Move   (source: String, destination: String)
+    case Modify (path: String)
+    case Remove (path: String)
+    case Link   (link: String, target: String)
 }
 
-protocol FileProviderDelegate {
-    func fileproviderSucceed<P: FileProvider>(fileProvider: P, operationType: FileOperationType, sourcePath: String, destPath: String?)
-    func fileproviderFailed<P: FileProvider>(fileProvider: P, operationType: FileOperationType, sourcePath: String, destPath: String?)
-    func fileproviderProgress<P: FileProvider>(fileProvider: P, operationType: FileOperationType, progress: Float, sourcePath: String, destPath: String?)
+public protocol FileProviderDelegate {
+    func fileproviderSucceed<P: FileProvider>(fileProvider: P, operation: FileOperation)
+    func fileproviderFailed<P: FileProvider>(fileProvider: P, operation: FileOperation)
+    func fileproviderProgress<P: FileProvider>(fileProvider: P, operation: FileOperation, progress: Float)
 }
 
 

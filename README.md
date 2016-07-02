@@ -76,16 +76,35 @@ Your class should conforms `FileProviderDelegate` class:
 		documentsFileProvider.delegate = self
 	}
 	
-	func fileproviderSucceed(fileProvider: FileProvider, operationType: FileOperationType, sourcePath: String, destPath: String?) {
-		NSLog("Operation \(operationType.rawValue) done on file \(sourcePath)")
+	func fileproviderSucceed(fileProvider: FileProvider, operation: FileOperation) {
+		switch operation {
+		case .Copy(source: let source, destination: let dest):
+			NSLog("\(source) copied to \(dest).")
+		case .Remove(path: let path):
+			NSLog("\(path) has been deleted.")
+		default:
+			break
+		}
 	}
 	
-    func fileproviderFailed(fileProvider: FileProvider, operationType: FileOperationType, sourcePath: String, destPath: String?) {
-    	NSLog("Operation \(operationType.rawValue) failed on file \(sourcePath)")
+    func fileproviderFailed(fileProvider: FileProvider, operation: FileOperation) {
+    	switch operation {
+		case .Copy(source: let source, destination: let dest):
+			NSLog("copy of \(source) failed.")
+		case .Remove(path: let path):
+			NSLog("\(path) can't be deleted.")
+		default:
+			break
+		}
     }
 	
-    func fileproviderProgress(fileProvider: FileProvider, operationType: FileOperationType, progress: Float, sourcePath: String, destPath: String?) {
-		NSLog("\(percent * 100) percent progress of operation \(operationType.rawValue) on \(sourcePath) has been done.")
+    func fileproviderProgress(fileProvider: FileProvider, operation: FileOperation, progress: Float) {
+		switch operation {
+		case .Copy(source: let source, destination: let dest):
+			NSLog("Copy\(source) to \(dest): \(progress * 100) completed.")
+		default:
+			break
+		}
 	}
 
 
