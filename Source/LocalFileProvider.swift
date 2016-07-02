@@ -82,10 +82,13 @@ class LocalFileProvider: FileProvider {
                 try NSFileManager.defaultManager().createDirectoryAtURL(self.absoluteURL(atPath).URLByAppendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderCreateModifyNotify(self, path: atPath)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                })
             }
         }
     }
@@ -110,10 +113,13 @@ class LocalFileProvider: FileProvider {
                 } catch _ {}
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderCreateModifyNotify(self, path: atPath)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
                 })
             } else {
                 completionHandler?(error: self.throwError(atPath, code: NSURLError.CannotCreateFile))
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
+                })
             }
         }
     }
@@ -128,10 +134,13 @@ class LocalFileProvider: FileProvider {
                 try NSFileManager.defaultManager().moveItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderMoveNotify(self, fromPath: path, toPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: path, destPath: toPath)
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: path, destPath: toPath)
+                })
             }
         }
     }
@@ -146,10 +155,13 @@ class LocalFileProvider: FileProvider {
                 try NSFileManager.defaultManager().copyItemAtURL(self.absoluteURL(path), toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderCopyNotify(self, fromPath: path, toPath: toPath)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                })
             }
         }
     }
@@ -160,10 +172,13 @@ class LocalFileProvider: FileProvider {
                 try NSFileManager.defaultManager().removeItemAtURL(self.absoluteURL(path))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderRemoveNotify(self, path: path)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Remove, sourcePath: path, destPath: nil)
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                })
             }
         }
     }
@@ -174,10 +189,13 @@ class LocalFileProvider: FileProvider {
                 try NSFileManager.defaultManager().copyItemAtURL(localFile, toURL: self.absoluteURL(toPath))
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderCreateModifyNotify(self, path: toPath)
+                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: localFile.absoluteString, destPath: toPath)
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: localFile.absoluteString, destPath: toPath)
+                })
             }
         }
     }
@@ -187,8 +205,14 @@ class LocalFileProvider: FileProvider {
             do {
                 try NSFileManager.defaultManager().copyItemAtURL(self.absoluteURL(path), toURL: toLocalURL)
                 completionHandler?(error: nil)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toLocalURL.absoluteString)
+                })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toLocalURL.absoluteString)
+                })
             }
         }
     }
@@ -233,7 +257,7 @@ class LocalFileProvider: FileProvider {
         dispatch_async(dispatch_queue) {
             data.writeToURL(self.absoluteURL(path), atomically: atomically)
             dispatch_async(dispatch_get_main_queue(), {
-                self.delegate?.fileproviderCreateModifyNotify(self, path: path)
+                self.delegate?.fileproviderSucceed(self, operationType: .Modify, sourcePath: path, destPath: nil)
             })
         }
     }
@@ -263,8 +287,14 @@ extension LocalFileProvider {
             do {
                 try NSFileManager.defaultManager().createSymbolicLinkAtURL(self.absoluteURL(path), withDestinationURL: self.absoluteURL(destPath))
                 completionHandler?(error: nil)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderSucceed(self, operationType: .Link, sourcePath: path, destPath: destPath)
+                })
             } catch let e as NSError {
                 completionHandler?(error: e)
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.delegate?.fileproviderFailed(self, operationType: .Link, sourcePath: path, destPath: destPath)
+                })
             }
         }
     }

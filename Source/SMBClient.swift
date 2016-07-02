@@ -20,38 +20,61 @@ protocol SMBResponse {
 // For big-endian platforms like PowerPC, there must be a huge overhaul
 
 class SMBProtocolClient: TCPSocketClient {
+    var currentMessageID: UInt64 = 0
+    
+    func negotiateToSMB2() -> SMB2.NegotiateResponse? {
+        let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: currentMessageID, treeId: 0, sessionId: 0)
+        currentMessageID += 1
+        let negMessage = SMB2.NegotiateRequest(request: SMB2.NegotiateRequest.Header(capabilities: []))
+        SMBProtocolClient.createSMB2Message(smbHeader, message: negMessage)
+        do {
+            try self.send(data: nil)
+        } catch _ {
+            return nil
+        }
+        self.waitForResponse()
+        let response = try? SMBProtocolClient.digestSMB2Message(dataRecieved)
+        return response??.message as? SMB2.NegotiateResponse
+    }
+    
+    func sessionSetupForSMB2() -> SMB2.SessionSetupResponse? {
+        return nil
+    }
+    
+    // MARK: create and analyse messages
+    
+    class func determineSMBVersion(data: NSData) -> Float {
+        var smbverChar: Int8 = 0
+        data.getBytes(&smbverChar, length: 1)
+        let version = 0 - smbverChar
+        return Float(version)
+    }
+    
     class func digestSMBMessage(data: NSData) throws -> (header: FileProviderSMBHeader, blocks: [(params: [UInt16], message: NSData?)]) {
         guard data.length > 30 else {
             throw NSURLError.BadServerResponse
         }
         var buffer = [UInt8](count: data.length, repeatedValue: 0)
-        data.getBytes(&buffer, length: data.length)
-        let smbver = buffer[0] == 0xff ? 1 : (buffer[0] == 0xfe ? 2 : 0)
-        guard smbver > 0 else {
-            throw SMBFileProviderError.BadHeader
+        guard determineSMBVersion(data) == 2 else {
+            throw SMBFileProviderError.IncompatibleHeader
         }
-        let headersize = smbver == 2 ? sizeof(SMB2.Header.self) : sizeof(SMB1.Header.self)
-        var rawHeader = buffer[0..<headersize]
-        let headerData = NSData(bytesNoCopy: &rawHeader, length: headersize)
+        let headersize = sizeof(SMB1.Header.self)
+        let headerData = data.subdataWithRange(NSRange(location: 0, length: headersize))
         let header: FileProviderSMBHeader = decode(headerData)
         if header.protocolID == SMB1.Header.protocolConst {
             var blocks = [(params: [UInt16], message: NSData?)]()
             var offset = headersize
             while offset < data.length {
                 let paramWords: [UInt16]
-                if header.protocolID == SMB1.Header.protocolConst {
-                    let paramWordsCount = Int(buffer[offset])
-                    guard data.length > (paramWordsCount * 2 + offset) else {
-                        throw SMBFileProviderError.IncorrectParamsLength
-                    }
-                    offset += sizeof(UInt8)
-                    var rawParamWords = [UInt8](buffer[offset..<(offset + paramWordsCount * 2)])
-                    let paramData = NSData(bytesNoCopy: &rawParamWords, length: rawParamWords.count)
-                    paramWords = decode(paramData)
-                    offset += paramWordsCount * 2
-                } else {
-                    paramWords = []
+                let paramWordsCount = Int(buffer[offset])
+                guard data.length > (paramWordsCount * 2 + offset) else {
+                    throw SMBFileProviderError.IncorrectParamsLength
                 }
+                offset += sizeof(UInt8)
+                var rawParamWords = [UInt8](buffer[offset..<(offset + paramWordsCount * 2)])
+                let paramData = NSData(bytesNoCopy: &rawParamWords, length: rawParamWords.count)
+                paramWords = decode(paramData)
+                offset += paramWordsCount * 2
                 let messageBytesCountLittleEndian = [UInt8](buffer[offset...(offset + 1)])
                 let messageBytesCount = Int(UnsafePointer<UInt16>(messageBytesCountLittleEndian).memory)
                 offset += sizeof(UInt16)
@@ -69,16 +92,70 @@ class SMBProtocolClient: TCPSocketClient {
         throw SMBFileProviderError.BadHeader
     }
     
-    class func createSMBMessage(header: FileProviderSMBHeader, blocks: [(params: NSData?, message: NSData?)]) -> NSData {
+    class func digestSMB2Message(data: NSData) throws -> (header: SMB2.Header, message: SMBResponse?)? {
+        guard data.length > 65 else {
+            throw NSURLError.BadServerResponse
+        }
+        guard determineSMBVersion(data) == 2 else {
+            throw SMBFileProviderError.IncompatibleHeader
+        }
+        let headersize = sizeof(SMB2.Header.self)
+        let headerData = data.subdataWithRange(NSRange(location: 0, length: headersize))
+        let messageData = data.subdataWithRange(NSRange(location: headersize, length: 0))
+        let header: SMB2.Header = decode(headerData)
+        switch header.command {
+        case .NEGOTIATE:
+            return (header, SMB2.NegotiateResponse(data: messageData))
+        case .SESSION_SETUP:
+            return (header, SMB2.SessionSetupResponse(data: messageData))
+        case .LOGOFF:
+            return (header, SMB2.LogOff(data: messageData))
+        case .TREE_CONNECT:
+            return (header, SMB2.TreeConnectResponse(data: messageData))
+        case .TREE_DISCONNECT:
+            return (header, SMB2.TreeDisconnect(data: messageData))
+        case .CREATE:
+            return (header, SMB2.CreateResponse(data: messageData))
+        case .CLOSE:
+            return (header, SMB2.CloseResponse(data: messageData))
+        case .FLUSH:
+            return (header, SMB2.FlushResponse(data: messageData))
+        case .READ:
+            return (header, nil) // FIXME:
+        case .WRITE:
+            return (header, nil) // FIXME:
+        case .LOCK:
+            return (header, nil) // FIXME:
+        case .IOCTL:
+            return (header, nil)
+        case .CANCEL:
+            return (header, nil)
+        case .ECHO:
+            return (header, SMB2.Echo(data: messageData))
+        case .QUERY_DIRECTORY:
+            return (header, nil) // FIXME:
+        case .CHANGE_NOTIFY:
+            return (header, nil) // FIXME:
+        case .QUERY_INFO:
+            return (header, nil) // FIXME:
+        case .SET_INFO:
+            return (header, nil) // FIXME:
+        case .OPLOCK_BREAK:
+            return (header, nil) // FIXME:
+        case .INVALID:
+            throw SMBFileProviderError.InvalidCommand
+        }
+        throw SMBFileProviderError.BadHeader
+    }
+    
+    class func createSMBMessage(header: SMB1.Header, blocks: [(params: NSData?, message: NSData?)]) -> NSData {
         var headerv = header
         let result = NSMutableData(data: encode(&headerv))
         for block in blocks {
-            if header.protocolID == SMB1.Header.protocolConst {
-                var paramWordsCount = UInt8(block.params?.length ?? 0)
-                result.appendBytes(&paramWordsCount, length: sizeofValue(paramWordsCount))
-                if let params = block.params {
-                    result.appendData(params)
-                }
+            var paramWordsCount = UInt8(block.params?.length ?? 0)
+            result.appendBytes(&paramWordsCount, length: sizeofValue(paramWordsCount))
+            if let params = block.params {
+                result.appendData(params)
             }
             var messageLen = UInt16(block.message?.length ?? 0)
             result.appendBytes(&messageLen, length: sizeofValue(messageLen))
@@ -89,26 +166,11 @@ class SMBProtocolClient: TCPSocketClient {
         return result
     }
     
-    func negotiateToSMB2() -> SMB2.NegotiateResponse? {
-        let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: 0, treeId: 0, sessionId: 0)
-        let negMessage = NSData()
-        SMBProtocolClient.createSMBMessage(smbHeader, blocks: [(params: nil, message: negMessage)])
-        do {
-            try self.send(data: nil)
-        } catch _ {
-            return nil
-        }
-        self.waitForResponse()
-        if let response = try? SMBProtocolClient.digestSMBMessage(dataRecieved) where response.blocks.count > 0 {
-            if let message = response.blocks[0].message {
-                return SMB2.NegotiateResponse(data: message)
-            }
-        }
-        return nil
-    }
-    
-    func sessionSetupForSMB2() {
-        
+    class func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> NSData {
+        var headerv = header
+        let result = NSMutableData(data: encode(&headerv))
+        result.appendData(message.data())
+        return result
     }
 }
 
@@ -132,7 +194,7 @@ struct SMBTime {
     }
     
     var unixTime: UInt {
-        return UInt(self.time / 10000000) - 11644473600
+        return UInt(self.time / 10000000 - 11644473600)
     }
     
     var date: NSDate {
@@ -193,15 +255,13 @@ struct SMB1 {
         var flags2: Flags2
         var pidHigh: UInt16
         //  encryption key used for validating messages over connectionless transports
-        private var _securityKeyLo: UInt16
-        private var _securityKeyHi: UInt16
+        private var _securityKey: (UInt16, UInt16)
         var securityKey: UInt32 {
             get {
-                return UInt32(_securityKeyHi) << 16 + UInt32(_securityKeyLo)
+                return UInt32(_securityKey.1) << 16 + UInt32(_securityKey.0)
             }
             set {
-                _securityKeyHi = UInt16(newValue >> 16)
-                _securityKeyLo = UInt16(newValue & 0xffff)
+                _securityKey = (UInt16(newValue & 0xffff), UInt16(newValue >> 16))
             }
         }
         //  connection identifier
@@ -232,8 +292,7 @@ struct SMB1 {
             self._status4 = UInt8(ntStatus >> 24 & 0xff)
             self.flags = flags
             self.flags2 = flags2
-            self._securityKeyHi = UInt16(securityKey >> 16)
-            self._securityKeyLo = UInt16(securityKey & 0xffff)
+            self._securityKey = (UInt16(securityKey & 0xffff), UInt16(securityKey >> 16))
             self.securityCID = securityCID
             self.securitySequenceNumber = securitySequenceNumber
             self.ununsed = 0
@@ -410,10 +469,9 @@ struct SMB2 {
             }
         }
         var sessionId: UInt64
-        var signatureLo: UInt64
-        var signatureHi: UInt64
+        var signature: (UInt64, UInt64)
         
-        init(command: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64,signatureLo: UInt64 = 0, signatureHi: UInt64 = 0) {
+        init(command: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
             self.protocolID = self.dynamicType.protocolConst
             self.size = 64
             self.status = status.rawValue
@@ -426,11 +484,10 @@ struct SMB2 {
             self.reserved = 0
             self.treeId = treeId
             self.sessionId = sessionId
-            self.signatureLo = signatureLo
-            self.signatureHi = signatureHi
+            self.signature = signature
         }
         
-        init(asyncCommand: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [.ASYNC_COMMAND], nextCommand: UInt32 = 0, messageId: UInt64, asyncId: UInt64, sessionId: UInt64,signatureLo: UInt64 = 0, signatureHi: UInt64 = 0) {
+        init(asyncCommand: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [.ASYNC_COMMAND], nextCommand: UInt32 = 0, messageId: UInt64, asyncId: UInt64, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
             self.protocolID = self.dynamicType.protocolConst
             self.size = 64
             self.status = status.rawValue
@@ -444,8 +501,7 @@ struct SMB2 {
             reserved = UInt32(asyncId & 0xffffffff)
             treeId = UInt32(asyncId >> 32)
             self.sessionId = sessionId
-            self.signatureLo = signatureLo
-            self.signatureHi = signatureHi
+            self.signature = signature
         }
     }
     
@@ -909,7 +965,7 @@ struct SMB2 {
     
     // MARK: SMB2 Tree Disconnect
     
-    struct TreeDisconnect {
+    struct TreeDisconnect: SMBRequest, SMBResponse {
         let size: UInt16
         let reserved: UInt16
         
@@ -930,7 +986,205 @@ struct SMB2 {
     
     // MARK: SMB2 Create
     
+    struct CreateRequest: SMBRequest {
+        let header: CreateRequest.Header
+        let contexts: [CreateContext]
+        
+        func data() -> NSData {
+            return NSData()
+        }
+        
+        struct Header {
+            let size: UInt16
+            private let securityFlags: UInt8
+            private var _requestedOplockLevel: UInt8
+            var requestedOplockLevel: OplockLevel {
+                get {
+                    return OplockLevel(rawValue: _requestedOplockLevel)!
+                }
+                set {
+                    _requestedOplockLevel = newValue.rawValue
+                }
+            }
+            private var _impersonationLevel: UInt32
+            var impersonationLevel: ImpersonationLevel {
+                get {
+                    return ImpersonationLevel(rawValue: _impersonationLevel)!
+                }
+                set {
+                    _impersonationLevel = newValue.rawValue
+                }
+            }
+            private let flags: UInt64
+            private let reserved: UInt64
+            let access: FileAccessMask
+            let fileAttributes: FileAttributes
+            let shareAccess: ShareAccess
+            private var _desposition: UInt32
+            var desposition: CreateDisposition {
+                get {
+                    return CreateDisposition(rawValue: _desposition)!
+                }
+                set {
+                    _desposition = newValue.rawValue
+                }
+            }
+            let options: CreateOptions
+            
+            
+        }
+        
+        struct CreateContext: SMBRequest, SMBResponse {
+            var next: UInt32
+            let nameOffset: UInt16
+            let nameLength: UInt16
+            private let reserved: UInt16
+            let dataOffset: UInt16
+            let dataLength: UInt32
+            let buffer: NSData
+            
+            init(name: ContextNames, data: NSData) {
+                self.reserved = 0
+                self.next = 0
+                self.nameOffset = 32
+                let result = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF8StringEncoding)!)
+                self.nameLength = UInt16(result.length)
+                self.dataOffset = UInt16(result.length)
+                self.dataLength = UInt32(data.length)
+                result.appendData(data)
+                buffer = result
+            }
+            
+            init(name: NSUUID, data: NSData) {
+                self.reserved = 0
+                self.next = 0
+                self.nameOffset = 32
+                var uuid = uuid_t(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+                name.getUUIDBytes(&uuid.0)
+                let result = NSMutableData(bytes: &uuid, length: 16)
+                self.nameLength = UInt16(result.length)
+                self.dataOffset = UInt16(result.length)
+                self.dataLength = UInt32(data.length)
+                result.appendData(data)
+                buffer = result
+            }
+            
+            init? (data: NSData) {
+                return nil
+            }
+            
+            func data() -> NSData {
+                return NSData()
+            }
+            
+            enum ContextNames: String {
+                // extended attributes
+                case EA_BUFFER = "ExtA"
+                // security descriptor
+                case SD_BUFFER = "SecD"
+                // requesting the open to be durable
+                case DURABLE_HANDLE_REQUEST = "DHnQ"
+                // requesting to reconnect to a durable open after being disconnected
+                case DURABLE_HANDLE_RECONNECT = "DHnC"
+                // equired allocation size of the newly created file
+                case ALLOCATION_SIZE = "AISi"
+                case QUERY_MAXIMAL_ACCESS_REQUEST = "MxAc"
+                case TIMEWARP_TOKEN = "TWrp"
+            }
+        }
+        
+        struct CreateOptions: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let DIRECTORY_FILE               = CreateOptions(rawValue: 0x00000001)
+            static let WRITE_THROUGH                = CreateOptions(rawValue: 0x00000002)
+            static let SEQUENTIAL_ONLY              = CreateOptions(rawValue: 0x00000004)
+            static let NO_INTERMEDIATE_BUFFERING    = CreateOptions(rawValue: 0x00000008)
+            static let NON_DIRECTORY_FILE           = CreateOptions(rawValue: 0x00000040)
+            static let NO_EA_KNOWLEDGE              = CreateOptions(rawValue: 0x00000200)
+            static let RANDOM_ACCESS                = CreateOptions(rawValue: 0x00000800)
+            static let DELETE_ON_CLOSE              = CreateOptions(rawValue: 0x00001000)
+            static let OPEN_BY_FILE_ID              = CreateOptions(rawValue: 0x00002000)
+            static let OPEN_FOR_BACKUP_INTENT       = CreateOptions(rawValue: 0x00004000)
+            static let NO_COMPRESSION               = CreateOptions(rawValue: 0x00008000)
+            static let OPEN_REPARSE_POINT           = CreateOptions(rawValue: 0x00200000)
+            static let OPEN_NO_RECALL               = CreateOptions(rawValue: 0x00400000)
+            private static let SYNCHRONOUS_IO_ALERT         = CreateOptions(rawValue: 0x00000010)
+            private static let SYNCHRONOUS_IO_NONALERT      = CreateOptions(rawValue: 0x00000020)
+            private static let COMPLETE_IF_OPLOCKED         = CreateOptions(rawValue: 0x00000100)
+            private static let REMOTE_INSTANCE              = CreateOptions(rawValue: 0x00000400)
+            private static let OPEN_FOR_FREE_SPACE_QUERY    = CreateOptions(rawValue: 0x00800000)
+            private static let OPEN_REQUIRING_OPLOCK        = CreateOptions(rawValue: 0x00010000)
+            private static let DISALLOW_EXCLUSIVE           = CreateOptions(rawValue: 0x00020000)
+            private static let RESERVE_OPFILTER             = CreateOptions(rawValue: 0x00100000)
+        }
+        
+        enum CreateDisposition: UInt32 {
+            // If the file already exists, supersede it. Otherwise, create the file.
+            case SUPERSEDE      = 0x00000000
+            // If the file already exists, return success; otherwise, fail the operation.
+            case OPEN           = 0x00000001
+            // If the file already exists, fail the operation; otherwise, create the file.
+            case CREATE         = 0x00000002
+            // Open the file if it already exists; otherwise, create the file.
+            case OPEN_IF        = 0x00000003
+            // Overwrite the file if it already exists; otherwise, fail the operation.
+            case OVERWRITE      = 0x00000004
+            // Overwrite the file if it already exists; otherwise, create the file.
+            case OVERWRITE_IF   = 0x00000005
+        }
+        
+        enum ImpersonationLevel: UInt32 {
+            case Anonymous = 0x00000000
+            case Identification = 0x00000001
+            case Impersonation = 0x00000002
+            case Delegate = 0x00000003
+        }
+    }
     
+    struct CreateResponse: SMBResponse {
+        let size: UInt16
+        private let _oplockLevel: UInt8
+        var oplockLevel: OplockLevel {
+            return OplockLevel(rawValue: _oplockLevel)!
+        }
+        private let reserved: UInt32
+        let creationTime: SMBTime
+        let lastAccessTime: SMBTime
+        let lastWriteTime: SMBTime
+        let changeTime: SMBTime
+        let allocationSize: UInt64
+        let endOfFile: UInt64
+        let fileAttributes: FileAttributes
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+    }
+    
+    enum OplockLevel: UInt8 {
+        case LEVEL_NONE = 0x00
+        case LEVEL_II = 0x01
+        case LEVEL_EXCLUSIVE = 0x08
+        case LEVEL_BATCH = 0x09
+        case LEVEL_LEASE = 0xFF
+    }
+    
+    struct ShareAccess: OptionSetType {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        static let READ     = ShareAccess(rawValue: 0x00000001)
+        static let WRITE    = ShareAccess(rawValue: 0x00000002)
+        static let DELETE   = ShareAccess(rawValue: 0x00000004)
+    }
     
     struct FileAccessMask: OptionSetType {
         let rawValue: UInt32
@@ -1094,6 +1348,21 @@ struct SMB2 {
     
     // MARK: SMB2 Cancel
     
+    struct CancelRequest: SMBRequest {
+        let size: UInt16
+        let reserved: UInt16
+        
+        init() {
+            self.size = 4
+            self.reserved = 0
+        }
+        
+        func data() -> NSData {
+            var s = self
+            return encode(&s)
+        }
+    }
+    
     // MARK: SMB2 Echo
     
     struct Echo: SMBRequest, SMBResponse {
@@ -1129,125 +1398,125 @@ struct SMB2 {
 
 // Error Types and Description
 enum NTStatus: UInt32, ErrorType, CustomStringConvertible {
-    case SUCCESS                    = 0x00000000
-    case NOT_IMPLEMENTED            = 0xC0000002
-    case INVALID_DEVICE_REQUEST     = 0xC0000010
-    case ILLEGAL_FUNCTION           = 0xC00000AF
-    case NO_SUCH_FILE               = 0xC000000F
-    case NO_SUCH_DEVICE             = 0xC000000E
-    case OBJECT_NAME_NOT_FOUND      = 0xC0000034
-    case OBJECT_PATH_INVALID        = 0xC0000039
-    case OBJECT_PATH_NOT_FOUND      = 0xC000003A
-    case OBJECT_PATH_SYNTAX_BAD     = 0xC000003B
-    case DFS_EXIT_PATH_FOUND        = 0xC000009B
-    case REDIRECTOR_NOT_STARTED     = 0xC00000FB
-    case TOO_MANY_OPENED_FILES      = 0xC000011F
-    case ACCESS_DENIED              = 0xC0000022
-    case INVALID_LOCK_SEQUENCE      = 0xC000001E
-    case INVALID_VIEW_SIZE          = 0xC000001F
-    case ALREADY_COMMITTED          = 0xC0000021
-    case PORT_CONNECTION_REFUSED    = 0xC0000041
-    case THREAD_IS_TERMINATING      = 0xC000004B
-    case DELETE_PENDING             = 0xC0000056
-    case PRIVILEGE_NOT_HELD         = 0xC0000061
-    case LOGON_FAILURE              = 0xC000006D
-    case FILE_IS_A_DIRECTORY        = 0xC00000BA
-    case FILE_RENAMED               = 0xC00000D5
-    case PROCESS_IS_TERMINATING     = 0xC000010A
-    case DIRECTORY_NOT_EMPTY        = 0xC0000101
-    case CANNOT_DELETE              = 0xC0000121
-    case FILE_NOT_AVAILABLE         = 0xC0000467
-    case FILE_DELETED               = 0xC0000123
-    case SMB_BAD_FID                = 0x00060001
-    case INVALID_HANDLE             = 0xC0000008
-    case OBJECT_TYPE_MISMATCH       = 0xC0000024
-    case PORT_DISCONNECTED          = 0xC0000037
-    case INVALID_PORT_HANDLE        = 0xC0000042
-    case FILE_CLOSED                = 0xC0000128
-    case HANDLE_NOT_CLOSABLE        = 0xC0000235
-    case SECTION_TOO_BIG            = 0xC0000040
-    case TOO_MANY_PAGING_FILES      = 0xC0000097
-    case INSUFF_SERVER_RESOURCES    = 0xC0000205
-    case OS2_INVALID_ACCESS         = 0x000C0001
-    case ACCESS_DENIED_2            = 0xC00000CA
-    case DATA_ERROR                 = 0xC000009C
-    case NOT_SAME_DEVICE            = 0xC00000D4
-    case NO_MORE_FILES              = 0x80000006
-    case NO_MORE_ENTRIES            = 0x8000001A
-    case UNSUCCESSFUL               = 0xC0000001
-    case SHARING_VIOLATION          = 0xC0000043
-    case FILE_LOCK_CONFLICT         = 0xC0000054
-    case LOCK_NOT_GRANTED           = 0xC0000055
-    case END_OF_FILE                = 0xC0000011
-    case NOT_SUPPORTED              = 0xC00000BB
-    case OBJECT_NAME_COLLISION      = 0xC0000035
-    case INVALID_PARAMETER          = 0xC000000D
-    case OS2_INVALID_LEVEL          = 0x007C0001
-    case OS2_NEGATIVE_SEEK          = 0x00830001
-    case RANGE_NOT_LOCKED           = 0xC000007E
-    case OS2_NO_MORE_SIDS           = 0x00710001
-    case OS2_CANCEL_VIOLATION       = 0x00AD0001
+    case SUCCESS                        = 0x00000000
+    case NOT_IMPLEMENTED                = 0xC0000002
+    case INVALID_DEVICE_REQUEST         = 0xC0000010
+    case ILLEGAL_FUNCTION               = 0xC00000AF
+    case NO_SUCH_FILE                   = 0xC000000F
+    case NO_SUCH_DEVICE                 = 0xC000000E
+    case OBJECT_NAME_NOT_FOUND          = 0xC0000034
+    case OBJECT_PATH_INVALID            = 0xC0000039
+    case OBJECT_PATH_NOT_FOUND          = 0xC000003A
+    case OBJECT_PATH_SYNTAX_BAD         = 0xC000003B
+    case DFS_EXIT_PATH_FOUND            = 0xC000009B
+    case REDIRECTOR_NOT_STARTED         = 0xC00000FB
+    case TOO_MANY_OPENED_FILES          = 0xC000011F
+    case ACCESS_DENIED                  = 0xC0000022
+    case INVALID_LOCK_SEQUENCE          = 0xC000001E
+    case INVALID_VIEW_SIZE              = 0xC000001F
+    case ALREADY_COMMITTED              = 0xC0000021
+    case PORT_CONNECTION_REFUSED        = 0xC0000041
+    case THREAD_IS_TERMINATING          = 0xC000004B
+    case DELETE_PENDING                 = 0xC0000056
+    case PRIVILEGE_NOT_HELD             = 0xC0000061
+    case LOGON_FAILURE                  = 0xC000006D
+    case FILE_IS_A_DIRECTORY            = 0xC00000BA
+    case FILE_RENAMED                   = 0xC00000D5
+    case PROCESS_IS_TERMINATING         = 0xC000010A
+    case DIRECTORY_NOT_EMPTY            = 0xC0000101
+    case CANNOT_DELETE                  = 0xC0000121
+    case FILE_NOT_AVAILABLE             = 0xC0000467
+    case FILE_DELETED                   = 0xC0000123
+    case SMB_BAD_FID                    = 0x00060001
+    case INVALID_HANDLE                 = 0xC0000008
+    case OBJECT_TYPE_MISMATCH           = 0xC0000024
+    case PORT_DISCONNECTED              = 0xC0000037
+    case INVALID_PORT_HANDLE            = 0xC0000042
+    case FILE_CLOSED                    = 0xC0000128
+    case HANDLE_NOT_CLOSABLE            = 0xC0000235
+    case SECTION_TOO_BIG                = 0xC0000040
+    case TOO_MANY_PAGING_FILES          = 0xC0000097
+    case INSUFF_SERVER_RESOURCES        = 0xC0000205
+    case OS2_INVALID_ACCESS             = 0x000C0001
+    case ACCESS_DENIED_2                = 0xC00000CA
+    case DATA_ERROR                     = 0xC000009C
+    case NOT_SAME_DEVICE                = 0xC00000D4
+    case NO_MORE_FILES                  = 0x80000006
+    case NO_MORE_ENTRIES                = 0x8000001A
+    case UNSUCCESSFUL                   = 0xC0000001
+    case SHARING_VIOLATION              = 0xC0000043
+    case FILE_LOCK_CONFLICT             = 0xC0000054
+    case LOCK_NOT_GRANTED               = 0xC0000055
+    case END_OF_FILE                    = 0xC0000011
+    case NOT_SUPPORTED                  = 0xC00000BB
+    case OBJECT_NAME_COLLISION          = 0xC0000035
+    case INVALID_PARAMETER              = 0xC000000D
+    case OS2_INVALID_LEVEL              = 0x007C0001
+    case OS2_NEGATIVE_SEEK              = 0x00830001
+    case RANGE_NOT_LOCKED               = 0xC000007E
+    case OS2_NO_MORE_SIDS               = 0x00710001
+    case OS2_CANCEL_VIOLATION           = 0x00AD0001
     case OS2_ATOMIC_LOCKS_NOT_SUPPORTED = 0x00AE0001
-    case INVALID_INFO_CLASS         = 0xC0000003
-    case INVALID_PIPE_STATE         = 0xC00000AD
-    case INVALID_READ_MODE          = 0xC00000B4
-    case OS2_CANNOT_COPY            = 0x010A0001
-    case STOPPED_ON_SYMLINK         = 0x8000002D
-    case INSTANCE_NOT_AVAILABLE     = 0xC00000AB
-    case PIPE_NOT_AVAILABLE         = 0xC00000AC
-    case PIPE_BUSY                  = 0xC00000AE
-    case PIPE_CLOSING               = 0xC00000B1
-    case PIPE_EMPTY                 = 0xC00000D9
-    case PIPE_DISCONNECTED          = 0xC00000B0
-    case BUFFER_OVERFLOW            = 0x80000005
-    case MORE_PROCESSING_REQUIRED   = 0xC0000016
-    case EA_TOO_LARGE               = 0xC0000050
-    case OS2_EAS_DIDNT_FIT          = 0x01130001
-    case EAS_NOT_SUPPORTED          = 0xC000004F
-    case EA_LIST_INCONSISTENT       = 0x80000014
-    case OS2_EA_ACCESS_DENIED       = 0x03E20001
-    case NOTIFY_ENUM_DIR            = 0x0000010C
-    case INVALID_SMB                = 0x00010002
-    case WRONG_PASSWORD             = 0xC000006A
-    case PATH_NOT_COVERED           = 0xC0000257
-    case NETWORK_NAME_DELETED       = 0xC00000C9
-    case SMB_BAD_TID                = 0x00050002
-    case BAD_NETWORK_NAME           = 0xC00000CC
-    case BAD_DEVICE_TYPE            = 0xC00000CB
-    case SMB_BAD_COMMAND            = 0x00160002
-    case PRINT_QUEUE_FULL           = 0xC00000C6
-    case NO_SPOOL_SPACE             = 0xC00000C7
-    case PRINT_CANCELLED            = 0xC00000C8
-    case UNEXPECTED_NETWORK_ERROR   = 0xC00000C4
-    case IO_TIMEOUT                 = 0xC00000B5
-    case REQUEST_NOT_ACCEPTED       = 0xC00000D0
-    case TOO_MANY_SESSIONS          = 0xC00000CE
-    case SMB_BAD_UID                = 0x005B0002
-    case SMB_USE_MPX                = 0x00FA0002
-    case SMB_USE_STANDARD           = 0x00FB0002
-    case SMB_CONTINUE_MPX           = 0x00FC0002
-    case ACCOUNT_DISABLED           = 0xC0000072
-    case ACCOUNT_EXPIRED            = 0xC0000193
-    case INVALID_WORKSTATION        = 0xC0000070
-    case INVALID_LOGON_HOURS        = 0xC000006F
-    case PASSWORD_EXPIRED           = 0xC0000071
-    case PASSWORD_MUST_CHANGE       = 0xC0000224
-    case SMB_NO_SUPPORT             = 0xFFFF0002
-    case MEDIA_WRITE_PROTECTED      = 0xC00000A2
-    case NO_MEDIA_IN_DEVICE         = 0xC0000013
-    case INVALID_DEVICE_STATE       = 0xC0000184
-    case DATA_ERROR_2               = 0xC000003E
-    case CRC_ERROR                  = 0xC000003F
-    case DISK_CORRUPT_ERROR         = 0xC0000032
-    case NONEXISTENT_SECTOR         = 0xC0000015
-    case DEVICE_PAPER_EMPTY         = 0x8000000E
-    case WRONG_VOLUME               = 0xC0000012
-    case DISK_FULL                  = 0xC000007F
-    case BUFFER_TOO_SMALL           = 0xC0000023
-    case BAD_IMPERSONATION_LEVEL    = 0xC00000A5
-    case USER_SESSION_DELETED       = 0xC0000203
-    case NETWORK_SESSION_EXPIRED    = 0xC000035C
-    case SMB_TOO_MANY_UIDS          = 0xC000205A
+    case INVALID_INFO_CLASS             = 0xC0000003
+    case INVALID_PIPE_STATE             = 0xC00000AD
+    case INVALID_READ_MODE              = 0xC00000B4
+    case OS2_CANNOT_COPY                = 0x010A0001
+    case STOPPED_ON_SYMLINK             = 0x8000002D
+    case INSTANCE_NOT_AVAILABLE         = 0xC00000AB
+    case PIPE_NOT_AVAILABLE             = 0xC00000AC
+    case PIPE_BUSY                      = 0xC00000AE
+    case PIPE_CLOSING                   = 0xC00000B1
+    case PIPE_EMPTY                     = 0xC00000D9
+    case PIPE_DISCONNECTED              = 0xC00000B0
+    case BUFFER_OVERFLOW                = 0x80000005
+    case MORE_PROCESSING_REQUIRED       = 0xC0000016
+    case EA_TOO_LARGE                   = 0xC0000050
+    case OS2_EAS_DIDNT_FIT              = 0x01130001
+    case EAS_NOT_SUPPORTED              = 0xC000004F
+    case EA_LIST_INCONSISTENT           = 0x80000014
+    case OS2_EA_ACCESS_DENIED           = 0x03E20001
+    case NOTIFY_ENUM_DIR                = 0x0000010C
+    case INVALID_SMB                    = 0x00010002
+    case WRONG_PASSWORD                 = 0xC000006A
+    case PATH_NOT_COVERED               = 0xC0000257
+    case NETWORK_NAME_DELETED           = 0xC00000C9
+    case SMB_BAD_TID                    = 0x00050002
+    case BAD_NETWORK_NAME               = 0xC00000CC
+    case BAD_DEVICE_TYPE                = 0xC00000CB
+    case SMB_BAD_COMMAND                = 0x00160002
+    case PRINT_QUEUE_FULL               = 0xC00000C6
+    case NO_SPOOL_SPACE                 = 0xC00000C7
+    case PRINT_CANCELLED                = 0xC00000C8
+    case UNEXPECTED_NETWORK_ERROR       = 0xC00000C4
+    case IO_TIMEOUT                     = 0xC00000B5
+    case REQUEST_NOT_ACCEPTED           = 0xC00000D0
+    case TOO_MANY_SESSIONS              = 0xC00000CE
+    case SMB_BAD_UID                    = 0x005B0002
+    case SMB_USE_MPX                    = 0x00FA0002
+    case SMB_USE_STANDARD               = 0x00FB0002
+    case SMB_CONTINUE_MPX               = 0x00FC0002
+    case ACCOUNT_DISABLED               = 0xC0000072
+    case ACCOUNT_EXPIRED                = 0xC0000193
+    case INVALID_WORKSTATION            = 0xC0000070
+    case INVALID_LOGON_HOURS            = 0xC000006F
+    case PASSWORD_EXPIRED               = 0xC0000071
+    case PASSWORD_MUST_CHANGE           = 0xC0000224
+    case SMB_NO_SUPPORT                 = 0xFFFF0002
+    case MEDIA_WRITE_PROTECTED          = 0xC00000A2
+    case NO_MEDIA_IN_DEVICE             = 0xC0000013
+    case INVALID_DEVICE_STATE           = 0xC0000184
+    case DATA_ERROR_2                   = 0xC000003E
+    case CRC_ERROR                      = 0xC000003F
+    case DISK_CORRUPT_ERROR             = 0xC0000032
+    case NONEXISTENT_SECTOR             = 0xC0000015
+    case DEVICE_PAPER_EMPTY             = 0x8000000E
+    case WRONG_VOLUME                   = 0xC0000012
+    case DISK_FULL                      = 0xC000007F
+    case BUFFER_TOO_SMALL               = 0xC0000023
+    case BAD_IMPERSONATION_LEVEL        = 0xC00000A5
+    case USER_SESSION_DELETED           = 0xC0000203
+    case NETWORK_SESSION_EXPIRED        = 0xC000035C
+    case SMB_TOO_MANY_UIDS              = 0xC000205A
     
     var description: String {
         switch self {

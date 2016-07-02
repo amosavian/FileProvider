@@ -102,7 +102,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
         request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 var fileObjects = [WebDavFileObject]()
@@ -125,7 +125,8 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 return
             }
             completionHandler(contents: [], error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
@@ -136,7 +137,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
         request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 if let attr = xresponse.first {
@@ -154,7 +155,8 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 }
             }
             completionHandler(attributes: nil, error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
@@ -163,27 +165,38 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
                 completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 return
             }
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
-                self.delegate?.fileproviderCreateModifyNotify(self, path: atPath)
+                if error == nil {
+                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                } else {
+                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: atPath.stringByAppendingPathComponent(folderName) + "/", destPath: nil)
+                }
             })
-        }.resume()
+        }
+        task.resume()
     }
     
     func createFile(fileAttribs: FileObject, atPath path: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PUT"
-        session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
+        let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
-                self.delegate?.fileproviderCreateModifyNotify(self, path: path)
+                if error == nil {
+                    self.delegate?.fileproviderSucceed(self, operationType: .Create, sourcePath: path.stringByAppendingPathComponent(fileAttribs.name) , destPath: nil)
+                } else {
+                    self.delegate?.fileproviderFailed(self, operationType: .Create, sourcePath: path.stringByAppendingPathComponent(fileAttribs.name), destPath: nil)
+                }
             })
-        }.resume()
+        }
+        task.taskDescription = self.dictionaryToJSON(["create": "create", "source": path.stringByAppendingPathComponent(fileAttribs.name)])
+        task.resume()
     }
     
     func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
@@ -196,13 +209,18 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
-                if code == .OK {
+                defer {
                     dispatch_async(dispatch_get_main_queue(), {
-                        self.delegate?.fileproviderMoveNotify(self, fromPath: path, toPath: toPath)
+                        if error == nil {
+                            self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: path, destPath: toPath)
+                        } else {
+                            self.delegate?.fileproviderFailed(self, operationType: .Move, sourcePath: path, destPath: toPath)
+                        }
                     })
-                } else if code == .MultiStatus, let data = data {
+                }
+                if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
@@ -212,13 +230,11 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
-                dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderMoveNotify(self, fromPath: path, toPath: toPath)
-                })
                 return
             }
             completionHandler?(error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
@@ -231,29 +247,32 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
-                if code == .OK {
+                defer {
                     dispatch_async(dispatch_get_main_queue(), {
-                        self.delegate?.fileproviderCopyNotify(self, fromPath: path, toPath: toPath)
+                        if error == nil {
+                            self.delegate?.fileproviderSucceed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                        } else {
+                            self.delegate?.fileproviderFailed(self, operationType: .Copy, sourcePath: path, destPath: toPath)
+                        }
                     })
-                } else if code == .MultiStatus, let data = data {
+                }
+                if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
                             completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                         }
                     }
-                    dispatch_async(dispatch_get_main_queue(), {
-                        self.delegate?.fileproviderCopyNotify(self, fromPath: path, toPath: toPath)
-                    })
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
                 return
             }
             completionHandler?(error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
@@ -262,45 +281,54 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "DELETE"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
-                if code == .OK {
+                defer {
                     dispatch_async(dispatch_get_main_queue(), {
-                        self.delegate?.fileproviderRemoveNotify(self, path: path)
+                        if error == nil {
+                            self.delegate?.fileproviderSucceed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                        } else {
+                            self.delegate?.fileproviderFailed(self, operationType: .Remove, sourcePath: path, destPath: nil)
+                        }
                     })
-                } else if code == .MultiStatus, let data = data {
+                }
+                if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses {
                         if xresponse.status >= 300 {
                             completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                         }
                     }
-                    dispatch_async(dispatch_get_main_queue(), {
-                        self.delegate?.fileproviderRemoveNotify(self, path: path)
-                    })
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 }
                 return
             }
             completionHandler?(error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(toPath))
         request.HTTPMethod = "PUT"
-        session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
+        let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
-                self.delegate?.fileproviderCreateModifyNotify(self, path: toPath)
+                if error == nil {
+                    self.delegate?.fileproviderSucceed(self, operationType: .Move, sourcePath: localFile.absoluteString, destPath: toPath)
+                } else {
+                    self.delegate?.fileproviderFailed(self, operationType: .Move, sourcePath: localFile.absoluteString, destPath: toPath)
+                }
             })
-        }.resume()
+        }
+        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.absoluteString, "dest": toPath])
+        task.resume()
     }
     
     func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
-        session.downloadTaskWithRequest(request) { (sourceFileURL, response, error) in
+        let task = session.downloadTaskWithRequest(request) { (sourceFileURL, response, error) in
             if let sourceFileURL = sourceFileURL {
                 do {
                     try NSFileManager.defaultManager().copyItemAtURL(sourceFileURL, toURL: toLocalURL)
@@ -310,15 +338,18 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 }
             }
             completionHandler?(error: error)
-        }.resume()
+        }
+        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": toLocalURL.absoluteString])
+        task.resume()
     }
     
     func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             completionHandler(contents: data, error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
@@ -326,9 +357,10 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
         request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
-        session.dataTaskWithRequest(request) { (data, response, error) in
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
             completionHandler(contents: data, error: error)
-        }.resume()
+        }
+        task.resume()
     }
     
     func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
@@ -336,7 +368,16 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         let url = atomically ? absoluteURL(path).URLByAppendingPathExtension("tmp") : absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PUT"
-        session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
+        let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
+            defer {
+                dispatch_async(dispatch_get_main_queue(), {
+                    if error == nil {
+                        self.delegate?.fileproviderSucceed(self, operationType: .Modify, sourcePath: path, destPath: nil)
+                    } else {
+                        self.delegate?.fileproviderFailed(self, operationType: .Modify, sourcePath: path, destPath: nil)
+                    }
+                })
+            }
             if atomically {
                 self.moveItemAtPath(path.stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
             }
@@ -344,13 +385,48 @@ class WebDAVFileProvider: NSObject,  FileProvider {
                 // If there is no error, completionHandler has been executed by move command
                 completionHandler?(error: error)
             }
-        }.resume()
+        }
+        task.taskDescription = self.dictionaryToJSON(["type": "Modify", "source": path])
+        task.resume()
     }
     
     func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
-        NotImplemented()
+        let url = absoluteURL(path)
+        let request = NSMutableURLRequest(URL: url)
+        request.HTTPMethod = "PROPFIND"
+        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue("1", forHTTPHeaderField: "Depth")
+        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
+        request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            // FIXME: paginating results
+            if let data = data {
+                let xresponse = self.parseXMLResponse(data)
+                var fileObjects = [WebDavFileObject]()
+                for attr in xresponse {
+                    let href = attr.href
+                    let name = attr.prop["displayname"] ?? path.lastPathComponent
+                    if !(href.path?.lastPathComponent.containsString(query) ?? false) {
+                        continue
+                    }
+                    let size = Int64(attr.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
+                    let createdDate = self.resolveHTTPDate(attr.prop["creationdate"] ?? "")
+                    let modifiedDate = self.resolveHTTPDate(attr.prop["getlastmodified"] ?? "")
+                    let contentType = attr.prop["getcontenttype"] ?? "octet/stream"
+                    let isDirectory = contentType == "httpd/unix-directory"
+                    let entryTag = attr.prop["getetag"]
+                    let fileObject = WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+                    fileObjects.append(fileObject)
+                    foundItemHandler?(fileObject)
+                }
+                completionHandler(files: fileObjects, error: error)
+                return
+            }
+            completionHandler(files: [], error: error)
+        }
+        task.resume()
     }
-    
     // TODO: implements methods for lock mechanism
 }
 
@@ -434,12 +510,45 @@ extension WebDAVFileProvider {
         //self.init()
         return nil
     }
+    
+    func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
+        guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
+            return nil
+        }
+        if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
+            return dic
+        }
+        return nil
+    }
+    
+    func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
+        if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
+            return String(data: data, encoding: NSUTF8StringEncoding)
+        }
+        return nil
+    }
 }
 
 // MARK: URLSession delegate
-extension WebDAVFileProvider: NSURLSessionDownloadDelegate {
+extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
     func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
         return
+    }
+    
+    func URLSession(session: NSURLSession, task: NSURLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        guard let desc = task.taskDescription, let json = jsonToDictionary(desc), let type = json["type"] as? String, let optype = FileOperationType(rawValue: type), let source = json["source"] as? String else {
+            return
+        }
+        let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
+        
+        self.delegate?.fileproviderProgress(self, operationType: optype, progress: progress, sourcePath: source, destPath: json["dest"] as? String)
+    }
+    
+    func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String else {
+            return
+        }
+        self.delegate?.fileproviderProgress(self, operationType: .Copy, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite), sourcePath: source, destPath: json["dest"] as? String)
     }
     
     func URLSession(session: NSURLSession, task: NSURLSessionTask, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {

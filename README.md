@@ -1,4 +1,4 @@
-# FileProvider
+# FileProvider (experimental)
 
 This Swift library provide a swifty way to deal with local and remote files and directories in same way. This library provides implementaion of WebDav and SMB/CIFS (incomplete) and local files.
 
@@ -6,7 +6,22 @@ All functions are async calls and it wont block your main thread.
 
 ## Installation
 
+#### Manually
 Copy Source folder to your project!
+
+#### Git clone
+Use this command on terminal to get a clone:
+
+	git clone https://github.com/amosavian/FileProvider FileProvider
+
+#### Submodule into your project
+Use this command if you have a git based project in your projects directory:
+
+	git submodule add https://github.com/amosavian/FileProvider FileProvider
+
+#### Cocoapods / Carthage / Swift Package Manager
+
+I will add when project is completed is ready to use in production envioronment
 
 ## Usage
 
@@ -22,9 +37,11 @@ For now this providers are supported:
 
 **SMBFileProvider :** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from Windows and SMB2/3 is now replacing AFP protocol on MacOS. I Implemented data types and some basic functions but *main interface is not implemented yet!*
 
+**FTPFileProvider :** not implemented yet!
+
 **DropboxFileProvider :** not implemented yet!
 
-Your pull requests are being welcomed/
+Your pull requests are welcomed!
 
 ### Initialization
 
@@ -51,27 +68,26 @@ For interaction with UI, set delegate variable of `FileProvider` object
 
 For updating User interface please consider using delegate method instead of completion handlers. Delegate methods are guaranteed to run in main thread to avoid bugs.
 
+It's simply tree method which indicated whether the operation failed, succeed and how much of operation has been done (suitable for uploading and downloading operations).
+
 Your class should conforms `FileProviderDelegate` class:
 
 	override func viewDidLoad() {
 		documentsFileProvider.delegate = self
 	}
 	
-	func fileproviderCreateModifyNotify(fileProvider: LocalFileProvider, path: String) {
-		NSLog("File \(path) modified")
+	func fileproviderSucceed(fileProvider: FileProvider, operationType: FileOperationType, sourcePath: String, destPath: String?) {
+		NSLog("Operation \(operationType.rawValue) done on file \(sourcePath)")
 	}
 	
-    func fileproviderCopyNotify(fileProvider: LocalFileProvider, fromPath: String, toPath: String) {
-		NSLog("File \(path) copied")
-	}
+    func fileproviderFailed(fileProvider: FileProvider, operationType: FileOperationType, sourcePath: String, destPath: String?) {
+    	NSLog("Operation \(operationType.rawValue) failed on file \(sourcePath)")
+    }
 	
-    func fileproviderMoveNotify(fileProvider: LocalFileProvider, fromPath: String, toPath: String) {
-		NSLog("File \(path) moved")
+    func fileproviderProgress(fileProvider: FileProvider, operationType: FileOperationType, progress: Float, sourcePath: String, destPath: String?) {
+		NSLog("\(percent * 100) percent progress of operation \(operationType.rawValue) on \(sourcePath) has been done.")
 	}
-	
-    func fileproviderRemoveNotify(fileProvider: LocalFileProvider, path: String) {
-		NSLog("File \(path) deleted")
-	}
+
 
 Use completion handlers for error handling or result processing as far as possible.
 

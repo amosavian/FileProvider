@@ -101,8 +101,10 @@ class SMBFileProvider: FileProvider {
 // MARK: basic CIFS interactivity
 enum SMBFileProviderError: Int, ErrorType, CustomStringConvertible {
     case BadHeader
+    case IncompatibleHeader
     case IncorrectParamsLength
     case IncorrectMessageLength
+    case InvalidCommand
     
     var description: String {
         return "SMB message structure is invalid"
@@ -110,12 +112,8 @@ enum SMBFileProviderError: Int, ErrorType, CustomStringConvertible {
 }
 
 extension SMBFileProvider {
-    static private var _pid: UInt32 = 0
-    private func getPID() ->UInt32 {
-        if SMBFileProvider._pid == 0 {
-            SMBFileProvider._pid = arc4random()
-        }
-        return SMBFileProvider._pid
+    private func getPID() -> UInt32 {
+        return UInt32(NSProcessInfo.processInfo().processIdentifier)
     }
     
 

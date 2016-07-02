@@ -167,11 +167,14 @@ protocol ExtendedFileProvider: FileProvider {
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
 
+enum FileOperationType: String {
+    case Create, Copy, Move, Modify, Remove, Link
+}
+
 protocol FileProviderDelegate {
-    func fileproviderCreateModifyNotify<P: FileProvider>(fileProvider: P, path: String)
-    func fileproviderCopyNotify<P: FileProvider>(fileProvider: P, fromPath: String, toPath: String)
-    func fileproviderMoveNotify<P: FileProvider>(fileProvider: P, fromPath: String, toPath: String)
-    func fileproviderRemoveNotify<P: FileProvider>(fileProvider: P, path: String)
+    func fileproviderSucceed<P: FileProvider>(fileProvider: P, operationType: FileOperationType, sourcePath: String, destPath: String?)
+    func fileproviderFailed<P: FileProvider>(fileProvider: P, operationType: FileOperationType, sourcePath: String, destPath: String?)
+    func fileproviderProgress<P: FileProvider>(fileProvider: P, operationType: FileOperationType, progress: Float, sourcePath: String, destPath: String?)
 }
 
 
