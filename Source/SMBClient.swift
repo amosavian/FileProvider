@@ -101,7 +101,8 @@ class SMBProtocolClient: TCPSocketClient {
         }
         let headersize = sizeof(SMB2.Header.self)
         let headerData = data.subdataWithRange(NSRange(location: 0, length: headersize))
-        let messageData = data.subdataWithRange(NSRange(location: headersize, length: 0))
+        let messageSize = data.length - headersize
+        let messageData = data.subdataWithRange(NSRange(location: headersize, length: messageSize))
         let header: SMB2.Header = decode(headerData)
         switch header.command {
         case .NEGOTIATE:
@@ -145,7 +146,6 @@ class SMBProtocolClient: TCPSocketClient {
         case .INVALID:
             throw SMBFileProviderError.InvalidCommand
         }
-        throw SMBFileProviderError.BadHeader
     }
     
     class func createSMBMessage(header: SMB1.Header, blocks: [(params: NSData?, message: NSData?)]) -> NSData {
@@ -643,7 +643,7 @@ struct SMB2 {
             if Int(header.size) != 65 {
                 return nil
             }
-            let bufOffset = Int(self.header.bufferOffset)
+            let bufOffset = Int(self.header.bufferOffset) - sizeof(SMB2.Header.self)
             let bufLen = Int(self.header.bufferLength)
             if bufOffset > 0 && bufLen > 0 && data.length >= bufOffset + bufLen {
                 self.buffer = data.subdataWithRange(NSRange(location: bufOffset, length: bufLen))
@@ -651,7 +651,7 @@ struct SMB2 {
                 self.buffer = nil
             }
             let contextCount = Int(self.header.contextCount)
-            let contextOffset = Int(self.header.contextOffset)
+            let contextOffset = Int(self.header.contextOffset) - sizeof(SMB2.Header.self)
             if  contextCount > 0 &&  contextOffset > 0 {
                 // TODO: NegotiateResponse context support for SMB3
                 self.contexts = []
@@ -726,7 +726,7 @@ struct SMB2 {
         
         func data() -> NSData {
             var header = self.header
-            header.bufferOffset = UInt16(sizeofValue(header))
+            header.bufferOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(SessionSetupRequest.Header.self))
             header.bufferLength = UInt16(buffer?.length ?? 0)
             let result = NSMutableData(data: encode(&header))
             if let buffer = self.buffer {
@@ -782,7 +782,7 @@ struct SMB2 {
             if Int(header.size) != 9 {
                 return nil
             }
-            let bufOffset = Int(self.header.bufferOffset)
+            let bufOffset = Int(self.header.bufferOffset) - sizeof(SMB2.Header.self)
             let bufLen = Int(self.header.bufferLength)
             if bufOffset > 0 && bufLen > 0 && data.length >= bufOffset + bufLen {
                 self.buffer = data.subdataWithRange(NSRange(location: bufOffset, length: bufLen))
@@ -866,7 +866,7 @@ struct SMB2 {
         
         func data() -> NSData {
             var header = self.header
-            header.pathOffset = UInt16(sizeofValue(header))
+            header.pathOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(TreeConnectRequest.Header.self))
             header.pathLength = UInt16(buffer?.length ?? 0)
             let result = NSMutableData(data: encode(&header))
             if let buffer = self.buffer {
@@ -988,10 +988,36 @@ struct SMB2 {
     
     struct CreateRequest: SMBRequest {
         let header: CreateRequest.Header
+        let name: String?
         let contexts: [CreateContext]
         
+        init (header: CreateRequest.Header, name: String? = nil, contexts: [CreateContext] = []) {
+            self.header = header
+            self.name = name
+            self.contexts = contexts
+        }
+        
         func data() -> NSData {
-            return NSData()
+            var header = self.header
+            var offset = 0x78 //UInt16(sizeof(SMB2.Header.self) + sizeof(CreateContext.Header.self) - 1)
+            let body = NSMutableData()
+            if let name = self.name, let nameData = name.dataUsingEncoding(NSUTF8StringEncoding) {
+                header.nameOffset = UInt16(offset)
+                header.nameLength = UInt16(nameData.length)
+                offset += nameData.length
+                body.appendData(nameData)
+            }
+            if contexts.count > 0 {
+                // TODO: Context CreateRequest implementation, 8 bit allign offset
+                header.contextOffset = UInt32(offset)
+                
+                
+                header.contextLength = 0
+                //result.appendData(nameData)
+            }
+            let result = NSMutableData(data: encode(&header))
+            result.appendData(body)
+            return result
         }
         
         struct Header {
@@ -1030,66 +1056,27 @@ struct SMB2 {
                 }
             }
             let options: CreateOptions
+            var nameOffset: UInt16
+            var nameLength: UInt16
+            var contextOffset: UInt32
+            var contextLength: UInt32
             
-            
-        }
-        
-        struct CreateContext: SMBRequest, SMBResponse {
-            var next: UInt32
-            let nameOffset: UInt16
-            let nameLength: UInt16
-            private let reserved: UInt16
-            let dataOffset: UInt16
-            let dataLength: UInt32
-            let buffer: NSData
-            
-            init(name: ContextNames, data: NSData) {
+            init(requestedOplockLevel: OplockLevel = .NONE, impersonationLevel: ImpersonationLevel = .Anonymous, access: FileAccessMask = [.GENERIC_ALL], fileAttributes: FileAttributes = [], shareAccess: ShareAccess = [.READ], desposition: CreateDisposition = .OPEN_IF, options: CreateOptions = []) {
+                self.size = 57
+                self.securityFlags = 0
+                self._requestedOplockLevel = requestedOplockLevel.rawValue
+                self._impersonationLevel = impersonationLevel.rawValue
+                self.flags = 0
                 self.reserved = 0
-                self.next = 0
-                self.nameOffset = 32
-                let result = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF8StringEncoding)!)
-                self.nameLength = UInt16(result.length)
-                self.dataOffset = UInt16(result.length)
-                self.dataLength = UInt32(data.length)
-                result.appendData(data)
-                buffer = result
-            }
-            
-            init(name: NSUUID, data: NSData) {
-                self.reserved = 0
-                self.next = 0
-                self.nameOffset = 32
-                var uuid = uuid_t(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-                name.getUUIDBytes(&uuid.0)
-                let result = NSMutableData(bytes: &uuid, length: 16)
-                self.nameLength = UInt16(result.length)
-                self.dataOffset = UInt16(result.length)
-                self.dataLength = UInt32(data.length)
-                result.appendData(data)
-                buffer = result
-            }
-            
-            init? (data: NSData) {
-                return nil
-            }
-            
-            func data() -> NSData {
-                return NSData()
-            }
-            
-            enum ContextNames: String {
-                /// Extended attributes
-                case EA_BUFFER = "ExtA"
-                /// Security descriptor
-                case SD_BUFFER = "SecD"
-                /// Requesting the open to be durable
-                case DURABLE_HANDLE_REQUEST = "DHnQ"
-                /// Requesting to reconnect to a durable open after being disconnected
-                case DURABLE_HANDLE_RECONNECT = "DHnC"
-                /// Required allocation size of the newly created file
-                case ALLOCATION_SIZE = "AISi"
-                case QUERY_MAXIMAL_ACCESS_REQUEST = "MxAc"
-                case TIMEWARP_TOKEN = "TWrp"
+                self.access = access
+                self.fileAttributes = fileAttributes
+                self.shareAccess = shareAccess
+                self._desposition = desposition.rawValue
+                self.options = options
+                self.nameOffset = 0
+                self.nameLength = 0
+                self.contextOffset = 0
+                self.contextLength = 0
             }
         }
         
@@ -1147,31 +1134,133 @@ struct SMB2 {
     }
     
     struct CreateResponse: SMBResponse {
-        let size: UInt16
-        private let _oplockLevel: UInt8
-        var oplockLevel: OplockLevel {
-            return OplockLevel(rawValue: _oplockLevel)!
+        struct Header {
+            let size: UInt16
+            private let _oplockLevel: UInt8
+            var oplockLevel: OplockLevel {
+                return OplockLevel(rawValue: _oplockLevel)!
+            }
+            private let reserved: UInt32
+            let creationTime: SMBTime
+            let lastAccessTime: SMBTime
+            let lastWriteTime: SMBTime
+            let changeTime: SMBTime
+            let allocationSize: UInt64
+            let endOfFile: UInt64
+            let fileAttributes: FileAttributes
+            private let reserved2: UInt32
+            let fileIdPersistent: UInt64
+            let fileIdVolatile: UInt64
+            let contextsOffset: UInt32
+            let ContextsLength: UInt32
         }
-        private let reserved: UInt32
-        let creationTime: SMBTime
-        let lastAccessTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let allocationSize: UInt64
-        let endOfFile: UInt64
-        let fileAttributes: FileAttributes
+        
+        let header: CreateResponse.Header
+        let contexts: [CreateContext]
         
         init? (data: NSData) {
-            self = decode(data)
+            guard data.length >= sizeof(CreateResponse.Header.self) else {
+                return nil
+            }
+            let headerData = data.subdataWithRange(NSRange(location: 0, length: sizeof(CreateResponse.Header.self)))
+            self.header = decode(headerData)
+            if self.header.contextsOffset > 0 {
+                var contexts = [CreateContext]()
+                var contextOffset = Int(self.header.contextsOffset) - sizeof(SMB2.Header.self)
+                while contextOffset > 0 {
+                    guard contextOffset < data.length else {
+                        self.contexts = contexts
+                        return
+                    }
+                    let contextDataHeader = data.subdataWithRange(NSRange(location: contextOffset, length: sizeof(CreateContext.Header.self)))
+                    if let lastContextHeader = CreateContext(data: contextDataHeader) {
+                        let lastContextLen = Int(lastContextHeader.header.dataOffset) + Int(lastContextHeader.header.dataLength) - contextOffset
+                        let lastContextData = data.subdataWithRange(NSRange(location: contextOffset, length: lastContextLen))
+                        if let newContext = CreateContext(data: lastContextData) {
+                            contexts.append(newContext)
+                        }
+                        contextOffset = Int(lastContextHeader.header.next) - sizeof(SMB2.Header.self)
+                    }
+                }
+                self.contexts = contexts
+            } else {
+                self.contexts = []
+            }
+        }
+    }
+    
+    struct CreateContext {
+        struct Header {
+            var next: UInt32
+            let nameOffset: UInt16
+            let nameLength: UInt16
+            private let reserved: UInt16
+            let dataOffset: UInt16
+            let dataLength: UInt32
+        }
+        
+        var header: CreateContext.Header
+        let buffer: NSData
+        
+        init(name: ContextNames, data: NSData) {
+            let nameData = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF8StringEncoding)!)
+            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.length))
+            self.buffer = data
+        }
+        
+        init(name: NSUUID, data: NSData) {
+            var uuid = uuid_t(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+            name.getUUIDBytes(&uuid.0)
+            let nameData = NSMutableData(bytes: &uuid, length: 16)
+            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.length))
+            self.buffer = data
+        }
+        
+        init? (data: NSData) {
+            let headersize = sizeof(Header)
+            guard data.length > headersize else {
+                return nil
+            }
+            let headerData = data.subdataWithRange(NSRange(location: 0, length: headersize))
+            self.header = decode(headerData)
+            self.buffer = data.subdataWithRange(NSRange(location: headersize, length: data.length - headersize))
+        }
+        
+        func data() -> NSData {
+            var header = self.header
+            let result = NSMutableData(data: encode(&header))
+            result.appendData(buffer)
+            return result
+        }
+        
+        enum ContextNames: String {
+            /// Request Create Context: Extended attributes
+            case EA_BUFFER = "ExtA"
+            /// Request Create Context: Security descriptor
+            case SD_BUFFER = "SecD"
+            /// Request & Response Create Context: Open to be durable
+            case DURABLE_HANDLE = "DHnQ"
+            case DURABLE_HANDLE_RESPONSE_V2 = "DH2Q"
+            /// Request Create Context: Reconnect to a durable open after being disconnected
+            case DURABLE_HANDLE_RECONNECT = "DHnC"
+            /// Request Create Context: Required allocation size of the newly created file
+            case ALLOCATION_SIZE = "AISi"
+            /// Request & Response Create Context: Maximal access information
+            case QUERY_MAXIMAL_ACCESS = "MxAc"
+            case TIMEWARP_TOKEN = "TWrp"
+            /// Response Create Context: DiskID of the open file in a volume.
+            case QUERY_ON_DISK_ID = "QFid"
+            /// Response Create Context: A lease. This value is only supported for the SMB 2.1 and 3.x dialect family.
+            case LEASE = "RqLs"
         }
     }
     
     enum OplockLevel: UInt8 {
-        case LEVEL_NONE = 0x00
+        case NONE = 0x00
         case LEVEL_II = 0x01
-        case LEVEL_EXCLUSIVE = 0x08
-        case LEVEL_BATCH = 0x09
-        case LEVEL_LEASE = 0xFF
+        case EXCLUSIVE = 0x08
+        case BATCH = 0x09
+        case LEASE = 0xFF
     }
     
     struct ShareAccess: OptionSetType {
@@ -1340,12 +1429,7 @@ struct SMB2 {
     // MARK: SMB2 Lock
     
     // MARK: SMB2 IOCTL
-    
-    /*
-     * Device-Platform specific operations, which is defferent from system to system
-     * Should not be implemented in a general SMB client
-    */
-    
+        
     // MARK: SMB2 Cancel
     
     struct CancelRequest: SMBRequest {

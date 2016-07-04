@@ -96,6 +96,15 @@ class SMBFileProvider: FileProvider {
     func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
         NotImplemented()
     }
+    
+    func registerNotifcation(path: String, eventHandler: (() -> Void)) {
+        NotImplemented()
+    }
+    
+    func unregisterNotifcation(path: String) {
+        NotImplemented()
+    }
+
 }
 
 // MARK: basic CIFS interactivity

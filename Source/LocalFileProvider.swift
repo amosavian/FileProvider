@@ -283,6 +283,32 @@ public class LocalFileProvider: FileProvider {
             completionHandler(files: result, error: nil)
         }
     }
+    
+    private var monitorDictionary = [String : LocalFolderMonitor]()
+    
+    public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
+        self.unregisterNotifcation(path)
+        var isdirv: AnyObject?
+        do {
+            try absoluteURL(path).getResourceValue(&isdirv, forKey: NSURLIsDirectoryKey)
+        } catch _ {
+        }
+        if !(isdirv?.boolValue ?? false) {
+            return
+        }
+        let monitor = LocalFolderMonitor(url: absoluteURL(path)) {
+            eventHandler()
+        }
+        monitor.start()
+        monitorDictionary[path] = monitor
+    }
+    
+    public func unregisterNotifcation(path: String) {
+        if let prevMonitor = monitorDictionary[path] {
+            prevMonitor.stop()
+            monitorDictionary.removeValueForKey(path)
+        }
+    }
 }
 
 extension LocalFileProvider {
@@ -301,5 +327,49 @@ extension LocalFileProvider {
                 })
             }
         }
+    }
+}
+
+private class LocalFolderMonitor {
+    private let source: dispatch_source_t
+    private let descriptor: CInt
+    private let qq: dispatch_queue_t = dispatch_get_main_queue()
+    private var state: Bool = false
+    
+    /// Creates a folder monitor object with monitoring enabled.
+    init(url: NSURL, handler: ()->Void) {
+        
+        descriptor = open(url.fileSystemRepresentation, O_EVTONLY)
+        
+        source = dispatch_source_create(
+            DISPATCH_SOURCE_TYPE_VNODE,
+            UInt(descriptor),
+            DISPATCH_VNODE_WRITE,
+            qq
+        )
+        
+        dispatch_source_set_event_handler(source, handler)
+        start()
+    }
+    
+    /// Starts sending notifications if currently stopped
+    func start() {
+        if !state {
+            state = true
+            dispatch_resume(source)
+        }
+    }
+    
+    /// Stops sending notifications if currently enabled
+    func stop() {
+        if state {
+            state = false
+            dispatch_suspend(source)
+        }
+    }
+    
+    deinit {
+        close(descriptor)
+        dispatch_source_cancel(source)
     }
 }

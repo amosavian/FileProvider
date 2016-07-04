@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum FileProviderWebDavErrorCode: Int {
+public enum FileProviderWebDavErrorCode: Int {
     case OK = 200
     case Created = 201
     case NoContent = 204
@@ -24,11 +24,11 @@ enum FileProviderWebDavErrorCode: Int {
     case InsufficientStorage = 507
 }
 
-struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
+public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
     let code: FileProviderWebDavErrorCode
     let url: NSURL
     
-    var description: String {
+    public var description: String {
         switch code {
         case .OK: return "OK"
         case .Created: return "Created"
@@ -47,7 +47,7 @@ struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
     }
 }
 
-final class WebDavFileObject: FileObject {
+public final class WebDavFileObject: FileObject {
     let contentType: String
     let entryTag: String?
     
@@ -61,16 +61,16 @@ final class WebDavFileObject: FileObject {
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-class WebDAVFileProvider: NSObject,  FileProvider {
-    let type: String = "WebDAV"
-    let isPathRelative: Bool = true
-    let baseURL: NSURL?
-    var currentPath: String = ""
-    var dispatch_queue: dispatch_queue_t
-    var delegate: FileProviderDelegate?
-    let credential: NSURLCredential?
+public class WebDAVFileProvider: NSObject,  FileProvider {
+    public let type: String = "WebDAV"
+    public let isPathRelative: Bool = true
+    public let baseURL: NSURL?
+    public var currentPath: String = ""
+    public var dispatch_queue: dispatch_queue_t
+    public var delegate: FileProviderDelegate?
+    public let credential: NSURLCredential?
     
-    typealias FileObjectClass = FileObject
+    public typealias FileObjectClass = FileObject
     
     private var _session: NSURLSession?
     private var session: NSURLSession {
@@ -93,7 +93,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
     deinit {
     }
     
-    func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
@@ -129,7 +129,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
+    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PROPFIND"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
@@ -159,7 +159,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
+    public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL(atPath.stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
@@ -182,7 +182,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func createFile(fileAttribs: FileObject, atPath path: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
+    public func createFile(fileAttribs: FileObject, atPath path: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
@@ -199,7 +199,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
@@ -237,7 +237,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
@@ -275,7 +275,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
+    public func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
@@ -309,7 +309,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
+    public func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(toPath))
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
@@ -326,7 +326,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
+    public func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         let task = session.downloadTaskWithRequest(request) { (sourceFileURL, response, error) in
             if let sourceFileURL = sourceFileURL {
@@ -343,7 +343,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    public func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
@@ -352,7 +352,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
@@ -363,7 +363,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
         // FIXME: lock destination before writing process
         let url = atomically ? absoluteURL(path).URLByAppendingPathExtension("tmp") : absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
@@ -390,7 +390,7 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
@@ -427,12 +427,19 @@ class WebDAVFileProvider: NSObject,  FileProvider {
         }
         task.resume()
     }
+    
+    public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
+        NotImplemented()
+    }
+    public func unregisterNotifcation(path: String) {
+        NotImplemented()
+    }
     // TODO: implements methods for lock mechanism
 }
 
 // MARK: WEBDAV XML response implementation
 
-extension WebDAVFileProvider {
+internal extension WebDAVFileProvider {
     struct DavResponse {
         let href: NSURL
         let status: Int?
@@ -531,11 +538,11 @@ extension WebDAVFileProvider {
 
 // MARK: URLSession delegate
 extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
-    func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
+    public func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
         return
     }
     
-    func URLSession(session: NSURLSession, task: NSURLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+    public func URLSession(session: NSURLSession, task: NSURLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
         guard let desc = task.taskDescription, let json = jsonToDictionary(desc) else {
             return
         }
@@ -569,7 +576,7 @@ extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDele
         self.delegate?.fileproviderProgress(self, operation: op, progress: progress)
     }
     
-    func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+    public func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String, dest = json["dest"] as? String else {
             return
         }
@@ -577,11 +584,11 @@ extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDele
         self.delegate?.fileproviderProgress(self, operation: .Copy(source: source, destination: dest), progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
     }
     
-    func URLSession(session: NSURLSession, task: NSURLSessionTask, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
+    public func URLSession(session: NSURLSession, task: NSURLSessionTask, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
         completionHandler(NSURLSessionAuthChallengeDisposition.UseCredential, credential)
     }
     
-    func URLSession(session: NSURLSession, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
+    public func URLSession(session: NSURLSession, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
         completionHandler(NSURLSessionAuthChallengeDisposition.UseCredential, credential)
     }
 }

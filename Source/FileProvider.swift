@@ -121,6 +121,9 @@ public protocol FileProvider: class {
     func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler)
     
     func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void))
+    
+    func registerNotifcation(path: String, eventHandler: (() -> Void))
+    func unregisterNotifcation(path: String)
 }
 
 extension FileProvider {
