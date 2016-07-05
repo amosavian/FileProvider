@@ -66,7 +66,11 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     public let isPathRelative: Bool = true
     public let baseURL: NSURL?
     public var currentPath: String = ""
-    public var dispatch_queue: dispatch_queue_t
+    public var dispatch_queue: dispatch_queue_t {
+        willSet {
+            assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
+        }
+    }
     public var delegate: FileProviderDelegate?
     public let credential: NSURLCredential?
     
@@ -75,7 +79,9 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     private var _session: NSURLSession?
     private var session: NSURLSession {
         if _session == nil {
-            _session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration(), delegate: self, delegateQueue: nil)
+            let queue = NSOperationQueue()
+            queue.underlyingQueue = dispatch_queue
+            _session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration(), delegate: self, delegateQueue: queue)
         }
         return _session!
     }
@@ -91,6 +97,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     }
     
     deinit {
+        _session?.invalidateAndCancel()
     }
     
     public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
@@ -107,19 +114,10 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                 let xresponse = self.parseXMLResponse(data)
                 var fileObjects = [WebDavFileObject]()
                 for attr in xresponse {
-                    let href = attr.href
-                    if href.path == url.path {
+                    if attr.href.path == url.path {
                         continue
                     }
-                    let name = attr.prop["displayname"] ?? path.lastPathComponent
-                    let size = Int64(attr.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-                    let createdDate = self.resolveHTTPDate(attr.prop["creationdate"] ?? "")
-                    let modifiedDate = self.resolveHTTPDate(attr.prop["getlastmodified"] ?? "")
-                    let contentType = attr.prop["getcontenttype"] ?? "octet/stream"
-                    let isDirectory = contentType == "httpd/unix-directory"
-                    let entryTag = attr.prop["getetag"]
-                    let fileObject = WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
-                    fileObjects.append(fileObject)
+                    fileObjects.append(self.DavResponseToFileObject(attr))
                 }
                 completionHandler(contents: fileObjects, error: error)
                 return
@@ -141,16 +139,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 if let attr = xresponse.first {
-                    let href = attr.href
-                    let name = attr.prop["displayname"] ?? path.lastPathComponent
-                    let size = Int64(attr.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-                    let createdDate = self.resolveHTTPDate(attr.prop["creationdate"] ?? "")
-                    let modifiedDate = self.resolveHTTPDate(attr.prop["getlastmodified"] ?? "")
-                    let contentType = attr.prop["getcontenttype"] ?? "octet/stream"
-                    let isDirectory = contentType == "httpd/unix-directory"
-                    let entryTag = attr.prop["getetag"]
-                    let fileObject = WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
-                    completionHandler(attributes: fileObject, error: error)
+                    completionHandler(attributes: self.DavResponseToFileObject(attr), error: error)
                     return
                 }
             }
@@ -161,7 +150,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     
     public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
-        let url = absoluteURL(atPath.stringByAppendingPathComponent(folderName) + "/")
+        let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
@@ -173,9 +162,9 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
                 if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
                 } else {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
                 }
             })
         }
@@ -189,13 +178,13 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
             completionHandler?(error: error)
             dispatch_async(dispatch_get_main_queue(), {
                 if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: path.stringByAppendingPathComponent(fileAttribs.name)))
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)))
                 } else {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: path.stringByAppendingPathComponent(fileAttribs.name)))
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)))
                 }
             })
         }
-        task.taskDescription = self.dictionaryToJSON(["create": "create", "source": path.stringByAppendingPathComponent(fileAttribs.name)])
+        task.taskDescription = self.dictionaryToJSON(["type": "Create", "source": (path as NSString).stringByAppendingPathComponent(fileAttribs.name)])
         task.resume()
     }
     
@@ -379,7 +368,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                 })
             }
             if atomically {
-                self.moveItemAtPath(path.stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
+                self.moveItemAtPath((path as NSString).stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
             }
             if let error = error {
                 // If there is no error, completionHandler has been executed by move command
@@ -405,18 +394,10 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                 let xresponse = self.parseXMLResponse(data)
                 var fileObjects = [WebDavFileObject]()
                 for attr in xresponse {
-                    let href = attr.href
-                    let name = attr.prop["displayname"] ?? path.lastPathComponent
-                    if !(href.path?.lastPathComponent.containsString(query) ?? false) {
+                    if let path = attr.href.path where !((path as NSString).lastPathComponent.containsString(query)) {
                         continue
                     }
-                    let size = Int64(attr.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-                    let createdDate = self.resolveHTTPDate(attr.prop["creationdate"] ?? "")
-                    let modifiedDate = self.resolveHTTPDate(attr.prop["getlastmodified"] ?? "")
-                    let contentType = attr.prop["getcontenttype"] ?? "octet/stream"
-                    let isDirectory = contentType == "httpd/unix-directory"
-                    let entryTag = attr.prop["getetag"]
-                    let fileObject = WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+                    let fileObject = self.DavResponseToFileObject(attr)
                     fileObjects.append(fileObject)
                     foundItemHandler?(fileObject)
                 }
@@ -430,6 +411,12 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     
     public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         NotImplemented()
+        /* There is no unified api for monitoring WebDAV server content change/update
+         * Microsoft Exchange uses SUBSCRIBE method, Apple uses push notification system.
+         * while both is unavailable in a mobile platform.
+         * A messy approach is listing a directory with an interval period and compare
+         * with previous results
+         */
     }
     public func unregisterNotifcation(path: String) {
         NotImplemented()
@@ -442,6 +429,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
 internal extension WebDAVFileProvider {
     struct DavResponse {
         let href: NSURL
+        let hrefString: String
         let status: Int?
         let prop: [String: String]
     }
@@ -450,25 +438,32 @@ internal extension WebDAVFileProvider {
         var result = [DavResponse]()
         do {
             let xml = try AEXMLDocument(xmlData: response)
+            var rootnode = xml.root
             var responsetag = "response"
-            for node in xml.root.all ?? [] {
-                if node.name.lowercaseString.hasSuffix("response") {
-                    responsetag = node.name
+            for node in rootnode.all ?? [] {
+                if node.name.lowercaseString.hasSuffix("multistatus") {
+                    rootnode = node
                 }
             }
-            for responseNode in xml.root[responsetag].all ?? [] {
+            for node in rootnode.children ?? [] {
+                if node.name.lowercaseString.hasSuffix("response") {
+                    responsetag = node.name
+                    break
+                }
+            }
+            for responseNode in rootnode[responsetag].all ?? [] {
                 var hreftag = "href"
                 var statustag = "status"
                 var propstattag = "propstat"
-                for tnode in responseNode.all ?? [] {
-                    if tnode.name.lowercaseString.hasSuffix("href") {
-                        hreftag = tnode.name
+                for node in responseNode.children ?? [] {
+                    if node.name.lowercaseString.hasSuffix("href") {
+                        hreftag = node.name
                     }
-                    if tnode.name.lowercaseString.hasSuffix("status") {
-                        statustag = tnode.name
+                    if node.name.lowercaseString.hasSuffix("status") {
+                        statustag = node.name
                     }
-                    if tnode.name.lowercaseString.hasSuffix("propstat") {
-                        propstattag = tnode.name
+                    if node.name.lowercaseString.hasSuffix("propstat") {
+                        propstattag = node.name
                     }
                 }
                 let href = responseNode[hreftag].value
@@ -480,21 +475,32 @@ internal extension WebDAVFileProvider {
                     }
                     var propDic = [String: String]()
                     let propStatNode = responseNode[propstattag]
+                    for node in propStatNode.children ?? [] {
+                        if node.name.lowercaseString.hasSuffix("status") {
+                            statustag = node.name
+                            break
+                        }
+                    }
                     let statusDesc2 = (propStatNode[statustag].stringValue).componentsSeparatedByString(" ")
                     if statusDesc2.count > 2 {
                         status = Int(statusDesc2[1])
                     }
                     var proptag = "prop"
-                    for tnode in propStatNode.all ?? [] {
+                    for tnode in propStatNode.children ?? [] {
                         if tnode.name.lowercaseString.hasSuffix("prop") {
                             proptag = tnode.name
                         }
                         break
                     }
-                    for propItemNode in propStatNode[proptag].all ?? [] {
+                    for propItemNode in propStatNode[proptag].children ?? [] {
                         propDic[propItemNode.name.componentsSeparatedByString(":").last!.lowercaseString] = propItemNode.value
+                        if propItemNode.name.hasSuffix("resourcetype") {
+                            if propItemNode.xmlStringCompact.containsString("collection") {
+                                propDic["getcontenttype"] = "httpd/unix-directory"
+                            }
+                        }
                     }
-                    result.append(DavResponse(href: hrefURL, status: status, prop: propDic))
+                    result.append(DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic))
                 }
             }
         } catch _ {
@@ -503,16 +509,32 @@ internal extension WebDAVFileProvider {
         return result
     }
     
+    func DavResponseToFileObject(davResponse: DavResponse) -> WebDavFileObject {
+        let href = davResponse.href
+        let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.stringByRemovingPercentEncoding! as NSString).lastPathComponent
+        let size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
+        let createdDate = self.resolveHTTPDate(davResponse.prop["creationdate"] ?? "")
+        let modifiedDate = self.resolveHTTPDate(davResponse.prop["getlastmodified"] ?? "")
+        let contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
+        let isDirectory = contentType == "httpd/unix-directory"
+        let entryTag = davResponse.prop["getetag"]
+        return WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+    }
+    
     func resolveHTTPDate(httpDateString: String) -> NSDate? {
-        if let rfc1123 = NSDate(string: httpDateString, withFormat: "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz") {
-            return NSDate(timeIntervalSince1970: rfc1123.timeIntervalSince1970)
+        let dateFor: NSDateFormatter = NSDateFormatter()
+        dateFor.locale = NSLocale(localeIdentifier: "en_US")
+        dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
+        if let rfc1123 = dateFor.dateFromString(httpDateString) {
+            return rfc1123
         }
-        if let rfc850 = NSDate(string: httpDateString, withFormat: "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z") {
-            return NSDate(timeIntervalSince1970: rfc850.timeIntervalSince1970)
-            
+        dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
+        if let rfc850 = dateFor.dateFromString(httpDateString) {
+            return rfc850
         }
-        if let asctime =  NSDate(string: httpDateString, withFormat: "EEE MMM d HH':'mm':'ss yyyy") {
-            return NSDate(timeIntervalSince1970: asctime.timeIntervalSince1970)
+        dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
+        if let asctime = dateFor.dateFromString(httpDateString) {
+            return asctime
         }
         //self.init()
         return nil

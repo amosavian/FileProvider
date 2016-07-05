@@ -84,12 +84,12 @@ public class LocalFileProvider: FileProvider {
                 try self.fileManager.createDirectoryAtURL(self.absoluteURL(atPath).URLByAppendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
                 })
             } catch let e as NSError {
                 completionHandler?(error: e)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(folderName) + "/"))
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
                 })
             }
         }
@@ -115,12 +115,12 @@ public class LocalFileProvider: FileProvider {
                 } catch _ {}
                 completionHandler?(error: nil)
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(fileAttribs.name)))
+                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(fileAttribs.name)))
                 })
             } else {
                 completionHandler?(error: self.throwError(atPath, code: NSURLError.CannotCreateFile))
                 dispatch_async(dispatch_get_main_queue(), {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: atPath.stringByAppendingPathComponent(fileAttribs.name)))
+                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(fileAttribs.name)))
                 })
             }
         }
@@ -274,7 +274,7 @@ public class LocalFileProvider: FileProvider {
             }
             var result = [LocalFileObject]()
             while let fileURL = iterator?.nextObject() as? NSURL {
-                if fileURL.fileName.lowercaseString.containsString(query.lowercaseString) {
+                if fileURL.lastPathComponent?.lowercaseString.containsString(query.lowercaseString) ?? false {
                     let fileObject = self.attributesOfItemAtURL(fileURL)
                     result.append(self.attributesOfItemAtURL(fileURL))
                     foundItemHandler?(fileObject)

@@ -8,19 +8,6 @@
 
 import Foundation
 
-internal func encode<T>(inout value: T) -> NSData {
-    return withUnsafePointer(&value) { p in
-        NSData(bytes: p, length: sizeofValue(value))
-    }
-}
-
-internal func decode<T>(data: NSData) -> T {
-    let pointer = UnsafeMutablePointer<T>.alloc(sizeof(T.Type))
-    data.getBytes(pointer, length: sizeof(T.Type))
-    
-    return pointer.move()
-}
-
 class SMBFileProvider: FileProvider {
     var type: String = "Samba"
     var isPathRelative: Bool = true

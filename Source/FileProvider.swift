@@ -164,15 +164,15 @@ extension FileProvider {
     }
     
     internal func NotImplemented() {
-        assertionFailure("method not implemented")
+        assert(false, "method not implemented")
     }
 }
 
-public protocol ExtendedFileProvider: FileProvider {
+/*public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: UIImage?, error: ErrorType?) -> Void))
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
-
+*/
 public enum FileOperation {
     case Create (path: String)
     case Copy   (source: String, destination: String)
