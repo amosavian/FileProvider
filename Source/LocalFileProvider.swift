@@ -25,9 +25,7 @@ public class LocalFileProvider: FileProvider {
     public var dispatch_queue: dispatch_queue_t
     public var delegate: FileProviderDelegate?
     public let credential: NSURLCredential? = nil
-    
-    public typealias FileObjectClass = LocalFileObject
-    
+        
     let fileManager = NSFileManager()
     
     init () {
@@ -44,7 +42,7 @@ public class LocalFileProvider: FileProvider {
         return NSURL(fileURLWithPath: paths[0])
     }
     
-    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [LocalFileObject], error: ErrorType?) -> Void)) {
+    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
             do {
                 let contents = try self.fileManager.contentsOfDirectoryAtURL(self.absoluteURL(path), includingPropertiesForKeys: [NSURLNameKey, NSURLFileSizeKey, NSURLFileAllocatedSizeKey, NSURLCreationDateKey, NSURLContentModificationDateKey, NSURLIsHiddenKey, NSURLVolumeIsReadOnlyKey, NSFileGroupOwnerAccountName], options: NSDirectoryEnumerationOptions.SkipsSubdirectoryDescendants)
@@ -72,7 +70,7 @@ public class LocalFileProvider: FileProvider {
         return fileAttr
     }
     
-    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: LocalFileObject?, error: ErrorType?) -> Void)) {
+    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
             completionHandler(attributes: self.attributesOfItemAtURL(self.absoluteURL(path)), error: nil)
         }

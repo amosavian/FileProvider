@@ -99,13 +99,11 @@ public protocol FileProvider: class {
     var delegate: FileProviderDelegate? { get set }
     var credential: NSURLCredential? { get }
     
-    associatedtype FileObjectClass
-    
     /**
      *
     */
-    func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void))
-    func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void))
+    func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void))
+    func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void))
     
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler)
     func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler)
@@ -120,7 +118,7 @@ public protocol FileProvider: class {
     func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void))
     func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler)
     
-    func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void))
+    func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void))
     
     func registerNotifcation(path: String, eventHandler: (() -> Void))
     func unregisterNotifcation(path: String)
@@ -168,11 +166,13 @@ extension FileProvider {
     }
 }
 
-/*public protocol ExtendedFileProvider: FileProvider {
+#if (iOS)
+public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: UIImage?, error: ErrorType?) -> Void))
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
-*/
+#endif
+
 public enum FileOperation {
     case Create (path: String)
     case Copy   (source: String, destination: String)
@@ -183,9 +183,9 @@ public enum FileOperation {
 }
 
 public protocol FileProviderDelegate {
-    func fileproviderSucceed<P: FileProvider>(fileProvider: P, operation: FileOperation)
-    func fileproviderFailed<P: FileProvider>(fileProvider: P, operation: FileOperation)
-    func fileproviderProgress<P: FileProvider>(fileProvider: P, operation: FileOperation, progress: Float)
+    func fileproviderSucceed(fileProvider: FileProvider, operation: FileOperation)
+    func fileproviderFailed(fileProvider: FileProvider, operation: FileOperation)
+    func fileproviderProgress(fileProvider: FileProvider, operation: FileOperation, progress: Float)
 }
 
 

@@ -192,3 +192,16 @@ If you want to retrieve a portion of file you should can `contentsAtPath` method
 	documentsFileProvider.writeContentsAtPath(path: "old.txt", contents data: data, atomically: true, completionHandler: nil)
 
 
+### TODO List
+
+[] TCPSocket test (using telnet)
+
+[] SMB2 protocol support using TCPSocketClient
+
+[] FTP/FTPS protocol support using TCPSocketClient
+
+[] Dropbox support
+
+[] Amazon S3 support
+
+[] SMB1 protocol implementation

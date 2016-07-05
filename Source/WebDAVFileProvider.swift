@@ -74,8 +74,6 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
     public var delegate: FileProviderDelegate?
     public let credential: NSURLCredential?
     
-    public typealias FileObjectClass = FileObject
-    
     private var _session: NSURLSession?
     private var session: NSURLSession {
         if _session == nil {
@@ -100,7 +98,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         _session?.invalidateAndCancel()
     }
     
-    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void)) {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
@@ -127,7 +125,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
+    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PROPFIND"
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
@@ -379,7 +377,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void)) {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
