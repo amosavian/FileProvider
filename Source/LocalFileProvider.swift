@@ -264,7 +264,7 @@ public class LocalFileProvider: FileProvider {
         }
     }
     
-    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
+    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) { 
             let iterator = self.fileManager.enumeratorAtURL(self.absoluteURL(path), includingPropertiesForKeys: nil, options: recursive ? NSDirectoryEnumerationOptions() : .SkipsSubdirectoryDescendants) { (url, e) -> Bool in
                 completionHandler(files: [], error: e)

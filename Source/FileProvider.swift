@@ -7,6 +7,12 @@
 //
 
 import Foundation
+#if (iOS)
+import UIKit
+#endif
+#if (OSX)
+import Cocoa
+#endif
 
 public enum FileType: String {
     case Directory
@@ -169,6 +175,11 @@ extension FileProvider {
 #if (iOS)
 public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: UIImage?, error: ErrorType?) -> Void))
+    func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
+}
+#elseif (OSX)
+public protocol ExtendedFileProvider: FileProvider {
+    func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: NSImage?, error: ErrorType?) -> Void))
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
 #endif
