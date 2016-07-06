@@ -1,9 +1,9 @@
 //
 //  SocketTransmitter.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 4/9/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -39,7 +39,7 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
     public let secureConnection: Bool
     /// server's ports which is value between 1 to 65535
     private let port: UInt32
-    private var connected = false
+    private var open = false
     
     /**
      * - parameter baseURL: a url with valid scheme, dns or ip host and ports
@@ -126,14 +126,14 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
     public func stream(aStream: NSStream, handleEvent eventCode: NSStreamEvent) {
         switch (eventCode) {
         case NSStreamEvent.ErrorOccurred:
-            connected = false
+            open = false
         case NSStreamEvent.EndEncountered:
             break
         case NSStreamEvent.None:
             break
         case NSStreamEvent.OpenCompleted:
             let activeStatus: [NSStreamStatus] = [.Open, .Reading, .Writing, .AtEnd]
-            connected = activeStatus.contains(inputStream?.streamStatus ?? .NotOpen) && activeStatus.contains(outputStream?.streamStatus ?? .NotOpen)
+            open = activeStatus.contains(inputStream?.streamStatus ?? .NotOpen) && activeStatus.contains(outputStream?.streamStatus ?? .NotOpen)
         case NSStreamEvent.HasBytesAvailable:
             var buffer = [UInt8](count: 2048, repeatedValue: 0)
             if ( aStream == inputStream) {
@@ -165,13 +165,16 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
      */
     
     public func send(data data: NSData?) throws {
-        if self.outputStream?.hasSpaceAvailable ?? false {
+        guard let outputStream = outputStream else {
+            return
+        }
+        if outputStream.hasSpaceAvailable ?? false {
             if let data = data {
                 dataToBeSent.appendData(data)
             }
             
             if dataToBeSent.length > 0 {
-                let bytesWritten = self.outputStream?.write(UnsafePointer(dataToBeSent.bytes), maxLength: dataToBeSent.length) ?? -1
+                let bytesWritten = outputStream.write(UnsafePointer(dataToBeSent.bytes), maxLength: dataToBeSent.length) ?? -1
                 if bytesWritten > 0 {
                     let range = NSRange(location: 0, length: bytesWritten)
                     dataToBeSent.replaceBytesInRange(range, withBytes: nil, length: 0)
@@ -188,13 +191,22 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
     }
     
     /**
+     * Clears entire send and receive buffer
+     */
+    
+    public func flush() {
+        dataToBeSent.length = 0
+        dataReceived.length = 0
+    }
+    
+    /**
      * Put's thread in sleep until all data is sent
      * **Note:** Don't call this method from main thread
      */
     
-    internal func waitForSendDataPurge() {
+    internal func waitUntillDataSent() {
         if NSThread.isMainThread() {
-            assertionFailure("waitForSendDataPurge() method can't be called from main thread")
+            assert(false, "waitUntillDataSent() method can't be called from main thread")
         }
         while true {
             if dataToBeSent.length == 0 {
@@ -213,9 +225,9 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
      * - returns: A Bool value indicates all response loaded from server successfullt
     */
     
-    internal func waitForResponse() -> Bool {
+    internal func waitUntilResponse() -> Bool {
         if NSThread.isMainThread() {
-            assertionFailure("waitForResponse() method can't be called from main thread")
+            assert(false, "waitUntilResponse() method can't be called from main thread")
         }
         var finished = false
         while !finished {
@@ -230,7 +242,6 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
             }
             
             NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
-            NSThread.currentThread()
             NSThread.sleepForTimeInterval(0.1)
         }
         return false

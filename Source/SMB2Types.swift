@@ -1,9 +1,9 @@
 //
 //  SMB2Types.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 4/15/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -12,12 +12,12 @@ import Foundation
 struct SMB2 {
     struct Header: FileProviderSMBHeader { // 64 bytes
         // header is always \u{fe}SMB
-        var protocolID: UInt32
+        let protocolID: UInt32
         static let protocolConst: UInt32 = 0x424d53fe
-        var size: UInt16
-        var creditCharge: UInt16
+        let size: UInt16
+        let creditCharge: UInt16
         // error messages from the server to the client
-        var status: UInt32
+        let status: UInt32
         enum StatusSeverity: UInt8 {
             case Success = 0, Information, Warning, Error
         }
@@ -25,32 +25,25 @@ struct SMB2 {
             let severity = StatusSeverity(rawValue: UInt8(status >> 30))!
             return (severity, status & 0x20000000 != 0, UInt16((status & 0x0FFF0000) >> 16), UInt16(status & 0x0000FFFF))
         }
-        private var _command: UInt16
+        private let _command: UInt16
         var command: Command {
             get {
                 return Command(rawValue: _command) ?? .INVALID
             }
-            set {
-                _command = newValue.rawValue
-            }
         }
-        var creditRequestResponse: UInt16
-        var flags: Flags
+        let creditRequestResponse: UInt16
+        let flags: Flags
         var nextCommand: UInt32
-        var messageId: UInt64
-        private var reserved: UInt32
-        var treeId: UInt32
+        let messageId: UInt64
+        private let reserved: UInt32
+        let treeId: UInt32
         var asyncId: UInt64 {
             get {
                 return UInt64(reserved) + (UInt64(treeId) << 32)
             }
-            set {
-                reserved = UInt32(newValue & 0xffffffff)
-                treeId = UInt32(newValue >> 32)
-            }
         }
-        var sessionId: UInt64
-        var signature: (UInt64, UInt64)
+        let sessionId: UInt64
+        let signature: (UInt64, UInt64)
         
         init(command: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
             self.protocolID = self.dynamicType.protocolConst

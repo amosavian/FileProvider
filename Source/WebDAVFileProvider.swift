@@ -1,9 +1,9 @@
 //
 //  WebDAVFileProvider.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 4/6/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -407,8 +407,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         task.resume()
     }
     
-    public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
-        NotImplemented()
+    private func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is no unified api for monitoring WebDAV server content change/update
          * Microsoft Exchange uses SUBSCRIBE method, Apple uses push notification system.
          * while both is unavailable in a mobile platform.
@@ -416,8 +415,8 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
          * with previous results
          */
     }
-    public func unregisterNotifcation(path: String) {
-        NotImplemented()
+    private func unregisterNotifcation(path: String) {
+        
     }
     // TODO: implements methods for lock mechanism
 }
@@ -507,52 +506,19 @@ internal extension WebDAVFileProvider {
         return result
     }
     
-    func DavResponseToFileObject(davResponse: DavResponse) -> WebDavFileObject {
-        let href = davResponse.href
+    private func DavResponseToFileObject(davResponse: DavResponse) -> WebDavFileObject {
+        var href = davResponse.href
+        if href.baseURL == nil {
+            href = absoluteURL(href.path ?? "")
+        }
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.stringByRemovingPercentEncoding! as NSString).lastPathComponent
         let size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-        let createdDate = self.resolveHTTPDate(davResponse.prop["creationdate"] ?? "")
-        let modifiedDate = self.resolveHTTPDate(davResponse.prop["getlastmodified"] ?? "")
+        let createdDate = self.resolveRFCDate(davResponse.prop["creationdate"] ?? "")
+        let modifiedDate = self.resolveRFCDate(davResponse.prop["getlastmodified"] ?? "")
         let contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
         let isDirectory = contentType == "httpd/unix-directory"
         let entryTag = davResponse.prop["getetag"]
         return WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
-    }
-    
-    func resolveHTTPDate(httpDateString: String) -> NSDate? {
-        let dateFor: NSDateFormatter = NSDateFormatter()
-        dateFor.locale = NSLocale(localeIdentifier: "en_US")
-        dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
-        if let rfc1123 = dateFor.dateFromString(httpDateString) {
-            return rfc1123
-        }
-        dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
-        if let rfc850 = dateFor.dateFromString(httpDateString) {
-            return rfc850
-        }
-        dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        if let asctime = dateFor.dateFromString(httpDateString) {
-            return asctime
-        }
-        //self.init()
-        return nil
-    }
-    
-    func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
-        guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
-            return nil
-        }
-        if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
-            return dic
-        }
-        return nil
-    }
-    
-    func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
-        if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
-            return String(data: data, encoding: NSUTF8StringEncoding)
-        }
-        return nil
     }
 }
 

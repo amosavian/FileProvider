@@ -1,14 +1,14 @@
 //
 //  SambaFileProvider.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 3/29/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
 
-class SMBFileProvider: FileProvider {
+class SMBFileProvider: FileProvider, FileProviderMonitor {
     var type: String = "Samba"
     var isPathRelative: Bool = true
     var baseURL: NSURL?

@@ -1,9 +1,9 @@
 //
 //  LocalFileProvider.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 3/29/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -17,7 +17,7 @@ public final class LocalFileObject: FileObject {
     }
 }
 
-public class LocalFileProvider: FileProvider {
+public class LocalFileProvider: FileProvider, FileProviderMonitor {
     public let type = "NSFileManager"
     public var isPathRelative: Bool = true
     public var baseURL: NSURL? = LocalFileProvider.defaultBaseURL()

@@ -1,9 +1,9 @@
 //
 //  SMBTransmitter.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 4/10/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -45,7 +45,7 @@ class SMBProtocolClient: TCPSocketClient {
         } catch _ {
             return nil
         }
-        self.waitForResponse()
+        self.waitUntilResponse()
         let response = try? SMBProtocolClient.digestSMB2Message(dataReceived)
         return response??.message as? SMB2.NegotiateResponse
     }
@@ -218,7 +218,7 @@ struct SMBTime {
 }
 
 protocol FileProviderSMBHeader {
-    var protocolID: UInt32 { get set }
+    var protocolID: UInt32 { get }
     static var protocolConst: UInt32 { get }
 }
 

@@ -1,9 +1,9 @@
 //
 //  FileProvider.swift
-//  ExtDownloader
+//  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 3/28/95.
-//  Copyright © 1395 Mousavian. All rights reserved.
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -11,7 +11,7 @@ import Foundation
 import UIKit
 #endif
 #if (OSX)
-import Cocoa
+import AppKit
 #endif
 
 public enum FileType: String {
@@ -96,7 +96,7 @@ public class FileObject {
 
 public typealias SimpleCompletionHandler = ((error: ErrorType?) -> Void)?
 
-public protocol FileProvider: class {
+public protocol FileProviderBasic: class {
     var type: String { get }
     var isPathRelative: Bool { get }
     var baseURL: NSURL? { get }
@@ -110,7 +110,9 @@ public protocol FileProvider: class {
     */
     func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void))
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void))
-    
+}
+
+public protocol FileProviderOperations: FileProviderBasic {
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler)
     func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler)
     func moveItemAtPath(path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
@@ -119,18 +121,26 @@ public protocol FileProvider: class {
     
     func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler)
     func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler)
-    
+}
+
+public protocol FileProviderReadWrite: FileProviderBasic {
     func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void))
     func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void))
     func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler)
     
     func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void))
-    
+}
+
+public protocol FileProviderMonitor: FileProviderBasic {
     func registerNotifcation(path: String, eventHandler: (() -> Void))
     func unregisterNotifcation(path: String)
 }
 
-extension FileProvider {
+public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite {
+    
+}
+
+extension FileProviderBasic {
     var bareCurrentPath: String {
         return currentPath.stringByTrimmingCharactersInSet(NSCharacterSet(charactersInString: ". /"))
     }
@@ -170,6 +180,42 @@ extension FileProvider {
     internal func NotImplemented() {
         assert(false, "method not implemented")
     }
+    
+    internal func resolveRFCDate(httpDateString: String) -> NSDate? {
+        let dateFor: NSDateFormatter = NSDateFormatter()
+        dateFor.locale = NSLocale(localeIdentifier: "en_US")
+        dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
+        if let rfc1123 = dateFor.dateFromString(httpDateString) {
+            return rfc1123
+        }
+        dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
+        if let rfc850 = dateFor.dateFromString(httpDateString) {
+            return rfc850
+        }
+        dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
+        if let asctime = dateFor.dateFromString(httpDateString) {
+            return asctime
+        }
+        //self.init()
+        return nil
+    }
+    
+    internal func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
+        guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
+            return nil
+        }
+        if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
+            return dic
+        }
+        return nil
+    }
+    
+    internal func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
+        if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
+            return String(data: data, encoding: NSUTF8StringEncoding)
+        }
+        return nil
+    }
 }
 
 #if (iOS)
@@ -194,9 +240,9 @@ public enum FileOperation {
 }
 
 public protocol FileProviderDelegate {
-    func fileproviderSucceed(fileProvider: FileProvider, operation: FileOperation)
-    func fileproviderFailed(fileProvider: FileProvider, operation: FileOperation)
-    func fileproviderProgress(fileProvider: FileProvider, operation: FileOperation, progress: Float)
+    func fileproviderSucceed(fileProvider: FileProviderOperations, operation: FileOperation)
+    func fileproviderFailed(fileProvider: FileProviderOperations, operation: FileOperation)
+    func fileproviderProgress(fileProvider: FileProviderOperations, operation: FileOperation, progress: Float)
 }
 
 
