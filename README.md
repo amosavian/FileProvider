@@ -40,7 +40,7 @@ FileProvider supports both CocoaPods.
 
 Add this line to your pods file:
 
-	pod "UnzipKit"
+	pod "FileProvider"
 
 ### Git
 To have latest updates with ease, use this command on terminal to get a clone:
