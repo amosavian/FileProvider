@@ -71,9 +71,8 @@ struct SMB2 {
             self.flags = flags.union([Flags.ASYNC_COMMAND])
             self.nextCommand = nextCommand
             self.messageId = messageId
-            self.reserved = 0
-            reserved = UInt32(asyncId & 0xffffffff)
-            treeId = UInt32(asyncId >> 32)
+            self.reserved = UInt32(asyncId & 0xffffffff)
+            self.treeId = UInt32(asyncId >> 32)
             self.sessionId = sessionId
             self.signature = signature
         }
@@ -721,8 +720,7 @@ struct SMB2 {
             let endOfFile: UInt64
             let fileAttributes: FileAttributes
             private let reserved2: UInt32
-            let fileIdPersistent: UInt64
-            let fileIdVolatile: UInt64
+            let fileId: FileId
             let contextsOffset: UInt32
             let ContextsLength: UInt32
         }
@@ -905,6 +903,11 @@ struct SMB2 {
         static let NO_SCRUB_DATA        = FileAttributes(rawValue: 0x00020000)
     }
     
+    struct FileId {
+        let persistent: UInt64
+        let volatile: UInt64
+    }
+    
     // MARK: SMB2 Close
     
     struct CloseRequest: SMBRequest {
@@ -1000,8 +1003,7 @@ struct SMB2 {
         let flags: ReadRequest.Flags
         let length: UInt32
         let offset: UInt64
-        let fileIdPersistent: UInt64
-        let fileIdVolatile: UInt64
+        let fileId: FileId
         let minimumLength: UInt32
         private let _channel: UInt32
         var channel: ReadRequest.Channel {
@@ -1012,14 +1014,13 @@ struct SMB2 {
         private let channelInfoLength: UInt16
         private let channelBuffer: UInt8
         
-        init (fileIdPersistent: UInt64, fileIdVolatile: UInt64, offset: UInt64, length: UInt32, flags: ReadRequest.Flags = [], minimumLength: UInt32 = 0, remainingBytes: UInt32 = 0, channel: ReadRequest.Channel = .NONE) {
+        init (fileId: FileId, offset: UInt64, length: UInt32, flags: ReadRequest.Flags = [], minimumLength: UInt32 = 0, remainingBytes: UInt32 = 0, channel: ReadRequest.Channel = .NONE) {
             self.size = 49
             self.padding = 0
             self.flags = flags
             self.length = length
             self.offset = offset
-            self.fileIdPersistent = fileIdPersistent
-            self.fileIdVolatile = fileIdVolatile
+            self.fileId = fileId
             self.minimumLength = minimumLength
             self._channel = channel.rawValue
             self.remainingBytes = remainingBytes

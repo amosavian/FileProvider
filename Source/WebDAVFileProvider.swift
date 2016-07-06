@@ -61,7 +61,7 @@ public final class WebDavFileObject: FileObject {
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-public class WebDAVFileProvider: NSObject,  FileProvider {
+public class WebDAVFileProvider: NSObject,  FileProviderBasic {
     public let type: String = "WebDAV"
     public let isPathRelative: Bool = true
     public let baseURL: NSURL?
@@ -115,7 +115,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                     if attr.href.path == url.path {
                         continue
                     }
-                    fileObjects.append(self.DavResponseToFileObject(attr))
+                    fileObjects.append(self.mapToFileObject(attr))
                 }
                 completionHandler(contents: fileObjects, error: error)
                 return
@@ -137,7 +137,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 if let attr = xresponse.first {
-                    completionHandler(attributes: self.DavResponseToFileObject(attr), error: error)
+                    completionHandler(attributes: self.mapToFileObject(attr), error: error)
                     return
                 }
             }
@@ -145,7 +145,9 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         }
         task.resume()
     }
-    
+}
+
+extension WebDAVFileProvider: FileProviderOperations {
     public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
@@ -158,13 +160,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                 return
             }
             completionHandler?(error: error)
-            dispatch_async(dispatch_get_main_queue(), {
-                if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
-                } else {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"))
-                }
-            })
+            self.delegateNotify(.Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"), error: error)
         }
         task.resume()
     }
@@ -174,13 +170,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
             completionHandler?(error: error)
-            dispatch_async(dispatch_get_main_queue(), {
-                if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operation: .Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)))
-                } else {
-                    self.delegate?.fileproviderFailed(self, operation: .Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)))
-                }
-            })
+            self.delegateNotify(.Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)), error: error)
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Create", "source": (path as NSString).stringByAppendingPathComponent(fileAttribs.name)])
         task.resume()
@@ -199,13 +189,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
-                    dispatch_async(dispatch_get_main_queue(), {
-                        if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operation: .Move(source: path, destination: toPath))
-                        } else {
-                            self.delegate?.fileproviderFailed(self, operation: .Move(source: path, destination: toPath))
-                        }
-                    })
+                    self.delegateNotify(.Move(source: path, destination: toPath), error: error)
                 }
                 if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
@@ -237,13 +221,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
-                    dispatch_async(dispatch_get_main_queue(), {
-                        if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operation: .Copy(source: path, destination: toPath))
-                        } else {
-                            self.delegate?.fileproviderFailed(self, operation: .Copy(source: path, destination: toPath))
-                        }
-                    })
+                    self.delegateNotify(.Copy(source: path, destination: toPath), error: error)
                 }
                 if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
@@ -271,13 +249,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
-                    dispatch_async(dispatch_get_main_queue(), {
-                        if error == nil {
-                            self.delegate?.fileproviderSucceed(self, operation: .Remove(path: path))
-                        } else {
-                            self.delegate?.fileproviderFailed(self, operation: .Remove(path: path))
-                        }
-                    })
+                    self.delegateNotify(.Remove(path: path), error: error)
                 }
                 if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
@@ -301,13 +273,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
             completionHandler?(error: error)
-            dispatch_async(dispatch_get_main_queue(), {
-                if error == nil {
-                    self.delegate?.fileproviderSucceed(self, operation: .Move(source: localFile.absoluteString, destination: toPath))
-                } else {
-                    self.delegate?.fileproviderFailed(self, operation: .Move(source: localFile.absoluteString, destination: toPath))
-                }
-            })
+            self.delegateNotify(.Move(source: localFile.absoluteString, destination: toPath), error: error)
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.absoluteString, "dest": toPath])
         task.resume()
@@ -329,7 +295,9 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": toLocalURL.absoluteString])
         task.resume()
     }
-    
+}
+
+extension WebDAVFileProvider: FileProviderReadWrite {
     public func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
@@ -357,13 +325,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
             defer {
-                dispatch_async(dispatch_get_main_queue(), {
-                    if error == nil {
-                        self.delegate?.fileproviderSucceed(self, operation: .Modify(path: path))
-                    } else {
-                        self.delegate?.fileproviderFailed(self, operation: .Modify(path: path))
-                    }
-                })
+                self.delegateNotify(.Modify(path: path), error: error)
             }
             if atomically {
                 self.moveItemAtPath((path as NSString).stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
@@ -395,7 +357,7 @@ public class WebDAVFileProvider: NSObject,  FileProvider {
                     if let path = attr.href.path where !((path as NSString).lastPathComponent.containsString(query)) {
                         continue
                     }
-                    let fileObject = self.DavResponseToFileObject(attr)
+                    let fileObject = self.mapToFileObject(attr)
                     fileObjects.append(fileObject)
                     foundItemHandler?(fileObject)
                 }
@@ -500,13 +462,12 @@ internal extension WebDAVFileProvider {
                     result.append(DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic))
                 }
             }
-        } catch _ {
-            
+        } catch _ { 
         }
         return result
     }
     
-    private func DavResponseToFileObject(davResponse: DavResponse) -> WebDavFileObject {
+    private func mapToFileObject(davResponse: DavResponse) -> WebDavFileObject {
         var href = davResponse.href
         if href.baseURL == nil {
             href = absoluteURL(href.path ?? "")
@@ -519,6 +480,16 @@ internal extension WebDAVFileProvider {
         let isDirectory = contentType == "httpd/unix-directory"
         let entryTag = davResponse.prop["getetag"]
         return WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+    }
+    
+    private func delegateNotify(operation: FileOperation, error: ErrorType?) {
+        dispatch_async(dispatch_get_main_queue(), {
+            if error == nil {
+                self.delegate?.fileproviderSucceed(self, operation: operation)
+            } else {
+                self.delegate?.fileproviderFailed(self, operation: operation)
+            }
+        })
     }
 }
 

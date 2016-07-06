@@ -226,7 +226,7 @@ protocol FileProviderSMBHeader {
 struct SMB1 {
     struct Header { // 32 bytes
         // header is always \u{ff}SMB
-        var protocolID: UInt32
+        let protocolID: UInt32
         static let protocolConst: UInt32 = 0x424d53ff
         private var _command: UInt8
         var command: Command {

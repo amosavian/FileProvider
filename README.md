@@ -3,12 +3,12 @@
 >This Swift library provide a swifty way to deal with local and remote files and directories in same way.
 
 [![Swift Version][swift-image]][swift-url]
-[![Build Status][travis-image]][travis-url]
 [![License][license-image]][license-url]
 [![Platform](https://img.shields.io/badge/Platform-iOS%2C%20OSX-lightgray.svg)]()
 [![codebeat badge](https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517)](https://codebeat.co/projects/github-com-amosavian-fileprovider)
 
 <!--- 
+[![Build Status][travis-image]][travis-url]
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/EZSwiftExtensions.svg)](https://img.shields.io/cocoapods/v/LFAlertController.svg) 
 ---> 
