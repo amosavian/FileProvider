@@ -51,10 +51,10 @@ public final class WebDavFileObject: FileObject {
     let contentType: String
     let entryTag: String?
     
-    init(absoluteURL: NSURL, name: String, size: Int64, contentType: String, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, entryTag: String?) {
+    init(absoluteURL: NSURL, name: String, path: String, size: Int64, contentType: String, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, entryTag: String?) {
         self.contentType = contentType
         self.entryTag = entryTag
-        super.init(absoluteURL: absoluteURL, name: name, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
+        super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
 }
 
@@ -71,14 +71,14 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
             assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
         }
     }
-    public var delegate: FileProviderDelegate?
+    public weak var delegate: FileProviderDelegate?
     public let credential: NSURLCredential?
     
     private var _session: NSURLSession?
     private var session: NSURLSession {
         if _session == nil {
             let queue = NSOperationQueue()
-            queue.underlyingQueue = dispatch_queue
+            //queue.underlyingQueue = dispatch_queue
             _session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration(), delegate: self, delegateQueue: queue)
         }
         return _session!
@@ -145,6 +145,8 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         }
         task.resume()
     }
+    
+    public weak var fileOperationDelegate: FileOperationDelegate?
 }
 
 extension WebDAVFileProvider: FileProviderOperations {
@@ -479,7 +481,7 @@ internal extension WebDAVFileProvider {
         let contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
         let isDirectory = contentType == "httpd/unix-directory"
         let entryTag = davResponse.prop["getetag"]
-        return WebDavFileObject(absoluteURL: href, name: name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+        return WebDavFileObject(absoluteURL: href, name: name, path: href.path ?? name, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
     }
     
     private func delegateNotify(operation: FileOperation, error: ErrorType?) {

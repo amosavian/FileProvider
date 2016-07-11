@@ -14,7 +14,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     var baseURL: NSURL?
     var currentPath: String = ""
     var dispatch_queue: dispatch_queue_t
-    var delegate: FileProviderDelegate?
+    weak var delegate: FileProviderDelegate?
     let credential: NSURLCredential?
     
     typealias FileObjectClass = FileObject
@@ -39,6 +39,8 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
         NotImplemented()
     }
+    
+    weak var fileOperationDelegate: FileOperationDelegate?
     
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
@@ -91,7 +93,10 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     func unregisterNotifcation(path: String) {
         NotImplemented()
     }
-
+    
+    func isRegisteredForNotification(path: String) -> Bool {
+        return false
+    }
 }
 
 // MARK: basic CIFS interactivity

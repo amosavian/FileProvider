@@ -11,30 +11,35 @@ import Foundation
 public final class LocalFileObject: FileObject {
     let allocatedSize: Int64
     
-    init(absoluteURL: NSURL, name: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    init(absoluteURL: NSURL, name: String, path: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
         self.allocatedSize = allocatedSize
-        super.init(absoluteURL: absoluteURL, name: name, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
+        super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
 }
 
 public class LocalFileProvider: FileProvider, FileProviderMonitor {
-    public let type = "NSFileManager"
+    public let type = "Local"
     public var isPathRelative: Bool = true
     public var baseURL: NSURL? = LocalFileProvider.defaultBaseURL()
     public var currentPath: String = ""
     public var dispatch_queue: dispatch_queue_t
-    public var delegate: FileProviderDelegate?
+    public weak var delegate: FileProviderDelegate?
     public let credential: NSURLCredential? = nil
         
-    let fileManager = NSFileManager()
+    public let fileManager = NSFileManager()
+    private var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
     init () {
-        dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_SERIAL)
+        dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
+        fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
+        fileManager.delegate = fileProviderManagerDelegate
     }
     
     init (baseURL: NSURL) {
         self.baseURL = baseURL
-        dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_SERIAL)
+        dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
+        fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
+        fileManager.delegate = fileProviderManagerDelegate
     }
     
     private static func defaultBaseURL() -> NSURL {
@@ -66,7 +71,13 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
         _ = try? fileURL.getResourceValue(&filetypev, forKey: NSURLFileResourceTypeKey)
         _ = try? fileURL.getResourceValue(&hiddenv, forKey: NSURLIsHiddenKey)
         _ = try? fileURL.getResourceValue(&readonlyv, forKey: NSURLVolumeIsReadOnlyKey)
-        let fileAttr = LocalFileObject(absoluteURL: fileURL, name: namev as! String, size: sizev?.longLongValue ?? -1, allocatedSize: allocated?.longLongValue ?? -1, createdDate: creationDatev as? NSDate, modifiedDate: modifiedDatev as? NSDate, fileType: FileType(urlResourceTypeValue: filetypev as? String ?? ""), isHidden: hiddenv?.boolValue ?? false, isReadOnly: readonlyv?.boolValue ?? false)
+        let path: String
+        if isPathRelative {
+            path = self.relativePathOf(url: fileURL)
+        } else {
+            path = fileURL.path!
+        }
+        let fileAttr = LocalFileObject(absoluteURL: fileURL, name: namev as! String, path: path, size: sizev?.longLongValue ?? -1, allocatedSize: allocated?.longLongValue ?? -1, createdDate: creationDatev as? NSDate, modifiedDate: modifiedDatev as? NSDate, fileType: FileType(urlResourceTypeValue: filetypev as? String ?? ""), isHidden: hiddenv?.boolValue ?? false, isReadOnly: readonlyv?.boolValue ?? false)
         return fileAttr
     }
     
@@ -75,6 +86,8 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
             completionHandler(attributes: self.attributesOfItemAtURL(self.absoluteURL(path)), error: nil)
         }
     }
+    
+    public weak var fileOperationDelegate : FileOperationDelegate?
     
     public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(dispatch_queue) {
@@ -282,30 +295,37 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
         }
     }
     
-    private var monitorDictionary = [String : LocalFolderMonitor]()
+    private var monitors = [LocalFolderMonitor]()
     
     public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         self.unregisterNotifcation(path)
+        let absurl = self.absoluteURL(path)
         var isdirv: AnyObject?
         do {
-            try absoluteURL(path).getResourceValue(&isdirv, forKey: NSURLIsDirectoryKey)
+            try absurl.getResourceValue(&isdirv, forKey: NSURLIsDirectoryKey)
         } catch _ {
         }
         if !(isdirv?.boolValue ?? false) {
             return
         }
-        let monitor = LocalFolderMonitor(url: absoluteURL(path)) {
+        let monitor = LocalFolderMonitor(url: absurl) {
             eventHandler()
         }
         monitor.start()
-        monitorDictionary[path] = monitor
+        monitors.append(monitor)
     }
     
     public func unregisterNotifcation(path: String) {
-        if let prevMonitor = monitorDictionary[path] {
-            prevMonitor.stop()
-            monitorDictionary.removeValueForKey(path)
+        for (i, monitor) in monitors.enumerate() {
+            if self.relativePathOf(url: monitor.url) == path {
+                monitor.stop()
+                monitors.removeAtIndex(i)
+            }
         }
+    }
+    
+    public func isRegisteredForNotification(path: String) -> Bool {
+        return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path)
     }
 }
 
@@ -328,11 +348,90 @@ extension LocalFileProvider {
     }
 }
 
-private class LocalFolderMonitor {
+class LocalFileProviderManagerDelegate: NSObject, NSFileManagerDelegate {
+    weak var provider: LocalFileProvider?
+    
+    init(provider: LocalFileProvider) {
+        self.provider = provider
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldCopyItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return true
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldDoOperation: .Copy(source: srcPath, destination: dstPath))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldMoveItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return true
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldDoOperation: .Move(source: srcPath, destination: dstPath))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldRemoveItemAtURL URL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return true
+        }
+        let path = provider.relativePathOf(url: URL)
+        return delegate.fileProvider(provider, shouldDoOperation: .Remove(path: path))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldLinkItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return true
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldDoOperation: .Link(link: srcPath, target: dstPath))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldProceedAfterError error: NSError, copyingItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return false
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldProceedAfterError: error, operation: .Copy(source: srcPath, destination: dstPath))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldProceedAfterError error: NSError, movingItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return false
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldProceedAfterError: error, operation: .Move(source: srcPath, destination: dstPath))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldProceedAfterError error: NSError, removingItemAtURL URL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return false
+        }
+        let path = provider.relativePathOf(url: URL)
+        return delegate.fileProvider(provider, shouldProceedAfterError: error, operation: .Remove(path: path))
+    }
+    
+    func fileManager(fileManager: NSFileManager, shouldProceedAfterError error: NSError, linkingItemAtURL srcURL: NSURL, toURL dstURL: NSURL) -> Bool {
+        guard let provider = self.provider, delegate = provider.fileOperationDelegate else {
+            return false
+        }
+        let srcPath = provider.relativePathOf(url: srcURL)
+        let dstPath = provider.relativePathOf(url: dstURL)
+        return delegate.fileProvider(provider, shouldProceedAfterError: error, operation: .Link(link: srcPath, target: dstPath))
+    }
+}
+
+internal class LocalFolderMonitor {
     private let source: dispatch_source_t
     private let descriptor: CInt
-    private let qq: dispatch_queue_t = dispatch_get_main_queue()
+    private let qq: dispatch_queue_t = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
     private var state: Bool = false
+    var url: NSURL
     
     /// Creates a folder monitor object with monitoring enabled.
     init(url: NSURL, handler: ()->Void) {
@@ -345,8 +444,13 @@ private class LocalFolderMonitor {
             DISPATCH_VNODE_WRITE,
             qq
         )
-        
-        dispatch_source_set_event_handler(source, handler)
+        let main_handler: ()->Void = {
+            dispatch_async(dispatch_get_main_queue(), {
+                handler()
+            })
+        }
+        dispatch_source_set_event_handler(source, main_handler)
+        self.url = url
         start()
     }
     

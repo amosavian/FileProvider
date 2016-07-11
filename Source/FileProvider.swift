@@ -7,11 +7,12 @@
 //
 
 import Foundation
-#if (iOS)
+#if os(iOS)
 import UIKit
-#endif
-#if (OSX)
-import AppKit
+public typealias ImageClass = UIImage
+#elseif os(OSX)
+import Cocoa
+public typealias ImageClass = NSImage
 #endif
 
 public enum FileType: String {
@@ -63,6 +64,7 @@ extension NSCocoaError: FoundationErrorEnum {}
 public class FileObject {
     let absoluteURL: NSURL?
     let name: String
+    let path: String
     let size: Int64
     let createdDate: NSDate?
     let modifiedDate: NSDate?
@@ -70,9 +72,10 @@ public class FileObject {
     let isHidden: Bool
     let isReadOnly: Bool
     
-    init(absoluteURL: NSURL, name: String, size: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    init(absoluteURL: NSURL?, name: String, path: String, size: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
         self.absoluteURL = absoluteURL
         self.name = name
+        self.path = path
         self.size = size
         self.createdDate = createdDate
         self.modifiedDate = modifiedDate
@@ -81,9 +84,10 @@ public class FileObject {
         self.isReadOnly = isReadOnly
     }
     
-    init(name: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
-        self.absoluteURL = NSURL()
+    init(name: String, path: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
+        self.absoluteURL = nil
         self.name = name
+        self.path = path
         self.size = -1
         self.createdDate = createdDate
         self.modifiedDate = modifiedDate
@@ -113,6 +117,8 @@ public protocol FileProviderBasic: class {
 }
 
 public protocol FileProviderOperations: FileProviderBasic {
+    var fileOperationDelegate : FileOperationDelegate? { get set }
+    
     func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler)
     func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler)
     func moveItemAtPath(path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
@@ -134,6 +140,7 @@ public protocol FileProviderReadWrite: FileProviderBasic {
 public protocol FileProviderMonitor: FileProviderBasic {
     func registerNotifcation(path: String, eventHandler: (() -> Void))
     func unregisterNotifcation(path: String)
+    func isRegisteredForNotification(path: String) -> Bool
 }
 
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite {
@@ -145,7 +152,7 @@ extension FileProviderBasic {
         return currentPath.stringByTrimmingCharactersInSet(NSCharacterSet(charactersInString: ". /"))
     }
     
-    func absoluteURL(path: String? = nil) -> NSURL {
+    public func absoluteURL(path: String? = nil) -> NSURL {
         let rpath: String
         if let path = path {
             rpath = path
@@ -163,6 +170,36 @@ extension FileProviderBasic {
         } else {
             return NSURL(fileURLWithPath: rpath)
         }
+    }
+    
+    public func relativePathOf(url url: NSURL) -> String {
+        guard let baseURL = self.baseURL else { return url.absoluteString }
+        return url.absoluteString.stringByReplacingOccurrencesOfString(baseURL.absoluteString, withString: "/").stringByRemovingPercentEncoding!
+    }
+    
+    public func fileByUniqueName(filePath: String) -> String {
+        let dirPath = (filePath as NSString).stringByDeletingLastPathComponent
+        let fileName = ((filePath as NSString).lastPathComponent as NSString).stringByDeletingPathExtension
+        var result = fileName
+        let group = dispatch_group_create()
+        dispatch_group_enter(group)
+        self.contentsOfDirectoryAtPath(dirPath) { (contents, error) in
+            var i = Int(fileName.componentsSeparatedByString(" ").filter {
+                !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
+                }.last ?? "noname") ?? 2
+            let similiar = contents.map {
+                $0.absoluteURL?.lastPathComponent ?? $0.name
+            }.filter {
+                $0.hasPrefix(fileName) && $0.hasSuffix("." + (filePath as NSString).pathExtension)
+            }
+            while similiar.contains(result) {
+                result = ((((fileName as NSString).stringByDeletingPathExtension + " \(i)") as NSString).pathExtension as NSString).stringByAppendingPathExtension((filePath as NSString).pathExtension)!
+                i += 1
+            }
+            dispatch_group_leave(group)
+        }
+        dispatch_group_wait(group, DISPATCH_TIME_FOREVER)
+        return (dirPath as NSString).stringByAppendingPathComponent(result)
     }
     
     internal func throwError(path: String, code: FoundationErrorEnum) -> NSError {
@@ -218,17 +255,13 @@ extension FileProviderBasic {
     }
 }
 
-#if (iOS)
+
 public protocol ExtendedFileProvider: FileProvider {
-    func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: UIImage?, error: ErrorType?) -> Void))
+    func thumbnailOfFileSupported(path: String) -> Bool
+    func propertiesOfFileSupported(path: String) -> Bool
+    func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: ImageClass?, error: ErrorType?) -> Void))
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
-#elseif (OSX)
-public protocol ExtendedFileProvider: FileProvider {
-    func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: NSImage?, error: ErrorType?) -> Void))
-    func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
-}
-#endif
 
 public enum FileOperation {
     case Create (path: String)
@@ -237,12 +270,42 @@ public enum FileOperation {
     case Modify (path: String)
     case Remove (path: String)
     case Link   (link: String, target: String)
+    
+    var description: String {
+        switch self {
+        case .Create(path: _): return "Create"
+        case .Copy(source: _, destination: _): return "Copy"
+        case .Move(source: _, destination: _): return "Move"
+        case .Modify(path: _): return "Modify"
+        case .Remove(path: _): return "Remove"
+        case .Link(link: _, target: _): return "Link"
+        }
+    }
+    
+    var actionDescription: String {
+        switch self {
+        case .Create(path: _): return "Creating"
+        case .Copy(source: _, destination: _): return "Copying"
+        case .Move(source: _, destination: _): return "Moving"
+        case .Modify(path: _): return "Modifying"
+        case .Remove(path: _): return "Removing"
+        case .Link(link: _, target: _): return "Linking"
+        }
+    }
+    
 }
 
-public protocol FileProviderDelegate {
+public protocol FileProviderDelegate: class {
     func fileproviderSucceed(fileProvider: FileProviderOperations, operation: FileOperation)
     func fileproviderFailed(fileProvider: FileProviderOperations, operation: FileOperation)
     func fileproviderProgress(fileProvider: FileProviderOperations, operation: FileOperation, progress: Float)
 }
 
-
+public protocol FileOperationDelegate: class {
+    
+    /// fileProvider(_:shouldOperate:) gives the delegate an opportunity to filter the file operation. Returning true from this method will allow the copy to happen. Returning false from this method causes the item in question to be skipped. If the item skipped was a directory, no children of that directory will be subject of the operation, nor will the delegate be notified of those children.
+    func fileProvider(fileProvider: FileProviderOperations, shouldDoOperation operation: FileOperation) -> Bool
+    
+    /// fileProvider:shouldProceedAfterError:copyingItemAtPath:toPath: gives the delegate an opportunity to recover from or continue copying after an error. If an error occurs, the error object will contain an ErrorType indicating the problem. The source path and destination paths are also provided. If this method returns true, the FileProvider instance will continue as if the error had not occurred. If this method returns false, the NSFileManager instance will stop copying, return false from copyItemAtPath:toPath:error: and the error will be provied there.
+    func fileProvider(fileProvider: FileProviderOperations, shouldProceedAfterError error: ErrorType, operation: FileOperation) -> Bool
+}
