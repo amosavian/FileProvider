@@ -95,6 +95,14 @@ public class FileObject {
         self.isHidden = isHidden
         self.isReadOnly = isReadOnly
     }
+    
+    var isDirectory: Bool {
+        return self.fileType == .Directory
+    }
+    
+    var isSymLink: Bool {
+        return self.fileType == .SymbolicLink
+    }
 }
 
 
@@ -168,38 +176,51 @@ extension FileProviderBasic {
                 return baseURL.URLByAppendingPathComponent(rpath)
             }
         } else {
-            return NSURL(fileURLWithPath: rpath)
+            return NSURL(fileURLWithPath: rpath).URLByStandardizingPath!
         }
     }
     
     public func relativePathOf(url url: NSURL) -> String {
         guard let baseURL = self.baseURL else { return url.absoluteString }
-        return url.absoluteString.stringByReplacingOccurrencesOfString(baseURL.absoluteString, withString: "/").stringByRemovingPercentEncoding!
+        return url.URLByStandardizingPath!.absoluteString.stringByReplacingOccurrencesOfString(baseURL.absoluteString, withString: "/").stringByRemovingPercentEncoding!
     }
     
     public func fileByUniqueName(filePath: String) -> String {
-        let dirPath = (filePath as NSString).stringByDeletingLastPathComponent
-        let fileName = ((filePath as NSString).lastPathComponent as NSString).stringByDeletingPathExtension
+        let fileUrl = NSURL(fileURLWithPath: filePath)
+        let dirPath = fileUrl.URLByDeletingLastPathComponent?.path ?? ""
+        guard let fileName = fileUrl.URLByDeletingPathExtension?.lastPathComponent else {
+            return filePath
+        }
+        let fileExt = fileUrl.pathExtension ?? ""
         var result = fileName
         let group = dispatch_group_create()
         dispatch_group_enter(group)
         self.contentsOfDirectoryAtPath(dirPath) { (contents, error) in
-            var i = Int(fileName.componentsSeparatedByString(" ").filter {
+            var bareFileName = fileName
+            var number = Int(fileName.componentsSeparatedByString(" ").filter {
                 !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
-                }.last ?? "noname") ?? 2
+                }.last ?? "noname")
+            if let _ = number {
+                result = fileName.componentsSeparatedByString(" ").filter {
+                    !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
+                    }.dropLast().joinWithSeparator(" ")
+                bareFileName = result
+            }
+            var i = number ?? 2
             let similiar = contents.map {
                 $0.absoluteURL?.lastPathComponent ?? $0.name
             }.filter {
-                $0.hasPrefix(fileName) && $0.hasSuffix("." + (filePath as NSString).pathExtension)
+                $0.hasPrefix(result) && (!fileExt.isEmpty && $0.hasSuffix("." + fileExt))
             }
-            while similiar.contains(result) {
-                result = ((((fileName as NSString).stringByDeletingPathExtension + " \(i)") as NSString).pathExtension as NSString).stringByAppendingPathExtension((filePath as NSString).pathExtension)!
+            while similiar.contains(result + (!fileExt.isEmpty ? "." + fileExt : "")) {
+                result = "\(bareFileName) \(i)"
                 i += 1
             }
             dispatch_group_leave(group)
         }
         dispatch_group_wait(group, DISPATCH_TIME_FOREVER)
-        return (dirPath as NSString).stringByAppendingPathComponent(result)
+        let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
+        return (dirPath as NSString).stringByAppendingPathComponent(finalFile)
     }
     
     internal func throwError(path: String, code: FoundationErrorEnum) -> NSError {
