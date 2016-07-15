@@ -16,8 +16,8 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FileProvider"
-  s.version      = "0.1.0"
-  s.summary      = "Extended Local/WebDAV/SMB/CIFS/etc. File Manager for Swift on iOS and MacOS."
+  s.version      = "0.2.0"
+  s.summary      = "NSFileManager replacement for Local and Remote (WebDAV/Dropbox/SMB2) files on iOS and MacOS."
 
   # This description is used to generate tags and improve search results.
   #   * Think: What does it do? Why did you write it? What is the focus?
@@ -67,7 +67,7 @@ Pod::Spec.new do |s|
   #
 
   # s.platform     = :ios
-  # s.platform     = :ios, "7.0"
+  # s.platform     = :ios, "8.0"
 
   #  When using multiple platforms
   s.ios.deployment_target = "8.0"

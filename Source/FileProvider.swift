@@ -197,7 +197,7 @@ extension FileProviderBasic {
         dispatch_group_enter(group)
         self.contentsOfDirectoryAtPath(dirPath) { (contents, error) in
             var bareFileName = fileName
-            var number = Int(fileName.componentsSeparatedByString(" ").filter {
+            let number = Int(fileName.componentsSeparatedByString(" ").filter {
                 !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
                 }.last ?? "noname")
             if let _ = number {
