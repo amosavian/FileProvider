@@ -17,6 +17,8 @@ This library provides implementaion of WebDav and SMB/CIFS (incomplete) and loca
 
 All functions are async calls and it wont block your main thread.
 
+Local and WebDAV providers are fully tested and can be used in production environment.
+
 ## Features
 
 - [x] **LocalFileProvider** a wrapper around `NSFileManager` with some additions like searching and reading a portion of file.
@@ -83,7 +85,9 @@ For remote file providers authentication may be necessary:
 	
 For interaction with UI, set delegate variable of `FileProvider` object
 
-### Delegate
+You can use `absoluteURL()` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support)
+
+### Delegates
 
 For updating User interface please consider using delegate method instead of completion handlers. Delegate methods are guaranteed to run in main thread to avoid bugs.
 
@@ -130,9 +134,21 @@ Your class should conforms `FileProviderDelegate` class:
 
 It's recommended to use completion handlers for error handling or result processing.
 
+#### Controlling file operations
+
+You can also implement `FileOperationDelegate` protocol to control behaviour of file operation (copy, move/rename, remove and linking), and decide which files should be removed for example and which won't. 
+
+`fileProvider:shouldDoOperation:` method is called before doing a operation. You sould return `true` if you want to do operation or `false` if you want to stop that operation.
+
+`fileProvider:shouldProceedAfterError:operation:` will be called if an error occured during file operations. Return `true` if you want to continue operation on next files or `false` if you want stop operation further. Default value is false if you don't implement delegate.
+
+**Note: these methods will be called for files in a directory and its subfolders recursively.**
+
 ### Directory contents and file attributes
 
-There is a `FileObject` class which holds file attributes like size and creation date. You can retrieve information of files inside a directory or get information of a file directly
+There is a `FileObject` class which holds file attributes like size and creation date. You can retrieve information of files inside a directory or get information of a file directly.
+
+For a single file:
 
 	documentsProvider.attributesOfItemAtPath(path: "/file.txt", completionHandler: {
 	    (attributes: LocalFileObject?, error: ErrorType?) -> Void} in
@@ -143,6 +159,8 @@ There is a `FileObject` class which holds file attributes like size and creation
 			print("Is Read Only: \(isReadOnly)")
 		}
 	)
+
+To get list of files in a directory:
 
 	documentsProvider.contentsOfDirectoryAtPath(path: "/", 	completionHandler: {
 	    (contents: [LocalFileObject], error: ErrorType?) -> Void} in
@@ -158,6 +176,8 @@ There is a `FileObject` class which holds file attributes like size and creation
 
 	documentsProvider.currentPath = "/New Folder"
 	// now path is ~/Documents/New Folder
+	
+You can then pass "" (empty string) to contentsOfDirectoryAtPath method to list files in current directory.
 
 ### Creating File and Folders
 
@@ -173,24 +193,25 @@ Creating new file from data stream:
 
 ### Copy and Move/Rename Files
 
-	// Copy file old.txt to new.txt in current path
+Copy file old.txt to new.txt in current path:
+
 	documentsProvider.copyItemAtPath(path: "new folder/old.txt", toPath: "new.txt", overwrite: false, completionHandler: nil)
 
-	// Move file old.txt to new.txt in current path
+Move file old.txt to new.txt in current path:
+
 	documentsProvider.moveItemAtPath(path: "new folder/old.txt", toPath: "new.txt", overwrite: false, completionHandler: nil)
 
 ### Delete Files
 
 	documentsProvider.removeItemAtPath(path: "new.txt", completionHandler: nil)
 
-***Caution:*** This method will not delete directories with content.
-
+***Caution:*** This method will delete directories with all it's content recursively.
 
 ### Retrieve Content of File
 
 THere is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
 
-	documentsProvider.contentsAtPath(path: "old.txt:, completionHandler: {
+	documentsProvider.contentsAtPath(path: "old.txt", completionHandler: {
 		(contents: NSData?, error: ErrorType?) -> Void
 		if let contents = contents {
 			print(String(data: contents, encoding: NSUTF8StringEncoding)) // "hello world!"
@@ -213,13 +234,25 @@ If you want to retrieve a portion of file you should can `contentsAtPath` method
 
 ### Monitoring FIle Changes
 
+You can monitor updates in some file system (Local and SMB2), there is three methods in supporting provider you can use to register a handler, to unregister and to check whether it's being monitored or not. It's useful to find out when new files added or removed from directory and update user interface. The handler will be dispatched to main threads to avoid UI bugs with a 0.25 sec delay.
+
+	documentsProvider.registerNotifcation(provider.currentPath)
+	{
+		// calling functions to update UI 
+	}
+	
+	// To discontinue monitoring folders:
+	documentsProvider.unregisterNotifcation(provider.currentPath)
+
+* **Please note** in LocalFileProvider it will also monitor changes in subfolders. This behaviour can varies according to file system specification.
+
 ## Contribute
 
 We would love for you to contribute to **FileProvider**, check the `LICENSE` file for more info.
 
 ## Meta
 
-Amir-Abbas Mousavia  – [@amosavian](https://twitter.com/amosavian)
+Amir-Abbas Mousavian  – [@amosavian](https://twitter.com/amosavian)
 
 Distributed under the MIT license. See `LICENSE` for more information.
 
