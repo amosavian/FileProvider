@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FileProvider"
-  s.version      = "0.2.0"
+  s.version      = "0.3.0"
   s.summary      = "NSFileManager replacement for Local and Remote (WebDAV/Dropbox/SMB2) files on iOS and MacOS."
 
   # This description is used to generate tags and improve search results.
@@ -93,8 +93,8 @@ Pod::Spec.new do |s|
   #  Not including the public_header_files will make all headers public.
   #
 
-  s.source_files  = "Source/*.swift"
-  s.exclude_files = "Source/Exclude"
+  s.source_files  = "Sources/*.swift"
+  s.exclude_files = "Sources/Exclude"
 
   # s.public_header_files = "Classes/**/*.h"
 
