@@ -22,6 +22,13 @@ internal func encode<T>(inout value: T) -> NSData {
     }
 }
 
+internal func encode<T>(value: T) -> NSData {
+    var value = value
+    return withUnsafePointer(&value) { p in
+        NSData(bytes: p, length: sizeofValue(value))
+    }
+}
+
 internal func decode<T>(data: NSData) -> T {
     let pointer = UnsafeMutablePointer<T>.alloc(sizeof(T.Type))
     data.getBytes(pointer, length: sizeof(T.Type))
