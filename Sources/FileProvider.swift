@@ -239,20 +239,24 @@ extension FileProviderBasic {
         assert(false, "method not implemented")
     }
     
-    internal func resolveRFCDate(httpDateString: String) -> NSDate? {
+    internal func resolveDate(dateString: String) -> NSDate? {
         let dateFor: NSDateFormatter = NSDateFormatter()
         dateFor.locale = NSLocale(localeIdentifier: "en_US")
         dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
-        if let rfc1123 = dateFor.dateFromString(httpDateString) {
+        if let rfc1123 = dateFor.dateFromString(dateString) {
             return rfc1123
         }
         dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
-        if let rfc850 = dateFor.dateFromString(httpDateString) {
+        if let rfc850 = dateFor.dateFromString(dateString) {
             return rfc850
         }
         dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        if let asctime = dateFor.dateFromString(httpDateString) {
+        if let asctime = dateFor.dateFromString(dateString) {
             return asctime
+        }
+        dateFor.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
+        if let isotime = dateFor.dateFromString(dateString) {
+            return isotime
         }
         //self.init()
         return nil

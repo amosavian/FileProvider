@@ -151,7 +151,6 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
 
 extension WebDAVFileProvider: FileProviderOperations {
     public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
-        let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
@@ -179,42 +178,21 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
-        let url = absoluteURL(path)
-        let request = NSMutableURLRequest(URL: url)
-        request.HTTPMethod = "MOVE"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
-        request.setValue(absoluteURL(path).absoluteString, forHTTPHeaderField: "Destination")
-        if !overwrite {
-            request.setValue("F", forHTTPHeaderField: "Overwrite")
-        }
-        let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
-                defer {
-                    self.delegateNotify(.Move(source: path, destination: toPath), error: error)
-                }
-                if code == .MultiStatus, let data = data {
-                    let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses {
-                        if xresponse.status >= 300 {
-                            completionHandler?(error: FileProviderWebDavError(code: code, url: url))
-                        }
-                    }
-                } else {
-                    completionHandler?(error: FileProviderWebDavError(code: code, url: url))
-                }
-                return
-            }
-            completionHandler?(error: error)
-        }
-        task.resume()
+        self.copyMoveItemAtPath(true, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     public func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
+        self.copyMoveItemAtPath(false, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
+    }
+    
+    private func copyMoveItemAtPath(move:Bool, path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
-        request.HTTPMethod = "COPY"
+        if move {
+            request.HTTPMethod = "MOVE"
+        } else {
+            request.HTTPMethod = "COPY"
+        }
         request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
         request.setValue(absoluteURL(path).absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
@@ -223,14 +201,13 @@ extension WebDAVFileProvider: FileProviderOperations {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
-                    self.delegateNotify(.Copy(source: path, destination: toPath), error: error)
+                    let op = move ? FileOperation.Move(source: path, destination: toPath) : .Copy(source: path, destination: toPath)
+                    self.delegateNotify(op, error: error)
                 }
                 if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses {
-                        if xresponse.status >= 300 {
-                            completionHandler?(error: FileProviderWebDavError(code: code, url: url))
-                        }
+                    for xresponse in xresponses where xresponse.status >= 300 {
+                        completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                     }
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
@@ -243,7 +220,6 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
-        let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "DELETE"
@@ -255,10 +231,8 @@ extension WebDAVFileProvider: FileProviderOperations {
                 }
                 if code == .MultiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses {
-                        if xresponse.status >= 300 {
-                            completionHandler?(error: FileProviderWebDavError(code: code, url: url))
-                        }
+                    for xresponse in xresponses where xresponse.status >= 300 {
+                        completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                     }
                 } else {
                     completionHandler?(error: FileProviderWebDavError(code: code, url: url))
@@ -301,19 +275,17 @@ extension WebDAVFileProvider: FileProviderOperations {
 
 extension WebDAVFileProvider: FileProviderReadWrite {
     public func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        let request = NSMutableURLRequest(URL: absoluteURL(path))
-        request.HTTPMethod = "GET"
-        let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            completionHandler(contents: data, error: error)
-        }
-        task.resume()
+        self.contentsAtPath(path, offset: 0, length: -1, completionHandler: completionHandler)
     }
     
     public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        let session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration())
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "GET"
-        request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
+        if length > 0 {
+            request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
+        } else if offset > 0 && length < 0 {
+            request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
+        }
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             completionHandler(contents: data, error: error)
         }
@@ -401,16 +373,12 @@ internal extension WebDAVFileProvider {
             let xml = try AEXMLDocument(xmlData: response)
             var rootnode = xml.root
             var responsetag = "response"
-            for node in rootnode.all ?? [] {
-                if node.name.lowercaseString.hasSuffix("multistatus") {
-                    rootnode = node
-                }
+            for node in rootnode.all ?? [] where node.name.lowercaseString.hasSuffix("multistatus") {
+                rootnode = node
             }
-            for node in rootnode.children ?? [] {
-                if node.name.lowercaseString.hasSuffix("response") {
-                    responsetag = node.name
-                    break
-                }
+            for node in rootnode.children ?? [] where node.name.lowercaseString.hasSuffix("response") {
+                responsetag = node.name
+                break
             }
             for responseNode in rootnode[responsetag].all ?? [] {
                 var hreftag = "href"
@@ -436,29 +404,23 @@ internal extension WebDAVFileProvider {
                     }
                     var propDic = [String: String]()
                     let propStatNode = responseNode[propstattag]
-                    for node in propStatNode.children ?? [] {
-                        if node.name.lowercaseString.hasSuffix("status") {
-                            statustag = node.name
-                            break
-                        }
+                    for node in propStatNode.children ?? [] where node.name.lowercaseString.hasSuffix("status"){
+                        statustag = node.name
+                        break
                     }
                     let statusDesc2 = (propStatNode[statustag].stringValue).componentsSeparatedByString(" ")
                     if statusDesc2.count > 2 {
                         status = Int(statusDesc2[1])
                     }
                     var proptag = "prop"
-                    for tnode in propStatNode.children ?? [] {
-                        if tnode.name.lowercaseString.hasSuffix("prop") {
-                            proptag = tnode.name
-                        }
+                    for tnode in propStatNode.children ?? [] where tnode.name.lowercaseString.hasSuffix("prop") {
+                        proptag = tnode.name
                         break
                     }
                     for propItemNode in propStatNode[proptag].children ?? [] {
                         propDic[propItemNode.name.componentsSeparatedByString(":").last!.lowercaseString] = propItemNode.value
-                        if propItemNode.name.hasSuffix("resourcetype") {
-                            if propItemNode.xmlStringCompact.containsString("collection") {
-                                propDic["getcontenttype"] = "httpd/unix-directory"
-                            }
+                        if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xmlStringCompact.containsString("collection") {
+                             propDic["getcontenttype"] = "httpd/unix-directory"
                         }
                     }
                     result.append(DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic))
@@ -476,8 +438,8 @@ internal extension WebDAVFileProvider {
         }
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.stringByRemovingPercentEncoding! as NSString).lastPathComponent
         let size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-        let createdDate = self.resolveRFCDate(davResponse.prop["creationdate"] ?? "")
-        let modifiedDate = self.resolveRFCDate(davResponse.prop["getlastmodified"] ?? "")
+        let createdDate = self.resolveDate(davResponse.prop["creationdate"] ?? "")
+        let modifiedDate = self.resolveDate(davResponse.prop["getlastmodified"] ?? "")
         let contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
         let isDirectory = contentType == "httpd/unix-directory"
         let entryTag = davResponse.prop["getetag"]
