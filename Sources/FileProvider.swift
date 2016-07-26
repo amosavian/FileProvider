@@ -185,6 +185,11 @@ extension FileProviderBasic {
         return url.URLByStandardizingPath!.absoluteString.stringByReplacingOccurrencesOfString(baseURL.absoluteString, withString: "/").stringByRemovingPercentEncoding!
     }
     
+    internal func correctPath(path: String?) -> String? {
+        guard let path = path else { return nil }
+        return path.hasPrefix("/") ? path : "/" + path
+    }
+    
     public func fileByUniqueName(filePath: String) -> String {
         let fileUrl = NSURL(fileURLWithPath: filePath)
         let dirPath = fileUrl.URLByDeletingLastPathComponent?.path ?? ""
