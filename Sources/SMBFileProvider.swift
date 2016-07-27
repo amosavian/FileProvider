@@ -20,12 +20,12 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     typealias FileObjectClass = FileObject
     
     init? (baseURL: NSURL, credential: NSURLCredential, afterInitialized: SimpleCompletionHandler) {
-        guard baseURL.scheme.lowercaseString == "smb" else {
+        guard baseURL.uw_scheme.lowercaseString == "smb" else {
             return nil
         }
         self.baseURL = baseURL
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
-        //let url = baseURL.absoluteString
+        //let url = baseURL.uw_absoluteString
         self.credential = credential
     }
         

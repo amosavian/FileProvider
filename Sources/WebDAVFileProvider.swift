@@ -85,12 +85,12 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
     }
     
     init? (baseURL: NSURL, credential: NSURLCredential?) {
-        if  !["http", "https"].contains(baseURL.scheme.lowercaseString) {
+        if  !["http", "https"].contains(baseURL.uw_scheme.lowercaseString) {
             return nil
         }
         self.baseURL = baseURL
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
-        //let url = baseURL.absoluteString
+        //let url = baseURL.uw_absoluteString
         self.credential = credential
     }
     
@@ -102,7 +102,7 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
@@ -128,7 +128,7 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
@@ -154,7 +154,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
                 completionHandler?(error: FileProviderWebDavError(code: code, url: url))
@@ -193,8 +193,8 @@ extension WebDAVFileProvider: FileProviderOperations {
         } else {
             request.HTTPMethod = "COPY"
         }
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
-        request.setValue(absoluteURL(path).absoluteString, forHTTPHeaderField: "Destination")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(absoluteURL(path).uw_absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
@@ -223,7 +223,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "DELETE"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
@@ -249,9 +249,9 @@ extension WebDAVFileProvider: FileProviderOperations {
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
             completionHandler?(error: error)
-            self.delegateNotify(.Move(source: localFile.absoluteString, destination: toPath), error: error)
+            self.delegateNotify(.Move(source: localFile.uw_absoluteString, destination: toPath), error: error)
         }
-        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.absoluteString, "dest": toPath])
+        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.uw_absoluteString, "dest": toPath])
         task.resume()
     }
     
@@ -268,7 +268,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             }
             completionHandler?(error: error)
         }
-        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": toLocalURL.absoluteString])
+        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": toLocalURL.uw_absoluteString])
         task.resume()
     }
 }
@@ -294,7 +294,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     
     public func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
         // FIXME: lock destination before writing process
-        let url = atomically ? absoluteURL(path).URLByAppendingPathExtension("tmp") : absoluteURL(path)
+        let url = atomically ? absoluteURL(path).uw_URLByAppendingPathExtension("tmp") : absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
@@ -317,7 +317,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.absoluteString, forHTTPHeaderField: "Host")
+        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         //request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
