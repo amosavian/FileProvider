@@ -9,9 +9,9 @@
 import Foundation
 
 public final class LocalFileObject: FileObject {
-    let allocatedSize: Int64
+    public let allocatedSize: Int64
     
-    init(absoluteURL: NSURL, name: String, path: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
         self.allocatedSize = allocatedSize
         super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
@@ -31,14 +31,14 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
     public let opFileManager = NSFileManager()
     private var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
-    init () {
+    public init () {
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
         operation_queue = dispatch_queue_create("FileProvider.\(type).Operation", DISPATCH_QUEUE_SERIAL)
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
     }
     
-    init (baseURL: NSURL) {
+    public init (baseURL: NSURL) {
         self.baseURL = baseURL
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
         operation_queue = dispatch_queue_create("FileProvider.\(type).Operation", DISPATCH_QUEUE_SERIAL)
@@ -334,7 +334,7 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
 }
 
-extension LocalFileProvider {
+public extension LocalFileProvider {
     public func createSymbolicLinkAtPath(path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         dispatch_async(operation_queue) {
             do {
@@ -353,7 +353,7 @@ extension LocalFileProvider {
     }
 }
 
-class LocalFileProviderManagerDelegate: NSObject, NSFileManagerDelegate {
+internal class LocalFileProviderManagerDelegate: NSObject, NSFileManagerDelegate {
     weak var provider: LocalFileProvider?
     
     init(provider: LocalFileProvider) {

@@ -49,7 +49,7 @@ public class TCPSocketClient: NSObject, NSStreamDelegate {
      * - parameter secure: establishing connection using an SSL/TLS connection
      */
     
-    init?(baseURL: NSURL, secure: Bool = false) {
+    public init?(baseURL: NSURL, secure: Bool = false) {
         self.baseURL = baseURL
         self.secureConnection = secure
         let scheme = baseURL.uw_scheme.lowercaseString

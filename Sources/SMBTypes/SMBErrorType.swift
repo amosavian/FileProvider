@@ -10,7 +10,7 @@ import Foundation
 
 /// Error Types and Description
 
-enum NTStatus: UInt32, ErrorType, CustomStringConvertible {
+public enum NTStatus: UInt32, ErrorType, CustomStringConvertible {
     case SUCCESS                        = 0x00000000
     case NOT_IMPLEMENTED                = 0xC0000002
     case INVALID_DEVICE_REQUEST         = 0xC0000010

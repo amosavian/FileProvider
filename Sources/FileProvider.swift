@@ -25,7 +25,7 @@ public enum FileType: String {
     case NamedPipe
     case Unknown
     
-    init(urlResourceTypeValue: String) {
+    public init(urlResourceTypeValue: String) {
         switch urlResourceTypeValue {
         case NSURLFileResourceTypeNamedPipe: self = .NamedPipe
         case NSURLFileResourceTypeCharacterSpecial: self = .CharacterSpecial
@@ -39,7 +39,7 @@ public enum FileType: String {
         }
     }
     
-    init(fileTypeValue: String) {
+    public init(fileTypeValue: String) {
         switch fileTypeValue {
         case NSFileTypeCharacterSpecial: self = .CharacterSpecial
         case NSFileTypeDirectory: self = .Directory
@@ -53,7 +53,7 @@ public enum FileType: String {
     }
 }
 
-protocol FoundationErrorEnum {
+public protocol FoundationErrorEnum {
     init? (rawValue: Int)
     var rawValue: Int { get }
 }
@@ -62,17 +62,17 @@ extension NSURLError: FoundationErrorEnum {}
 extension NSCocoaError: FoundationErrorEnum {}
 
 public class FileObject {
-    let absoluteURL: NSURL?
-    let name: String
-    let path: String
-    let size: Int64
-    let createdDate: NSDate?
-    let modifiedDate: NSDate?
-    let fileType: FileType
-    let isHidden: Bool
-    let isReadOnly: Bool
+    public let absoluteURL: NSURL?
+    public let name: String
+    public let path: String
+    public let size: Int64
+    public let createdDate: NSDate?
+    public let modifiedDate: NSDate?
+    public let fileType: FileType
+    public let isHidden: Bool
+    public let isReadOnly: Bool
     
-    init(absoluteURL: NSURL?, name: String, path: String, size: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    public init(absoluteURL: NSURL?, name: String, path: String, size: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
         self.absoluteURL = absoluteURL
         self.name = name
         self.path = path
@@ -84,7 +84,7 @@ public class FileObject {
         self.isReadOnly = isReadOnly
     }
     
-    init(name: String, path: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
+    public init(name: String, path: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
         self.absoluteURL = nil
         self.name = name
         self.path = path
@@ -96,11 +96,11 @@ public class FileObject {
         self.isReadOnly = isReadOnly
     }
     
-    var isDirectory: Bool {
+    public var isDirectory: Bool {
         return self.fileType == .Directory
     }
     
-    var isSymLink: Bool {
+    public var isSymLink: Bool {
         return self.fileType == .SymbolicLink
     }
 }
@@ -156,7 +156,7 @@ public protocol FileProvider: FileProviderBasic, FileProviderOperations, FilePro
 }
 
 extension FileProviderBasic {
-    var bareCurrentPath: String {
+    public var bareCurrentPath: String {
         return currentPath.stringByTrimmingCharactersInSet(NSCharacterSet(charactersInString: ". /"))
     }
     
@@ -293,7 +293,7 @@ public protocol ExtendedFileProvider: FileProvider {
     func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
 }
 
-public enum FileOperation {
+public enum FileOperation: CustomStringConvertible {
     case Create (path: String)
     case Copy   (source: String, destination: String)
     case Move   (source: String, destination: String)
@@ -301,7 +301,7 @@ public enum FileOperation {
     case Remove (path: String)
     case Link   (link: String, target: String)
     
-    var description: String {
+    public var description: String {
         switch self {
         case .Create(path: _): return "Create"
         case .Copy(source: _, destination: _): return "Copy"
@@ -312,7 +312,7 @@ public enum FileOperation {
         }
     }
     
-    var actionDescription: String {
+    internal var actionDescription: String {
         switch self {
         case .Create(path: _): return "Creating"
         case .Copy(source: _, destination: _): return "Copying"
@@ -342,7 +342,7 @@ public protocol FileOperationDelegate: class {
 
 // THESE ARE METHODS TO PROVIDE COMPATIBILITY WITH SWIFT 2.3 SIMOULTANIOUSLY!
 
-extension NSURL {
+internal extension NSURL {
     var uw_scheme: String {
         #if swift(>=2.3)
             return self.scheme ?? ""

@@ -19,8 +19,8 @@ public enum FileProviderDropboxErrorCode: Int {
 }
 
 public struct FileProviderDropboxError: ErrorType, CustomStringConvertible {
-    let code: FileProviderDropboxErrorCode
-    let path: String
+    public let code: FileProviderDropboxErrorCode
+    public let path: String
     
     public var description: String {
         switch code {
@@ -36,11 +36,11 @@ public struct FileProviderDropboxError: ErrorType, CustomStringConvertible {
 }
 
 public final class DropboxFileObject: FileObject {
-    let serverTime: NSDate?
-    let id: String?
-    let rev: String?
+    public let serverTime: NSDate?
+    public let id: String?
+    public let rev: String?
     
-    init(absoluteURL: NSURL, name: String, path: String, size: Int64, serverTime: NSDate?, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, id: String?, rev: String?) {
+    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, serverTime: NSDate?, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, id: String?, rev: String?) {
         self.serverTime = serverTime
         self.id = id
         self.rev = rev
@@ -74,7 +74,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
         return _session!
     }
     
-    init? (baseURL: NSURL, credential: NSURLCredential?) {
+    public init? (baseURL: NSURL, credential: NSURLCredential?) {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercaseString) {
             return nil
         }

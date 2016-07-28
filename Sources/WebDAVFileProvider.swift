@@ -25,8 +25,8 @@ public enum FileProviderWebDavErrorCode: Int {
 }
 
 public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
-    let code: FileProviderWebDavErrorCode
-    let url: NSURL
+    public let code: FileProviderWebDavErrorCode
+    public let url: NSURL
     
     public var description: String {
         switch code {
@@ -48,10 +48,10 @@ public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
 }
 
 public final class WebDavFileObject: FileObject {
-    let contentType: String
-    let entryTag: String?
+    public let contentType: String
+    public let entryTag: String?
     
-    init(absoluteURL: NSURL, name: String, path: String, size: Int64, contentType: String, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, entryTag: String?) {
+    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, contentType: String, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, entryTag: String?) {
         self.contentType = contentType
         self.entryTag = entryTag
         super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
@@ -84,7 +84,7 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         return _session!
     }
     
-    init? (baseURL: NSURL, credential: NSURLCredential?) {
+    public init? (baseURL: NSURL, credential: NSURLCredential?) {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercaseString) {
             return nil
         }
