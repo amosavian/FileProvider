@@ -357,6 +357,8 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     // TODO: implements methods for lock mechanism
 }
 
+extension WebDAVFileProvider: FileProvider {}
+
 // MARK: WEBDAV XML response implementation
 
 internal extension WebDAVFileProvider {

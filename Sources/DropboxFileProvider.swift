@@ -335,6 +335,8 @@ internal extension DropboxFileProvider {
     }
 }
 
+extension DropboxFileProvider: FileProvider {}
+
 // MARK: URLSession delegate
 extension DropboxFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
     public func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {

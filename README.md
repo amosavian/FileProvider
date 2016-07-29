@@ -101,7 +101,7 @@ Your class should conforms `FileProviderDelegate` class:
 		documentsProvider.delegate = self
 	}
 	
-	func fileproviderSucceed(fileProvider: FileProvider, operation: FileOperation) {
+	func fileproviderSucceed(fileProvider: FileProviderOperations, operation: FileOperation) {
 		switch operation {
 		case .Copy(source: let source, destination: let dest):
 			NSLog("\(source) copied to \(dest).")
@@ -112,7 +112,7 @@ Your class should conforms `FileProviderDelegate` class:
 		}
 	}
 	
-    func fileproviderFailed(fileProvider: FileProvider, operation: FileOperation) {
+    func fileproviderFailed(fileProvider: FileProviderOperations, operation: FileOperation) {
     	switch operation {
 		case .Copy(source: let source, destination: let dest):
 			NSLog("copy of \(source) failed.")
@@ -123,7 +123,7 @@ Your class should conforms `FileProviderDelegate` class:
 		}
     }
 	
-    func fileproviderProgress(fileProvider: FileProvider, operation: FileOperation, progress: Float) {
+    func fileproviderProgress(fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
 		switch operation {
 		case .Copy(source: let source, destination: let dest):
 			NSLog("Copy\(source) to \(dest): \(progress * 100) completed.")
