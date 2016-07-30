@@ -11,6 +11,8 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Query Directory
     
+    
+    
     // MARK: SMB2 Change Notify
     
     // MARK: SMB2 Query Info

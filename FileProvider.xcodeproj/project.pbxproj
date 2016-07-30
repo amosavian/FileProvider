@@ -170,16 +170,16 @@
 			isa = PBXGroup;
 			children = (
 				7993969A1D48C02300086753 /* CIFSTypes.swift */,
+				799396A41D48C02300086753 /* SMBErrorType.swift */,
 				7993969B1D48C02300086753 /* SMB2DataTypes.swift */,
-				7993969C1D48C02300086753 /* SMB2FileHandle.swift */,
+				799396A31D48C02300086753 /* SMB2Types.swift */,
+				799396A21D48C02300086753 /* SMB2Tree.swift */,
+				799396A01D48C02300086753 /* SMB2Session.swift */,
 				7993969D1D48C02300086753 /* SMB2FileOperation.swift */,
+				7993969C1D48C02300086753 /* SMB2FileHandle.swift */,
 				7993969E1D48C02300086753 /* SMB2IOCtl.swift */,
 				7993969F1D48C02300086753 /* SMB2Query.swift */,
-				799396A01D48C02300086753 /* SMB2Session.swift */,
 				799396A11D48C02300086753 /* SMB2SetInfo.swift */,
-				799396A21D48C02300086753 /* SMB2Tree.swift */,
-				799396A31D48C02300086753 /* SMB2Types.swift */,
-				799396A41D48C02300086753 /* SMBErrorType.swift */,
 			);
 			path = SMBTypes;
 			sourceTree = "<group>";
@@ -778,6 +778,7 @@
 				7993966E1D48B7F600086753 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		7993967A1D48B80D00086753 /* Build configuration list for PBXNativeTarget "FileProvider OSX" */ = {
 			isa = XCConfigurationList;
@@ -786,6 +787,7 @@
 				7993967C1D48B80D00086753 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		799396871D48B82700086753 /* Build configuration list for PBXNativeTarget "FileProvider tvOS" */ = {
 			isa = XCConfigurationList;
@@ -794,6 +796,7 @@
 				799396891D48B82700086753 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

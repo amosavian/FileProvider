@@ -243,11 +243,12 @@ extension SMB2 {
         // SRV_ENUMERATE_SNAPSHOTS
         struct SrvSnapshots: IOCtlResponseProtocol {
             let count: UInt32
+            let returnedCount: UInt32
             let snapshots: [SMBTime]
             
             init?(data: NSData) {
                 self.count = decode(data)
-                let returnedCount: UInt32 = decode(data.subdataWithRange(NSRange(location: 4, length: 4)))
+                self.returnedCount = decode(data.subdataWithRange(NSRange(location: 4, length: 4)))
                 //let size: UInt32 = decode(data.subdataWithRange(NSRange(location: 8, length: 4)))
                 var snapshots = [SMBTime]()
                 let dateFormatter = NSDateFormatter()

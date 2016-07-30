@@ -30,7 +30,7 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 
 ## Requirements
 
-- **Swift 2.2**
+- **Swift 2.2 or 2.3**
 - iOS 8.0 , OSX 10.10
 - XCode 7.3
 
@@ -81,7 +81,9 @@ You can't change the base url later. and all paths are related to this base url 
 For remote file providers authentication may be necessary:
 
 	let credential = NSURLCredential(user: "user", password: "pass", persistence: NSURLCredentialPersistence.Permanent)
-	let webdavProvider = WebDAVFileProvider(baseURL: "http://www.example.com/dav", credential: credential)
+	let webdavProvider = WebDAVFileProvider(baseURL: NSURL(string: "http://www.example.com/dav")!, credential: credential)
+
+* In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
 * For Dropbox, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token.
 	
@@ -211,7 +213,7 @@ Move file old.txt to new.txt in current path:
 
 ### Retrieve Content of File
 
-THere is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
+There is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
 
 	documentsProvider.contentsAtPath(path: "old.txt", completionHandler: {
 		(contents: NSData?, error: ErrorType?) -> Void
@@ -252,6 +254,13 @@ You can monitor updates in some file system (Local and SMB2), there is three met
 
 We would love for you to contribute to **FileProvider**, check the `LICENSE` file for more info.
 
+## Projects in use
+
+* [EDM - Browse and Receive Files](https://itunes.apple.com/us/app/edm-browse-and-receive-files/id948397575?ls=1&mt=8)
+* [File Manager - PDF Reader & Music Player](https://itunes.apple.com/us/app/file-manager-pdf-reader-music/id1017809685?ls=1&mt=8)
+
+If you used this library in your project, you can open an issue to inform us.
+
 ## Meta
 
 Amir-Abbas Mousavian  – [@amosavian](https://twitter.com/amosavian)
@@ -260,7 +269,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [https://github.com/yourname/github-link](https://github.com/dbader/)
 
-[swift-image]:https://img.shields.io/badge/swift-2.2-green.svg
+[swift-image]:https://img.shields.io/badge/swift-2.2%2C%202.3-green.svg
 [swift-url]: https://swift.org/
 [license-image]: https://img.shields.io/badge/License-MIT-blue.svg
 [license-url]: LICENSE

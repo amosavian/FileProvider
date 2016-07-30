@@ -324,6 +324,7 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
         for (i, monitor) in monitors.enumerate() {
             if self.relativePathOf(url: monitor.url) == path {
                 removedMonitor = monitors.removeAtIndex(i)
+                break
             }
         }
         removedMonitor?.stop()
