@@ -102,7 +102,7 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
@@ -128,7 +128,7 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
         let request = NSMutableURLRequest(URL: absoluteURL(path))
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
@@ -154,7 +154,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
                 completionHandler?(error: FileProviderWebDavError(code: code, url: url))
@@ -193,7 +193,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         } else {
             request.HTTPMethod = "COPY"
         }
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue(absoluteURL(path).uw_absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
@@ -223,7 +223,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "DELETE"
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
                 defer {
@@ -317,7 +317,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
+        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         //request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
