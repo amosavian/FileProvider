@@ -8,45 +8,6 @@
 
 import Foundation
 
-public enum FileProviderWebDavErrorCode: Int {
-    case OK = 200
-    case Created = 201
-    case NoContent = 204
-    case MultiStatus = 207
-    case Forbidden = 403
-    case MethodNotAllowed = 405
-    case Conflict = 409
-    case PreconditionFailed = 412
-    case UnsupportedMediaType = 415
-    case Locked = 423
-    case FailedDependency = 424
-    case BadGateway = 502
-    case InsufficientStorage = 507
-}
-
-public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
-    public let code: FileProviderWebDavErrorCode
-    public let url: NSURL
-    
-    public var description: String {
-        switch code {
-        case .OK: return "OK"
-        case .Created: return "Created"
-        case .NoContent: return "No Content"
-        case .MultiStatus: return ""
-        case .Forbidden: return "Forbidden"
-        case .MethodNotAllowed: return "Method Not Allowed"
-        case .Conflict: return "Conflict"
-        case .PreconditionFailed: return "Precondition Failed"
-        case .UnsupportedMediaType: return "Unsupported Media Type"
-        case .Locked: return "Locked"
-        case .FailedDependency: return "Failed Dependency"
-        case .BadGateway: return "Bad Gateway"
-        case .InsufficientStorage: return "Insufficient Storage"
-        }
-    }
-}
-
 public final class WebDavFileObject: FileObject {
     public let contentType: String
     public let entryTag: String?
@@ -102,12 +63,15 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
         request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 var fileObjects = [WebDavFileObject]()
@@ -117,31 +81,35 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
                     }
                     fileObjects.append(self.mapToFileObject(attr))
                 }
-                completionHandler(contents: fileObjects, error: error)
+                completionHandler(contents: fileObjects, error: responseError ?? error)
                 return
             }
-            completionHandler(contents: [], error: error)
+            completionHandler(contents: [], error: responseError ?? error)
         }
         task.resume()
     }
     
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
-        let request = NSMutableURLRequest(URL: absoluteURL(path))
+        let url = absoluteURL(path)
+        let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
         request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 if let attr = xresponse.first {
-                    completionHandler(attributes: self.mapToFileObject(attr), error: error)
+                    completionHandler(attributes: self.mapToFileObject(attr), error: responseError ?? error)
                     return
                 }
             }
-            completionHandler(attributes: nil, error: error)
+            completionHandler(attributes: nil, error: responseError ?? error)
         }
         task.resume()
     }
@@ -154,24 +122,32 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL((atPath as NSString).stringByAppendingPathComponent(folderName) + "/")
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "MKCOL"
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) where code != .OK {
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) where code != .OK {
                 completionHandler?(error: FileProviderWebDavError(code: code, url: url))
                 return
             }
-            completionHandler?(error: error)
-            self.delegateNotify(.Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"), error: error)
+            completionHandler?(error: responseError ?? error)
+            self.delegateNotify(.Create(path: (atPath as NSString).stringByAppendingPathComponent(folderName) + "/"), error: responseError ?? error)
         }
         task.resume()
     }
     
     public func createFile(fileAttribs: FileObject, atPath path: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
-        let request = NSMutableURLRequest(URL: absoluteURL(path))
+        let url = absoluteURL(path)
+        let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
-            completionHandler?(error: error)
-            self.delegateNotify(.Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)), error: error)
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
+            completionHandler?(error: responseError ?? error)
+            self.delegateNotify(.Create(path: (path as NSString).stringByAppendingPathComponent(fileAttribs.name)), error: responseError ?? error)
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Create", "source": (path as NSString).stringByAppendingPathComponent(fileAttribs.name)])
         task.resume()
@@ -193,13 +169,12 @@ extension WebDAVFileProvider: FileProviderOperations {
         } else {
             request.HTTPMethod = "COPY"
         }
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         request.setValue(absoluteURL(path).uw_absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
                 defer {
                     let op = move ? FileOperation.Move(source: path, destination: toPath) : .Copy(source: path, destination: toPath)
                     self.delegateNotify(op, error: error)
@@ -223,9 +198,8 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "DELETE"
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            if let response = response as? NSHTTPURLResponse, let code = FileProviderWebDavErrorCode(rawValue: response.statusCode) {
+            if let response = response as? NSHTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
                 defer {
                     self.delegateNotify(.Remove(path: path), error: error)
                 }
@@ -245,19 +219,29 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
-        let request = NSMutableURLRequest(URL: absoluteURL(toPath))
+        let url = absoluteURL(toPath)
+        let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
-            completionHandler?(error: error)
-            self.delegateNotify(.Move(source: localFile.uw_absoluteString, destination: toPath), error: error)
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
+            completionHandler?(error: responseError ?? error)
+            self.delegateNotify(.Move(source: localFile.uw_absoluteString, destination: toPath), error: responseError ?? error)
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.uw_absoluteString, "dest": toPath])
         task.resume()
     }
     
     public func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
-        let request = NSMutableURLRequest(URL: absoluteURL(path))
+        let url = absoluteURL(path)
+        let request = NSMutableURLRequest(URL: url)
         let task = session.downloadTaskWithRequest(request) { (sourceFileURL, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
             if let sourceFileURL = sourceFileURL {
                 do {
                     try NSFileManager.defaultManager().copyItemAtURL(sourceFileURL, toURL: toLocalURL)
@@ -266,7 +250,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                     return
                 }
             }
-            completionHandler?(error: error)
+            completionHandler?(error: responseError ?? error)
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": toLocalURL.uw_absoluteString])
         task.resume()
@@ -279,7 +263,8 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        let request = NSMutableURLRequest(URL: absoluteURL(path))
+        let url = absoluteURL(path)
+        let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "GET"
         if length > 0 {
             request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
@@ -287,7 +272,11 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            completionHandler(contents: data, error: error)
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
+            completionHandler(contents: data, error: responseError ?? error)
         }
         task.resume()
     }
@@ -298,15 +287,19 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PUT"
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: self.absoluteURL(path))
+            }
             defer {
-                self.delegateNotify(.Modify(path: path), error: error)
+                self.delegateNotify(.Modify(path: path), error: responseError ?? error)
+            }
+            if let error = error {
+                completionHandler?(error: error)
+                return
             }
             if atomically {
                 self.moveItemAtPath((path as NSString).stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
-            }
-            if let error = error {
-                // If there is no error, completionHandler has been executed by move command
-                completionHandler?(error: error)
             }
         }
         task.taskDescription = self.dictionaryToJSON(["type": "Modify", "source": path])
@@ -317,13 +310,16 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let url = absoluteURL(path)
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "PROPFIND"
-        //request.setValue(baseURL?.uw_absoluteString, forHTTPHeaderField: "Host")
         //request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
         request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             // FIXME: paginating results
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, url: url)
+            }
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 var fileObjects = [WebDavFileObject]()
@@ -335,10 +331,10 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                     fileObjects.append(fileObject)
                     foundItemHandler?(fileObject)
                 }
-                completionHandler(files: fileObjects, error: error)
+                completionHandler(files: fileObjects, error: responseError ?? error)
                 return
             }
-            completionHandler(files: [], error: error)
+            completionHandler(files: [], error: responseError ?? error)
         }
         task.resume()
     }
@@ -508,10 +504,155 @@ extension WebDAVFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDele
     }
     
     public func URLSession(session: NSURLSession, task: NSURLSessionTask, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
-        completionHandler(NSURLSessionAuthChallengeDisposition.UseCredential, credential)
+        let deposition: NSURLSessionAuthChallengeDisposition = credential != nil ? .UseCredential : .PerformDefaultHandling
+        completionHandler(deposition, credential)
     }
     
     public func URLSession(session: NSURLSession, didReceiveChallenge challenge: NSURLAuthenticationChallenge, completionHandler: (NSURLSessionAuthChallengeDisposition, NSURLCredential?) -> Void) {
-        completionHandler(NSURLSessionAuthChallengeDisposition.UseCredential, credential)
+        let deposition: NSURLSessionAuthChallengeDisposition = credential != nil ? .UseCredential : .PerformDefaultHandling
+        completionHandler(deposition, credential)
+    }
+}
+
+public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
+    public let code: FileProviderHTTPErrorCode
+    public let url: NSURL
+    
+    public var description: String {
+        return code.description
+    }
+}
+
+public enum FileProviderHTTPErrorCode: Int {
+    case OK = 200
+    case Created = 201
+    case Accepted = 202
+    case NonAuthoritativeInformation = 203
+    case NoContent = 204
+    case ResetContent = 205
+    case PartialContent = 206
+    case MultiStatus = 207
+    case AlreadyReported = 208
+    case IMUsed = 226
+    case MultipleChoices = 300
+    case MovedPermanently = 301
+    case Found = 302
+    case SeeOther = 303
+    case NotModified = 304
+    case UseProxy = 305
+    case TemporaryRedirect = 307
+    case PermanentRedirect = 308
+    case BadRequest = 400
+    case Unauthorized = 401
+    case PaymentRequired = 402
+    case Forbidden = 403
+    case NotFound = 404
+    case MethodNotAllowed = 405
+    case NotAcceptable = 406
+    case ProxyAuthenticationRequired = 407
+    case RequestTimeout = 408
+    case Conflict = 409
+    case Gone = 410
+    case LengthRequired = 411
+    case PreconditionFailed = 412
+    case PayloadTooLarge = 413
+    case URITooLong = 414
+    case UnsupportedMediaType = 415
+    case RangeNotSatisfiable = 416
+    case ExpectationFailed = 417
+    case MisdirectedRequest = 421
+    case UnprocessableEntity = 422
+    case Locked = 423
+    case FailedDependency = 424
+    case UpgradeRequired = 426
+    case PreconditionRequired = 428
+    case TooManyRequests = 429
+    case RequestHeaderFieldsTooLarge = 431
+    case UnavailableForLegalReasons = 451
+    case InternalServerError = 500
+    case BadGateway = 502
+    case ServiceUnavailable = 503
+    case GatewayTimeout = 504
+    case HTTPVersionNotSupported = 505
+    case VariantlsoNegotiates = 506
+    case InsufficientStorage = 507
+    case LoopDetected = 508
+    case NotExtended = 510
+    case NetworkAuthenticationRequired = 511
+    
+    public var description: String {
+        switch self.rawValue {
+        case 100: return "Continue"
+        case 101: return "Switching Protocols"
+        case 102: return "Processing"
+        case 200: return "OK"
+        case 201: return "Created"
+        case 202: return "Accepted"
+        case 203: return "Non-Authoritative Information"
+        case 204: return "No Content"
+        case 205: return "Reset Content"
+        case 206: return "Partial Content"
+        case 207: return "Multi-Status"
+        case 208: return "Already Reported"
+        case 226: return "IM Used"
+        case 300: return "Multiple Choices"
+        case 301: return "Moved Permanently"
+        case 302: return "Found"
+        case 303: return "See Other"
+        case 304: return "Not Modified"
+        case 305: return "Use Proxy"
+        case 307: return "Temporary Redirect"
+        case 308: return "Permanent Redirect"
+        case 400: return "Bad Request"
+        case 401: return "Unauthorized/Expired Session"
+        case 402: return "Payment Required"
+        case 403: return "Forbidden"
+        case 404: return "Not Found"
+        case 405: return "Method Not Allowed"
+        case 406: return "Not Acceptable"
+        case 407: return "Proxy Authentication Required"
+        case 408: return "Request Timeout"
+        case 409: return "Conflict"
+        case 410: return "Gone"
+        case 411: return "Length Required"
+        case 412: return "Precondition Failed"
+        case 413: return "Payload Too Large"
+        case 414: return "URI Too Long"
+        case 415: return "Unsupported Media Type"
+        case 416: return "Range Not Satisfiable"
+        case 417: return "Expectation Failed"
+        case 421: return "Misdirected Request"
+        case 422: return "Unprocessable Entity"
+        case 423: return "Locked"
+        case 424: return "Failed Dependency"
+        case 426: return "Upgrade Required"
+        case 428: return "Precondition Required"
+        case 429: return "Too Many Requests"
+        case 431: return "Request Header Fields Too Large"
+        case 451: return "Unavailable For Legal Reasons"
+        case 500: return "Internal Server Error"
+        case 501: return "Not Implemented"
+        case 502: return "Bad Gateway"
+        case 503: return "Service Unavailable"
+        case 504: return "Gateway Timeout"
+        case 505: return "HTTP Version Not Supported"
+        case 506: return "Variant Also Negotiates"
+        case 507: return "Insufficient Storage"
+        case 508: return "Loop Detected"
+        case 510: return "Not Extended"
+        case 511: return "Network Authentication Required"
+        default: return typeDescription
+        }
+    }
+    
+    public var typeDescription: String {
+        switch self.rawValue {
+        case 100...199: return "Informational"
+        case 200...299: return "Success"
+        case 300...399: return "Redirection"
+        case 400...499: return "Client Error"
+        case 500...599: return "Server Error"
+        default: return "Server Error"
+        }
     }
 }

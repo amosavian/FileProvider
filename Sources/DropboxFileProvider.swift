@@ -8,30 +8,12 @@
 
 import Foundation
 
-public enum FileProviderDropboxErrorCode: Int {
-    case BadInputParameter = 400
-    case ExpiredToken = 401
-    case Forbidden = 403
-    case Endpoint = 409
-    case TooManyRequests = 429
-    case InternalServer = 500
-    case BadGateway = 502
-}
-
 public struct FileProviderDropboxError: ErrorType, CustomStringConvertible {
-    public let code: FileProviderDropboxErrorCode
+    public let code: FileProviderHTTPErrorCode
     public let path: String
     
     public var description: String {
-        switch code {
-        case .BadInputParameter: return "Bad input parameter."
-        case .ExpiredToken: return "Bad or expired token. To fix this, you should re-authenticate the user."
-        case .Forbidden: return "Forbidden."
-        case .Endpoint: return "Endpoint-specific error."
-        case .TooManyRequests: return "Your app is making too many requests"
-        case .InternalServer: return "An error occurred on the Dropbox servers."
-        case .BadGateway: return "An error occurred on the Dropbox servers."
-        }
+        return code.description
     }
 }
 
@@ -89,7 +71,9 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
     }
     
     public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void)) {
-        NotImplemented()
+        list(path) { (contents, cursor, error) in
+            completionHandler(contents: contents, error: error)
+        }
     }
     
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
@@ -105,7 +89,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
                 defer {
                     self.delegateNotify(FileOperation.Create(path: path), error: error)
                 }
-                let code = FileProviderDropboxErrorCode(rawValue: response.statusCode)
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
                     let json = self.jsonToDictionary(jsonStr)
@@ -181,7 +165,7 @@ extension DropboxFileProvider: FileProviderOperations {
         request.HTTPBody = dictionaryToJSON(requestDictionary)?.dataUsingEncoding(NSUTF8StringEncoding)
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse {
-                let code = FileProviderDropboxErrorCode(rawValue: response.statusCode)
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "") : nil
                 defer {
                     self.delegateNotify(operation, error: error ?? dbError)
@@ -219,7 +203,7 @@ extension DropboxFileProvider: FileProviderOperations {
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTaskWithRequest(request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? NSHTTPURLResponse where httpResponse.statusCode < 300 else {
-                let code = FileProviderDropboxErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
+                let code = FileProviderHTTPErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
                 completionHandler?(error: dbError ?? error)
                 return
@@ -255,7 +239,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTaskWithRequest(request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? NSHTTPURLResponse where httpResponse.statusCode < 300 else {
-                let code = FileProviderDropboxErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
+                let code = FileProviderHTTPErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
                 completionHandler(contents: nil, error: dbError ?? error)
                 return
@@ -297,7 +281,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     private func registerNotifcation(path: String, eventHandler: (() -> Void)) {
-        /* There is two ways to monitor folders chaging in Dropbox. Either using webooks
+        /* There is two ways to monitor folders changing in Dropbox. Either using webooks
          * which means you have to implement a server to translate it to push notifications
          * or using apiv2 list_folder/longpoll method. The second one is implemeted here.
          * Tough webhooks are much more efficient, longpoll is much simpler to implement!
@@ -307,6 +291,54 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     private func unregisterNotifcation(path: String) {
         NotImplemented()
+    }
+}
+
+private extension DropboxFileProvider {
+    private func list(path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, completionHandler: ((contents: [FileObject], cursor: String?, error: ErrorType?) -> Void)) {
+        var requestDictionary = [String: AnyObject]()
+        let url: NSURL
+        if let cursor = cursor {
+            url = NSURL(string: "https://api.dropboxapi.com/2/files/list_folder/continue")!
+            requestDictionary["cursor"] = cursor
+        } else {
+            url = NSURL(string: "https://api.dropboxapi.com/2/files/list_folder")!
+            requestDictionary["path"] = correctPath(path)
+            requestDictionary["recursive"] = NSNumber(bool: recursive)
+        }
+        let request = NSMutableURLRequest(URL: url)
+        request.HTTPMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.HTTPBody = dictionaryToJSON(requestDictionary)?.dataUsingEncoding(NSUTF8StringEncoding)
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            var responseError: FileProviderDropboxError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderDropboxError(code: rCode, path: path)
+            }
+            
+            if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
+                let json = self.jsonToDictionary(jsonStr)
+                if let entries = json?["entries"] as? [AnyObject] where entries.count > 0 {
+                    var files = prevContents
+                    for entry in entries {
+                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                            files.append(file)
+                        }
+                    }
+                    let ncursor = json?["cursor"] as? String
+                    let hasmore = (json?["has_more"] as? NSNumber)?.boolValue ?? false
+                    if hasmore {
+                        self.list(path, cursor: ncursor, prevContents: files, completionHandler: completionHandler)
+                    } else {
+                        completionHandler(contents: files, cursor: ncursor, error: responseError ?? error)
+                    }
+                    return
+                }
+            }
+            completionHandler(contents: [], cursor: nil, error: responseError ?? error)
+        }
+        task.resume()
     }
 }
 
