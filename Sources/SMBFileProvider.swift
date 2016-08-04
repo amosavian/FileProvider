@@ -40,6 +40,10 @@ public class SMBFileProvider: FileProvider, FileProviderMonitor {
         NotImplemented()
     }
     
+    public func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void)) {
+        NotImplemented()
+    }
+    
     public weak var fileOperationDelegate: FileOperationDelegate?
     
     public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {

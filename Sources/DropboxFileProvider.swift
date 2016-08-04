@@ -77,7 +77,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
     }
     
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
-        let url = NSURL(string: "https://api.dropboxapi.com/2/files/list_revisions")!
+        let url = NSURL(string: "https://api.dropboxapi.com/2/files/get_metadata")!
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -91,17 +91,31 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
                 }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
-                    let json = self.jsonToDictionary(jsonStr)
-                    if (json?["is_deleted"] as? NSNumber)?.boolValue ?? false, let entries = json?["entries"] as? [AnyObject] where entries.count > 0 , let entry = entries[0] as? [String: AnyObject], let file = self.mapToFileObject(entry) {
-                        completionHandler(attributes: file, error: dbError)
-                        return
-                    }
+                if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = self.jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
+                    completionHandler(attributes: file, error: dbError)
+                    return
                 }
                 completionHandler(attributes: nil, error: dbError)
                 return
             }
             completionHandler(attributes: nil, error: error)
+        }
+        task.resume()
+    }
+    
+    public func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void)) {
+        let url = NSURL(string: "https://api.dropboxapi.com/2/users/get_space_usage")!
+        let request = NSMutableURLRequest(URL: url)
+        request.HTTPMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = self.jsonToDictionary(jsonStr) {
+                let totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.longLongValue ?? -1
+                let usedSize = (json["used"] as? NSNumber)?.longLongValue ?? 0
+                completionHandler(total: totalSize, used: usedSize)
+                return
+            }
+            completionHandler(total: -1, used: 0)
         }
         task.resume()
     }
@@ -182,15 +196,12 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     public func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
-        NotImplemented()
-        let request = NSMutableURLRequest(URL: absoluteURL(toPath))
-        request.HTTPMethod = "PUT"
-        let task = session.uploadTaskWithRequest(request, fromFile: localFile) { (data, response, error) in
+        guard let data = NSData(contentsOfURL: localFile) else {
+            let error = throwError(localFile.uw_absoluteString, code: NSURLError.FileDoesNotExist)
             completionHandler?(error: error)
-            self.delegateNotify(.Move(source: localFile.uw_absoluteString, destination: toPath), error: error)
+            return
         }
-        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": localFile.uw_absoluteString, "dest": toPath])
-        task.resume()
+        upload_simple(toPath, data: data, overwrite: true, operation: .Copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
     }
     
     public func copyPathToLocalFile(path: String, toLocalURL destURL: NSURL, completionHandler: SimpleCompletionHandler) {
@@ -215,6 +226,7 @@ extension DropboxFileProvider: FileProviderOperations {
                 completionHandler?(error: e)
             }
         })
+        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": destURL.uw_absoluteString])
         task.resume()
     }
 }
@@ -256,28 +268,18 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     public func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
-        NotImplemented()
-        let url = atomically ? absoluteURL(path).uw_URLByAppendingPathExtension("tmp") : absoluteURL(path)
-        let request = NSMutableURLRequest(URL: url)
-        request.HTTPMethod = "PUT"
-        let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
-            defer {
-                self.delegateNotify(.Modify(path: path), error: error)
-            }
-            if atomically {
-                self.moveItemAtPath((path as NSString).stringByAppendingPathExtension("tmp")!, toPath: path, completionHandler: completionHandler)
-            }
-            if let error = error {
-                // If there is no error, completionHandler has been executed by move command
-                completionHandler?(error: error)
-            }
-        }
-        task.taskDescription = self.dictionaryToJSON(["type": "Modify", "source": path])
-        task.resume()
+        // FIXME: remove 150MB restriction
+        upload_simple(path, data: data, overwrite: true, operation: .Modify(path: path), completionHandler: completionHandler)
     }
     
     public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void)) {
-        NotImplemented()
+        var foundFiles = [DropboxFileObject]()
+        search(path, query: query, foundItem: { (file) in
+            foundFiles.append(file)
+            foundItemHandler?(file)
+            }, completionHandler: { (error) in
+                completionHandler(files: foundFiles, error: error)
+        })
     }
     
     private func registerNotifcation(path: String, eventHandler: (() -> Void)) {
@@ -292,6 +294,8 @@ extension DropboxFileProvider: FileProviderReadWrite {
     private func unregisterNotifcation(path: String) {
         NotImplemented()
     }
+    
+    // TODO: Implement /copy_reference, /get_preview & /get_thumbnail, /get_temporary_link, /save_url, /get_account & /get_current_account
 }
 
 private extension DropboxFileProvider {
@@ -316,7 +320,6 @@ private extension DropboxFileProvider {
             if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderDropboxError(code: rCode, path: path)
             }
-            
             if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
                 let json = self.jsonToDictionary(jsonStr)
                 if let entries = json?["entries"] as? [AnyObject] where entries.count > 0 {
@@ -337,6 +340,90 @@ private extension DropboxFileProvider {
                 }
             }
             completionHandler(contents: [], cursor: nil, error: responseError ?? error)
+        }
+        task.resume()
+    }
+    
+    private func upload_simple(targetPath: String, data: NSData, modifiedDate: NSDate = NSDate(), overwrite: Bool, operation: FileOperation, completionHandler: SimpleCompletionHandler) {
+        assert(data.length < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
+        var requestDictionary = [String: AnyObject]()
+        let url: NSURL
+        url = NSURL(string: "https://content.dropboxapi.com/2/files/upload")!
+        requestDictionary["path"] = correctPath(targetPath)
+        requestDictionary["mode"] = overwrite ? "overwrite" : "add"
+        let dateFormatter = NSDateFormatter()
+        dateFormatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
+        requestDictionary["client_modified"] = dateFormatter.stringFromDate(modifiedDate)
+        let request = NSMutableURLRequest(URL: url)
+        request.HTTPMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
+        request.HTTPBody = data
+        let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
+            var responseError: FileProviderDropboxError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderDropboxError(code: rCode, path: targetPath)
+            }
+            defer {
+                self.delegateNotify(.Create(path: targetPath), error: responseError ?? error)
+            }
+            completionHandler?(error: responseError ?? error)
+        }
+        var dic: [String: AnyObject] = ["type": operation.description]
+        switch operation {
+        case .Create(path: let s):
+            dic["source"] = s
+        case .Copy(source: let s, destination: let d):
+            dic["source"] = s
+            dic["dest"] = d
+        case .Modify(path: let s):
+            dic["source"] = s
+        case .Move(source: let s, destination: let d):
+            dic["source"] = s
+            dic["dest"] = d
+        default:
+            break
+        }
+        task.taskDescription = self.dictionaryToJSON(dic)
+        task.resume()
+    }
+    
+    func search(startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, foundItem:((file: DropboxFileObject) -> Void), completionHandler: ((error: ErrorType?) -> Void)) {
+        let url = NSURL(string: "https://api.dropboxapi.com/2/files/search")!
+        let request = NSMutableURLRequest(URL: url)
+        request.HTTPMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var requestDictionary: [String: AnyObject] = ["path": startPath]
+        requestDictionary["query"] = query
+        requestDictionary["start"] = start
+        requestDictionary["max_results"] = maxResultPerPage
+        request.HTTPBody = dictionaryToJSON(requestDictionary)?.dataUsingEncoding(NSUTF8StringEncoding)
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            var responseError: FileProviderDropboxError?
+            if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderDropboxError(code: rCode, path: startPath)
+            }
+            if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
+                let json = self.jsonToDictionary(jsonStr)
+                if let entries = json?["matches"] as? [AnyObject] where entries.count > 0 {
+                    for entry in entries {
+                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                            foundItem(file: file)
+                        }
+                    }
+                    let rstart = json?["start"] as? Int
+                    let hasmore = (json?["more"] as? NSNumber)?.boolValue ?? false
+                    if hasmore, let rstart = rstart {
+                        self.search(startPath, query: query, start: rstart + entries.count, maxResultPerPage: maxResultPerPage, foundItem: foundItem, completionHandler: completionHandler)
+                    } else {
+                        completionHandler(error: responseError ?? error)
+                    }
+                    return
+                }
+            }
+            completionHandler(error: responseError ?? error)
         }
         task.resume()
     }

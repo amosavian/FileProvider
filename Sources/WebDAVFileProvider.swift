@@ -114,6 +114,34 @@ public class WebDAVFileProvider: NSObject,  FileProviderBasic {
         task.resume()
     }
     
+    public func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void)) {
+        // Not all WebDAV clients implements RFC2518 which allows geting storage quota.
+        // In this case you won't get error. totalSize is NSURLSessionTransferSizeUnknown
+        // and used space is zero.
+        guard let baseURL = baseURL else {
+            return
+        }
+        let request = NSMutableURLRequest(URL: baseURL)
+        request.HTTPMethod = "PROPFIND"
+        request.setValue("0", forHTTPHeaderField: "Depth")
+        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.HTTPBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".dataUsingEncoding(NSUTF8StringEncoding)
+        request.setValue(String(request.HTTPBody!.length), forHTTPHeaderField: "Content-Length")
+        let task = session.dataTaskWithRequest(request) { (data, response, error) in
+            if let data = data {
+                let xresponse = self.parseXMLResponse(data)
+                if let attr = xresponse.first {
+                    let totalSize = Int64(attr.prop["quota-available-bytes"] ?? "")
+                    let usedSize = Int64(attr.prop["quota-used-bytes"] ?? "")
+                    completionHandler(total: totalSize ?? -1, used: usedSize ?? 0)
+                    return
+                }
+            }
+            completionHandler(total: -1, used: 0)
+        }
+        task.resume()
+    }
+    
     public weak var fileOperationDelegate: FileOperationDelegate?
 }
 

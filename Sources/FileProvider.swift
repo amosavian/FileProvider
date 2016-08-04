@@ -122,6 +122,8 @@ public protocol FileProviderBasic: class {
     */
     func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void))
     func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void))
+    
+    func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void))
 }
 
 public protocol FileProviderOperations: FileProviderBasic {

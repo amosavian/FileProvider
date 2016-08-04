@@ -85,6 +85,13 @@ public class LocalFileProvider: FileProvider, FileProviderMonitor {
         return fileAttr
     }
     
+    public func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void)) {
+        let dict = (try? NSFileManager.defaultManager().attributesOfFileSystemForPath(baseURL?.path ?? "/")) as NSDictionary?;
+        let totalSize = dict?.objectForKey(NSFileSystemSize)?.longLongValue ?? -1;
+        let freeSize = dict?.objectForKey(NSFileSystemFreeSize)?.longLongValue ?? 0;
+        completionHandler(total: totalSize, used: totalSize - freeSize)
+    }
+    
     public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void)) {
         dispatch_async(dispatch_queue) {
             completionHandler(attributes: self.attributesOfItemAtURL(self.absoluteURL(path)), error: nil)

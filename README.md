@@ -23,8 +23,8 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 
 - [x] **LocalFileProvider** a wrapper around `NSFileManager` with some additions like searching and reading a portion of file.
 - [x] **WebDAVFileProvider** WebDAV protocol is usual file transmission system on Macs.
+- [x] **DropboxFileProvider** *implemented but not tested*
 - [ ] **SMBFileProvider** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from IBM & Microsoft and SMB2/3 is now replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!*
-- [ ] **DropboxFileProvider** *almost completed. upload, thumbnail and search functions not implemented yet*
 - [ ] **FTPFileProvider**
 - [ ] **AmazonS3FileProvider**
 
@@ -155,26 +155,36 @@ There is a `FileObject` class which holds file attributes like size and creation
 For a single file:
 
 	documentsProvider.attributesOfItemAtPath(path: "/file.txt", completionHandler: {
-	    (attributes: LocalFileObject?, error: ErrorType?) -> Void} in
+	    (attributes: LocalFileObject?, error: ErrorType?) -> Void in
 		if let attributes = attributes {
 			print("File Size: \(attributes.size)")
 			print("Creation Date: \(attributes.createdDate)")
 			print("Modification Date: \(modifiedDate)")
 			print("Is Read Only: \(isReadOnly)")
 		}
-	)
+	})
 
 To get list of files in a directory:
 
 	documentsProvider.contentsOfDirectoryAtPath(path: "/", 	completionHandler: {
-	    (contents: [LocalFileObject], error: ErrorType?) -> Void} in
+	    (contents: [LocalFileObject], error: ErrorType?) -> Void in
 		for file in contents {
 			print("Name: \(attributes.name)")
 			print("Size: \(attributes.size)")
 			print("Creation Date: \(attributes.createdDate)")
 			print("Modification Date: \(modifiedDate)")
 		}
-	)
+	})
+
+To get size of strage and used/free space:
+
+	func storageProperties(completionHandler: {(total: Int64, used: Int64) -> Void in
+	    print("Total Storage Space: \(total)")
+	    print("Used Space: \(used)")
+	    print("Free Space: \(total - frees)")
+	})
+	
+* if this function is unavailable on provider or an error has been occurred, total space will be reported "-1" and used space "0"
 
 ### Change current directory
 
