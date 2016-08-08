@@ -317,8 +317,6 @@ extension SMB2 {
                                    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                                    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8)
     
-    // MARK: SMB2 Change Notify
-    
     // MARK: SMB2 Query Info
     
 }

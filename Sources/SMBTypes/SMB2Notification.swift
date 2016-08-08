@@ -1,0 +1,127 @@
+//
+//  SMB2Notification.swift
+//  FileProvider
+//
+//  Created by Amir Abbas Mousavian on 5/18/95.
+//
+//
+
+import Foundation
+
+extension SMB2 {
+    // MARK: SMB2 Change Notify
+    
+    struct ChangeNotifyRequest: SMBRequest {
+        let size: UInt16
+        let flags: ChangeNotifyRequest.Flags
+        let outputBufferLength: UInt32
+        let fileId: FileId
+        let completionFilters: CompletionFilter
+        private let reserved: UInt32
+        
+        init(fileId: FileId, completionFilters: CompletionFilter, flags: ChangeNotifyRequest.Flags = [], outputBufferLength: UInt32 = 65535) {
+            self.size = 32
+            self.flags = flags
+            self.outputBufferLength = outputBufferLength
+            self.fileId = fileId
+            self.completionFilters = completionFilters
+            self.reserved = 0
+        }
+        
+        func data() -> NSData {
+            return encode(self)
+        }
+        
+        struct Flags: OptionSetType {
+            let rawValue: UInt16
+            
+            init(rawValue: UInt16) {
+                self.rawValue = rawValue
+            }
+            
+            static let WATCH_TREE = Flags(rawValue: 0x0001)
+        }
+        
+        struct CompletionFilter: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let FILE_NAME    = Flags(rawValue: 0x00000001)
+            static let DIR_NAME     = Flags(rawValue: 0x00000002)
+            static let ATTRIBUTES   = Flags(rawValue: 0x00000004)
+            static let SIZE         = Flags(rawValue: 0x00000008)
+            static let LAST_WRITE   = Flags(rawValue: 0x00000010)
+            static let LAST_ACCESS  = Flags(rawValue: 0x00000020)
+            static let CREATION     = Flags(rawValue: 0x00000040)
+            static let EA           = Flags(rawValue: 0x00000080)
+            static let SECURITY     = Flags(rawValue: 0x00000100)
+            static let STREAM_NAME  = Flags(rawValue: 0x00000200)
+            static let STREAM_SIZE  = Flags(rawValue: 0x00000400)
+            static let STREAM_WRITE = Flags(rawValue: 0x00000800)
+            
+            static let all = Flags(rawValue: 0x00000FFF)
+        }
+    }
+    
+    struct ChangeNotifyResponse: SMBResponse {
+        let notifications: [(action: FileNotifyAction, fileName: String)]
+        
+        init?(data: NSData) {
+            let maxLoop = 1000
+            var i = 0
+            var result = [(action: FileNotifyAction, fileName: String)]()
+            
+            var offset: UInt32 = 0
+            while i < maxLoop {
+                let actionData = data.subdataWithRange(NSRange(location: Int(offset + 4), length: 4))
+                let actionValue: UInt32 = decode(actionData)
+                guard let action = FileNotifyAction(rawValue: actionValue) else {
+                    continue
+                }
+                let fileLenData = data.subdataWithRange(NSRange(location: Int(offset + 8), length: 4))
+                let fileNameLen: UInt32 = decode(fileLenData)
+                let fileNameData = data.subdataWithRange(NSRange(location: Int(offset + 12), length: Int(12 + fileNameLen)))
+                let fileName = String(data: fileNameData, encoding: NSUTF16StringEncoding) ?? ""
+                result.append((action: action, fileName: fileName))
+                
+                let nextOffsetData = data.subdataWithRange(NSRange(location: Int(offset), length: 4))
+                let nextOffset: UInt32 = decode(nextOffsetData)
+                offset += nextOffset
+                if nextOffset == 0 {
+                    break
+                }
+                i += 1
+            }
+            
+            self.notifications = result
+        }
+    }
+    
+    enum FileNotifyAction: UInt32 {
+        /// The file was added to the directory.
+        case ADDED = 0x00000001
+        /// The file was removed from the directory.
+        case REMOVED = 0x00000002
+        /// The file was modified. This can be a change to the data or attributes of the file.
+        case MODIFIED = 0x00000003
+        /// The file was renamed, and this is the old name. If the new name resides outside of the directory being monitored, the client will not receive the FILE_ACTION_RENAMED_NEW_NAME bit value.
+        case RENAMED_OLD_NAME = 0x00000004
+        /// The file was renamed, and this is the new name. If the old name resides outside of the directory being monitored, the client will not receive the FILE_ACTION_RENAME_OLD_NAME bit value.
+        case RENAMED_NEW_NAME = 0x00000005
+        /// The file was added to a named stream.
+        case ADDED_STREAM = 0x00000006
+        /// The file was removed from the named stream.
+        case REMOVED_STREAM = 0x00000007
+        /// The file was modified. This can be a change to the data or attributes of the file.
+        case MODIFIED_STREAM = 0x00000008
+        /// An object ID was removed because the file the object ID referred to was deleted. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
+        case REMOVED_BY_DELETE = 0x00000009
+        /// An attempt to tunnel object ID information to a file being created or renamed failed because the object ID is in use by another file on the same volume. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
+        case NOT_TUNNELLED = 0x0000000A
+        /// An attempt to tunnel object ID information to a file being renamed failed because the file already has an object ID. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
+        case TUNNELLED_ID_COLLISION = 0x0000000B
+    }
+}

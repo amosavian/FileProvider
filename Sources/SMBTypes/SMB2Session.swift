@@ -60,7 +60,7 @@ extension SMB2 {
             var contextCount: UInt16
             private let reserved2: UInt16
             var clientStartTime: SMBTime {
-                let time = UInt64(contextOffset) + (UInt64(contextCount) << 32) + (UInt64(contextCount) << 48)
+                let time = Int64(contextOffset) + (Int64(contextCount) << 32) + (Int64(contextCount) << 48)
                 return SMBTime(time: time)
             }
             
