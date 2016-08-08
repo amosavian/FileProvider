@@ -16,11 +16,6 @@ protocol SMBResponse {
     init? (data: NSData)
 }
 
-protocol SMB2FilesInformationHeader: SMBResponse {
-    var nextEntryOffset: UInt32 { get }
-    var fileIndex: UInt32 { get }
-    var fileNameLength : UInt32 { get }
-}
 
 protocol IOCtlRequestProtocol: SMBRequest {}
 protocol IOCtlResponseProtocol: SMBResponse {}

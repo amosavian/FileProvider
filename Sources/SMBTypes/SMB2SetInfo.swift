@@ -11,4 +11,16 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Set Info
     
+    
+    struct SetInfoResponse: SMBResponse {
+        let size: UInt16
+        
+        init() {
+            self.size = 2
+        }
+        
+        init? (data: NSData) {
+            self = decode(data)
+        }
+    }
 }

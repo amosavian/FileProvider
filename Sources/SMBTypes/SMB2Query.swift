@@ -18,8 +18,8 @@ extension SMB2 {
         /// - **bufferLength:** maximum number of bytes the server is allowed to return which is the same as maxTransactSize returned by negotiation.
         /// - **searchPattern:** can hold wildcards or be nil if all entries should be returned.
         /// - **fileIndex:** The byte offset within the directory, indicating the position at which to resume the enumeration.
-        init(fileId: FileId, infoClass: FileInformationClass, flags: Flags, bufferLength: UInt32 = 65535, searchPattern: String? = nil, fileIndex: UInt32 = 0) {
-            assert(FileInformationClass.queryDirectory.contains(infoClass), "Invalid FileInformationClass used for QueryDirectoryRequest")
+        init(fileId: FileId, infoClass: FileInformationEnum, flags: Flags, bufferLength: UInt32 = 65535, searchPattern: String? = nil, fileIndex: UInt32 = 0) {
+            assert(FileInformationEnum.queryDirectory.contains(infoClass), "Invalid FileInformationClass used for QueryDirectoryRequest")
             let searchPatternOffset = searchPattern != nil ? sizeof(SMB2.Header.self) + sizeof(QueryDirectoryRequest.Header.self) : 0
             let nflags = flags.intersect(fileIndex > 0 ? [.INDEX_SPECIFIED] : [])
             let searchPatternLength = searchPattern?.dataUsingEncoding(NSUTF16StringEncoding)?.length ?? 0
@@ -37,7 +37,7 @@ extension SMB2 {
         
         struct Header {
             let size: UInt8
-            let infoClass: FileInformationClass
+            let infoClass: FileInformationEnum
             let flags: QueryDirectoryRequest.Flags
             let fileIndex: UInt32
             let fileId: FileId
@@ -53,17 +53,17 @@ extension SMB2 {
                 self.rawValue = rawValue
             }
             
-            static let RESTART_SCANS = Flags(rawValue: 0x01)
-            static let RETURN_SINGLE_ENTRY = Flags(rawValue: 0x02)
-            static let INDEX_SPECIFIED = Flags(rawValue: 0x04)
-            static let REOPEN = Flags(rawValue: 0x10)
+            static let RESTART_SCANS        = Flags(rawValue: 0x01)
+            static let RETURN_SINGLE_ENTRY  = Flags(rawValue: 0x02)
+            static let INDEX_SPECIFIED      = Flags(rawValue: 0x04)
+            static let REOPEN               = Flags(rawValue: 0x10)
         }
     }
     
     struct QueryDirectoryResponse: SMBResponse {
         let buffer: NSData
         
-        func parseAs(type type: FileInformationClass) -> [(header: SMB2FilesInformationHeader, fileName: String)] {
+        func parseAs(type type: FileInformationEnum) -> [(header: SMB2FilesInformationHeader, fileName: String)] {
             var offset = 0
             var result = [(header: SMB2FilesInformationHeader, fileName: String)]()
             while true {
@@ -117,206 +117,240 @@ extension SMB2 {
         }
     }
     
-    enum FileInformationClass: UInt8 {
-        /// For security queries & quota queries
-        case Nil = 0x00
-        case FileDirectoryInformation = 0x01
-        case FileFullDirectoryInformation = 0x02
-        case FileBothDirectoryInformation = 0x03
-        case FileBasicInformation = 0x04
-        case FileStandardInformation = 0x05
-        case FileInternalInformation = 0x06
-        case FileEaInformation = 0x07
-        case FileAccessInformation = 0x08
-        case FileNameInformation = 0x09
-        case FileRenameInformation = 0x0A
-        case FileLinkInformation = 0x0B
-        case FileNamesInformation = 0x0C
-        case FileDispositionInformation = 0x0D
-        case FilePositionInformation = 0x0E
-        case FileFullEaInformation = 0x0F
-        case FileModeInformation = 0x10
-        case FileAlignmentInformation = 0x11
-        case FileAllInformation = 0x12
-        case FileAllocationInformation = 0x13
-        case FileEndOfFileInformation = 0x14
-        case FileAlternateNameInformation = 0x15
-        case FileStreamInformation = 0x16
-        case FilePipeInformation = 0x17
-        case FilePipeLocalInformation = 0x18
-        case FilePipeRemoteInformation = 0x19
-        case FileMailslotQueryInformation = 0x1A
-        case FileMailslotSetInformation = 0x1B
-        case FileCompressionInformation = 0x1C
-        case FileObjectIdInformation = 0x1D
-        case FileCompletionInformation = 0x1E
-        case FileMoveClusterInformation = 0x1F
-        case FileQuotaInformation = 0x20
-        case FileReparsePointInformation = 0x21
-        case FileNetworkOpenInformation = 0x22
-        case FileAttributeTagInformation = 0x23
-        case FileTrackingInformation = 0x24
-        case FileIdBothDirectoryInformation = 0x25
-        case FileIdFullDirectoryInformation = 0x26
-        case FileValidDataLengthInformation = 0x27
-        case FileShortNameInformation = 0x28
-        case FileIoCompletionNotificationInformation = 0x29
-        case FileIoStatusBlockRangeInformation = 0x2A
-        case FileIoPriorityHintInformation = 0x2B
-        case FileSfioReserveInformation = 0x2C
-        case FileSfioVolumeInformation = 0x2D
-        case FileHardLinkInformation = 0x2E
-        case FileProcessIdsUsingFileInformation = 0x2F
-        case FileNormalizedNameInformation = 0x30
-        case FileNetworkPhysicalNameInformation = 0x31
-        case FileIdGlobalTxDirectoryInformation = 0x32
-        case FileIsRemoteDeviceInformation = 0x33
-        case FileUnusedInformation = 0x34
-        case FileNumaNodeInformation = 0x35
-        case FileStandardLinkInformation = 0x36
-        case FileRemoteProtocolInformation = 0x37
-        case FileRenameInformationBypassAccessCheck = 0x38
-        case FileLinkInformationBypassAccessCheck = 0x39
-        case FileVolumeNameInformation = 0x3A
-        case FileIdInformation = 0x3B
-        case FileIdExtdDirectoryInformation = 0x3C
-        case FileReplaceCompletionInformation = 0x3D
-        case FileHardLinkFullIdInformation = 0x3E
-        case FileIdExtdBothDirectoryInformation = 0x3F
-        case FileMaximumInformation = 0x40
-        
-        static let  queryDirectory: [FileInformationClass] = [.FileDirectoryInformation, .FileFullDirectoryInformation, .FileIdFullDirectoryInformation, .FileBothDirectoryInformation, .FileIdBothDirectoryInformation, .FileNamesInformation]
-        
-        static let queryInfoFile: [FileInformationClass] = [.FileAccessInformation, .FileAlignmentInformation, .FileAllInformation, .FileAlternateNameInformation, .FileAttributeTagInformation, .FileBasicInformation, .FileCompressionInformation, FileEaInformation, .FileFullEaInformation, .FileInternalInformation, .FileModeInformation, .FileNetworkOpenInformation, .FilePipeInformation, .FilePipeLocalInformation, .FilePipeRemoteInformation, .FilePositionInformation, .FileStandardInformation, .FileStreamInformation]
-        
-        //static let queryInfoFile: [FileInformationClass] = [.FileFsAttributeInformation, .FileFsControlInformation, .FileFsDeviceInformation, .FileFsFullSizeInformation, .FileFsObjectIdInformation, .FileFsSectorSizeInformation, .FileFsSizeInformation, .FileFsVolumeInformation]
-    }
-    
-    struct FileDirectoryInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let creationTime: SMBTime
-        let lastAccesTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let fileSize: UInt64
-        let allocationSize: UInt64
-        let fileAttributes: FileAttributes
-        let fileNameLength : UInt32
-        
-        init?(data: NSData) {
-           self = decode(data)
-        }
-    }
-    
-    struct FileFullDirectoryInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let creationTime: SMBTime
-        let lastAccesTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let fileSize: UInt64
-        let allocationSize: UInt64
-        let fileAttributes: FileAttributes
-        let fileNameLength : UInt32
-        let extendedAttributesSize: UInt32
-        
-        init?(data: NSData) {
-            self = decode(data)
-        }
-    }
-    
-    struct FileIdFullDirectoryInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let creationTime: SMBTime
-        let lastAccesTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let fileSize: UInt64
-        let allocationSize: UInt64
-        let fileAttributes: FileAttributes
-        let fileNameLength : UInt32
-        let extendedAttributesSize: UInt32
-        private let reserved: UInt32
-        let fileId: FileId
-        
-        init?(data: NSData) {
-            self = decode(data)
-        }
-    }
-    
-    struct FileBothDirectoryInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let creationTime: SMBTime
-        let lastAccesTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let fileSize: UInt64
-        let allocationSize: UInt64
-        let fileAttributes: FileAttributes
-        let fileNameLength : UInt32
-        let extendedAttributesSize: UInt32
-        private let shortNameLen: UInt8
-        private let reserved: UInt8
-        private let _shortName: FileShortNameType
-        var shortName: String? {
-            let s = encode(_shortName)
-            let d = NSMutableData(data: s)
-            d.length = Int(shortNameLen)
-            return String(data: d, encoding: NSUTF16StringEncoding)
-        }
-        
-        init?(data: NSData) {
-            self = decode(data)
-        }
-    }
-    
-    struct FileIdBothDirectoryInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let creationTime: SMBTime
-        let lastAccesTime: SMBTime
-        let lastWriteTime: SMBTime
-        let changeTime: SMBTime
-        let fileSize: Int64
-        let allocationSize: Int64
-        let fileAttributes: FileAttributes
-        let fileNameLength : UInt32
-        let extendedAttributesSize: UInt32
-        private let shortNameLen: UInt8
-        private let reserved: UInt8
-        private let _shortName: FileShortNameType
-        var shortName: String? {
-            let s = encode(_shortName)
-            let d = NSMutableData(data: s)
-            d.length = Int(shortNameLen)
-            return String(data: d, encoding: NSUTF16StringEncoding)
-        }
-        private let reserved2: UInt16
-        let fileId : FileId
-        
-        init?(data: NSData) {
-            self = decode(data)
-        }
-    }
-    
-    struct FileNamesInformationHeader: SMB2FilesInformationHeader {
-        let nextEntryOffset: UInt32
-        let fileIndex: UInt32
-        let fileNameLength : UInt32
-        
-        init?(data: NSData) {
-            self = decode(data)
-        }
-    }
-    
-    typealias FileShortNameType = (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-                                   UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-                                   UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8)
-    
     // MARK: SMB2 Query Info
     
+    struct QueryInfoRequest: SMBRequest {
+        let header: Header
+        let buffer: NSData?
+        
+        init(fileId: FileId, infoClass: FileInformationEnum, outputBufferLength: UInt32 = 65535) {
+            self.header = Header(size: 41, infoType: 1, infoClass: infoClass.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: 0, reserved: 0, inputBufferLength: 0, additionalInformation: [], flags: [], fileId: fileId)
+            self.buffer = nil
+        }
+        
+        init(fileId: FileId, extendedAttributes: [String], flags: Flags = [], outputBufferLength: UInt32 = 65535) {
+            let buffer = NSMutableData()
+            for ea in extendedAttributes {
+                let strData = ea.dataUsingEncoding(NSASCIIStringEncoding)!
+                let strLength = UInt8(strData.length)
+                let nextOffset = UInt32(4 + 1 + strData.length)
+                let data = encode(nextOffset).mutableCopy() as! NSMutableData
+                data.appendData(encode(strLength))
+                data.appendData(strData)
+                data.length += 1
+                let padSize = (data.length) % 4
+                data.length += padSize
+                buffer.appendData(data)
+            }
+            
+            let bufferOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(QueryInfoRequest.Header.self))
+            self.header = Header(size: 41, infoType: 1, infoClass: FileInformationEnum.FileFullEaInformation.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: bufferOffset, reserved: 0, inputBufferLength: UInt32(buffer.length), additionalInformation: [], flags: flags, fileId: fileId)
+            self.buffer = buffer
+        }
+        
+        init(fileId: FileId, infoClass: FileSystemInformationEnum, outputBufferLength: UInt32 = 65535) {
+            self.header = Header(size: 41, infoType: 2, infoClass: infoClass.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: 0, reserved: 0, inputBufferLength: 0, additionalInformation: [], flags: [], fileId: fileId)
+            self.buffer = nil
+        }
+        
+        init(fileId: FileId, securityInfo: SecurityInfo, outputBufferLength: UInt32 = 65535) {
+            self.header = Header(size: 41, infoType: 3, infoClass: 0, outputBufferLength: outputBufferLength, inputBufferOffset: 0, reserved: 0, inputBufferLength: 0, additionalInformation: securityInfo, flags: [], fileId: fileId)
+            self.buffer = nil
+        }
+        
+        // TODO: Implement QUOTA_INFO init
+        
+        func data() -> NSData {
+            let headerData = encode(header)
+            let result = NSMutableData(data: headerData)
+            if let buffer = buffer {
+                result.appendData(buffer)
+            }
+            return result
+        }
+        
+        struct Header {
+            let size: UInt16
+            let infoType: UInt8
+            let infoClass: UInt8
+            let outputBufferLength: UInt32
+            let inputBufferOffset: UInt16
+            private let reserved: UInt16
+            let inputBufferLength: UInt32
+            let additionalInformation: SecurityInfo
+            let flags: QueryInfoRequest.Flags
+            let fileId: FileId
+        }
+        
+        struct Flags: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let RESTART_SCAN         = Flags(rawValue: 0x00000001)
+            static let RETURN_SINGLE_ENTRY  = Flags(rawValue: 0x00000002)
+            static let INDEX_SPECIFIED      = Flags(rawValue: 0x00000004)
+        }
+        
+        struct SecurityInfo: OptionSetType {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            static let OWNER        = SecurityInfo(rawValue: 0x00000001)
+            static let GROUP        = SecurityInfo(rawValue: 0x00000002)
+            static let DACL         = SecurityInfo(rawValue: 0x00000004)
+            static let SACL         = SecurityInfo(rawValue: 0x00000008)
+            static let LABEL        = SecurityInfo(rawValue: 0x00000010)
+            static let ATTRIBUTE    = SecurityInfo(rawValue: 0x00000020)
+            static let SCOPE        = SecurityInfo(rawValue: 0x00000040)
+            static let BACKUP       = SecurityInfo(rawValue: 0x00010000)
+        }
+    }
+    
+    struct QueryInfoResponse: SMBResponse {
+        let buffer: NSData
+        
+        init?(data: NSData) {
+            let structSizeData = data.subdataWithRange(NSRange(location: 0, length: 2))
+            let structSize: UInt16 = decode(structSizeData)
+            guard structSize == 9 else {
+                return nil
+            }
+            
+            /*let offsetData = data.subdataWithRange(NSRange(location: 2, length: 2))
+            let offset: UInt16 = decode(offsetData)*/
+            
+            let lengthData = data.subdataWithRange(NSRange(location: 4, length: 4))
+            let length: UInt32 = decode(lengthData)
+            
+            guard data.length >= 8 + Int(length) else {
+                return nil
+            }
+            
+            self.buffer = data.subdataWithRange(NSRange(location: 8, length: Int(length)))
+        }
+        
+        var asAccessInformation: FileAccessInformation {
+            return decode(buffer)
+        }
+        
+        var asAlignmentInformation: FileAlignmentInformation {
+            return decode(buffer)
+        }
+        
+        var asAllInformation: (header: FileAllInformationHeader, name: String) {
+            let header: FileAllInformationHeader = decode(buffer)
+            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileAllInformationHeader), length: Int(header.nameLength)))
+            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            return (header, name)
+        }
+        
+        var asAlternateNameInformation: String {
+            let b = UnsafePointer<CChar>(buffer.bytes)
+            return String(CString: b, encoding: NSUTF16StringEncoding) ?? ""
+        }
+        
+        var asAttributeTagInformation: FileAttributeTagInformation {
+            return decode(buffer)
+        }
+        
+        var asBasicInformation: FileBasicInformation {
+            return decode(buffer)
+        }
+        
+        var asCompressionInformation: FileCompressionInformation {
+            return decode(buffer)
+        }
+        
+        var asEaInformation: FileEaInformation {
+            return decode(buffer)
+        }
+        
+        var asFullEaInformation: FileFullEaInformation {
+            // TODO:
+            return FileFullEaInformation()
+        }
+        
+        var asInternalInformation: FileInternalInformation {
+            return decode(buffer)
+        }
+        
+        var asModeInformation: FileModeInformation {
+            return decode(buffer)
+        }
+        
+        var asNetworkOpenInformation: FileNetworkOpenInformation {
+            return decode(buffer)
+        }
+        
+        var asPipeInformation: FilePipeInformation {
+            return decode(buffer)
+        }
+        
+        var asPipeLocalInformation: FilePipeLocalInformation {
+            return decode(buffer)
+        }
+        
+        var asPipeRemoteInformation: FilePipeRemoteInformation {
+            return decode(buffer)
+        }
+        
+        var asPositionInformation: FilePositionInformation {
+            return decode(buffer)
+        }
+        
+        var asStandardInformation: FileStandardInformation {
+            return decode(buffer)
+        }
+        
+        var asStreamInformation: (header: FileStreamInformationHeader, name: String) {
+            let header: FileStreamInformationHeader = decode(buffer)
+            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileStreamInformationHeader), length: Int(header.streamNameLength)))
+            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            return (header, name)
+        }
+        
+        var asFsVolumeInformation: (header: FileFsVolumeInformationHeader, name: String) {
+            let header: FileFsVolumeInformationHeader = decode(buffer)
+            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileFsVolumeInformationHeader), length: Int(header.labelLength)))
+            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            return (header, name)
+        }
+        
+        var asFsSizeInformation: FileFsSizeInformation {
+            return decode(buffer)
+        }
+        
+        var asFsDeviceInformation: FileFsDeviceInformation {
+            return decode(buffer)
+        }
+        
+        var asFsAttributeInformation: (header: FileFsAttributeInformationHeader, name: String) {
+            let header: FileFsAttributeInformationHeader = decode(buffer)
+            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileFsAttributeInformationHeader), length: Int(header.nameLength)))
+            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            return (header, name)
+        }
+        
+        var asFsControlInformation: FileFsControlInformation {
+            return decode(buffer)
+        }
+        
+        var asFsFullSizeInformation: FileFsFullSizeInformation {
+            return decode(buffer)
+        }
+        
+        var asFsObjectIdInformation: FileFsObjectIdInformation {
+            return decode(buffer)
+        }
+        
+        var asFsSectorSizeInformation: FileFsSectorSizeInformation {
+            return decode(buffer)
+        }
+    }
 }

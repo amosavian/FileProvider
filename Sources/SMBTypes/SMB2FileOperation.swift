@@ -247,5 +247,4 @@ extension SMB2 {
             return encode(self)
         }
     }
-
 }

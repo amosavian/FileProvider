@@ -49,20 +49,33 @@ extension SMB2 {
                 self.rawValue = rawValue
             }
             
-            static let FILE_NAME    = Flags(rawValue: 0x00000001)
-            static let DIR_NAME     = Flags(rawValue: 0x00000002)
-            static let ATTRIBUTES   = Flags(rawValue: 0x00000004)
-            static let SIZE         = Flags(rawValue: 0x00000008)
-            static let LAST_WRITE   = Flags(rawValue: 0x00000010)
-            static let LAST_ACCESS  = Flags(rawValue: 0x00000020)
-            static let CREATION     = Flags(rawValue: 0x00000040)
-            static let EA           = Flags(rawValue: 0x00000080)
-            static let SECURITY     = Flags(rawValue: 0x00000100)
-            static let STREAM_NAME  = Flags(rawValue: 0x00000200)
-            static let STREAM_SIZE  = Flags(rawValue: 0x00000400)
+            /// The client is notified if a file-name changes.
+            static let FILE_NAME    = CompletionFilter(rawValue: 0x00000001)
+            /// The client is notified if a directory name changes.
+            static let DIR_NAME     = CompletionFilter(rawValue: 0x00000002)
+            /// The client is notified if a file's attributes change.
+            static let ATTRIBUTES   = CompletionFilter(rawValue: 0x00000004)
+            /// The client is notified if a file's size changes.
+            static let SIZE         = CompletionFilter(rawValue: 0x00000008)
+            /// The client is notified if the last write time of a file changes.
+            static let LAST_WRITE   = CompletionFilter(rawValue: 0x00000010)
+            /// The client is notified if the last access time of a file changes.
+            static let LAST_ACCESS  = CompletionFilter(rawValue: 0x00000020)
+            /// The client is notified if the creation time of a file changes.
+            static let CREATION     = CompletionFilter(rawValue: 0x00000040)
+            /// The client is notified if a file's extended attributes (EAs) change.
+            static let EA           = CompletionFilter(rawValue: 0x00000080)
+            /// The client is notified of a file's access control list (ACL) settings change.
+            static let SECURITY     = CompletionFilter(rawValue: 0x00000100)
+            /// The client is notified if a named stream is added to a file.
+            static let STREAM_NAME  = CompletionFilter(rawValue: 0x00000200)
+            /// The client is notified if the size of a named stream is changed.
+            static let STREAM_SIZE  = CompletionFilter(rawValue: 0x00000400)
+            /// The client is notified if a named stream is modified.
             static let STREAM_WRITE = Flags(rawValue: 0x00000800)
             
-            static let all = Flags(rawValue: 0x00000FFF)
+            static let all = CompletionFilter(rawValue: 0x00000FFF)
+            static let list: CompletionFilter = [.FILE_NAME, .DIR_NAME]
         }
     }
     
