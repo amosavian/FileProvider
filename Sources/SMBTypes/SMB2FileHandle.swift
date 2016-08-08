@@ -26,7 +26,7 @@ extension SMB2 {
             var header = self.header
             var offset = 0x78 //UInt16(sizeof(SMB2.Header.self) + sizeof(CreateContext.Header.self) - 1)
             let body = NSMutableData()
-            if let name = self.name, let nameData = name.dataUsingEncoding(NSUTF8StringEncoding) {
+            if let name = self.name, let nameData = name.dataUsingEncoding(NSUTF16StringEncoding) {
                 header.nameOffset = UInt16(offset)
                 header.nameLength = UInt16(nameData.length)
                 offset += nameData.length
@@ -226,7 +226,7 @@ extension SMB2 {
         let buffer: NSData
         
         init(name: ContextNames, data: NSData) {
-            let nameData = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF8StringEncoding)!)
+            let nameData = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF16StringEncoding)!)
             self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.length))
             self.buffer = data
         }

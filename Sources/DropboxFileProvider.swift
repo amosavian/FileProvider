@@ -22,11 +22,11 @@ public final class DropboxFileObject: FileObject {
     public let id: String?
     public let rev: String?
     
-    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, serverTime: NSDate?, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, id: String?, rev: String?) {
+    public init(name: String, path: String, size: Int64 = -1, serverTime: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false, id: String? = nil, rev: String? = nil) {
         self.serverTime = serverTime
         self.id = id
         self.rev = rev
-        super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
+        super.init(absoluteURL: NSURL(string: path), name: name, path: path, size: size, createdDate: nil, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
 }
 
@@ -241,7 +241,6 @@ extension DropboxFileProvider: FileProviderReadWrite {
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if length > 0 {
             request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
@@ -295,7 +294,66 @@ extension DropboxFileProvider: FileProviderReadWrite {
         NotImplemented()
     }
     
-    // TODO: Implement /copy_reference, /get_preview & /get_thumbnail, /get_temporary_link, /save_url, /get_account & /get_current_account
+    // TODO: Implement /copy_reference, /get_temporary_link, /save_url, /get_account & /get_current_account
+}
+
+extension DropboxFileProvider: ExtendedFileProvider {
+    public func thumbnailOfFileSupported(path: String) -> Bool {
+        switch path.pathExtension.lowercaseString {
+        case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
+            return true
+        /*case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
+            return true
+        case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
+            return true
+        case "rtf":
+            return true*/
+        default:
+            return false
+        }
+    }
+    
+    public func propertiesOfFileSupported(path: String) -> Bool {
+        return false
+    }
+    
+    public func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: ImageClass?, error: ErrorType?) -> Void)) {
+        let url: NSURL
+        switch path.pathExtension.lowercaseString {
+        case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
+            url = NSURL(string: "https://content.dropboxapi.com/2/files/get_thumbnail")!
+        /*case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
+            fallthrough
+        case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
+            fallthrough
+        case "rtf":
+            url = NSURL(string: "https://content.dropboxapi.com/2/files/get_preview")!*/
+        default:
+            return
+        }
+        let request = NSMutableURLRequest(URL: url)
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        var requestDictionary = ["path": path]
+        requestDictionary["format"] = "jpeg"
+        requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))"
+        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
+        self.session.dataTaskWithRequest(request) { (data, response, error) in
+            var image: ImageClass? = nil
+            if let r = response as? NSHTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = self.jsonToDictionary(result) {
+                if jsonResult["error"] != nil {
+                    completionHandler(image: nil, error: self.throwError(path, code: NSURLError.CannotDecodeRawData))
+                }
+            }
+            if let data = data {
+                image = ImageClass(data: data)
+            }
+            completionHandler(image: image, error: error)
+        }
+    }
+    
+    public func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String : AnyObject], keys: [String], error: ErrorType?) -> Void)) {
+        NotImplemented()
+    }
 }
 
 private extension DropboxFileProvider {
@@ -389,7 +447,7 @@ private extension DropboxFileProvider {
         task.resume()
     }
     
-    func search(startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, foundItem:((file: DropboxFileObject) -> Void), completionHandler: ((error: ErrorType?) -> Void)) {
+    func search(startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, foundItem:((file: DropboxFileObject) -> Void), completionHandler: ((error: ErrorType?) -> Void)) {
         let url = NSURL(string: "https://api.dropboxapi.com/2/files/search")!
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "POST"
@@ -438,7 +496,6 @@ internal extension DropboxFileProvider {
     private func mapToFileObject(json: [String: AnyObject]) -> DropboxFileObject? {
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["path_display"] as? String else { return nil }
-        let href = NSURL(string: path)!
         let size = (json["size"] as? NSNumber)?.longLongValue ?? -1
         let serverTime = resolveDate(json["server_modified"] as? String ?? "")
         let modifiedDate = resolveDate(json["client_modified"] as? String ?? "")
@@ -446,7 +503,7 @@ internal extension DropboxFileProvider {
         let isReadonly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
         let id = json["id"] as? String
         let rev = json["id"] as? String
-        return DropboxFileObject(absoluteURL: href, name: name, path: path, size: size, serverTime: serverTime, createdDate: nil, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isHidden: false, isReadOnly: isReadonly, id: id, rev: rev)
+        return DropboxFileObject(name: name, path: path, size: size, serverTime: serverTime, modifiedDate: modifiedDate, fileType: isDirectory ? .Directory : .Regular, isReadOnly: isReadonly, id: id, rev: rev)
     }
     
     private func delegateNotify(operation: FileOperation, error: ErrorType?) {

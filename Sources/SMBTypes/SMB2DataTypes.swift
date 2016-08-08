@@ -16,23 +16,29 @@ protocol SMBResponse {
     init? (data: NSData)
 }
 
+protocol SMB2FilesInformationHeader: SMBResponse {
+    var nextEntryOffset: UInt32 { get }
+    var fileIndex: UInt32 { get }
+    var fileNameLength : UInt32 { get }
+}
+
 protocol IOCtlRequestProtocol: SMBRequest {}
 protocol IOCtlResponseProtocol: SMBResponse {}
 
 
 struct SMBTime {
-    var time: UInt64
+    var time: Int64
     
-    init(time: UInt64) {
+    init(time: Int64) {
         self.time = time
     }
     
     init(unixTime: UInt) {
-        self.time = (UInt64(unixTime) + 11644473600) * 10000000
+        self.time = (Int64(unixTime) + 11644473600) * 10000000
     }
     
     init(timeIntervalSince1970: NSTimeInterval) {
-        self.time = UInt64((timeIntervalSince1970 + 11644473600) * 10000000)
+        self.time = Int64((timeIntervalSince1970 + 11644473600) * 10000000)
     }
     
     init(date: NSDate) {

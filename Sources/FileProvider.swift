@@ -72,7 +72,7 @@ public class FileObject {
     public let isHidden: Bool
     public let isReadOnly: Bool
     
-    public init(absoluteURL: NSURL?, name: String, path: String, size: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    public init(absoluteURL: NSURL? = nil, name: String, path: String, size: Int64 = -1, createdDate: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false) {
         self.absoluteURL = absoluteURL
         self.name = name
         self.path = path
@@ -80,18 +80,6 @@ public class FileObject {
         self.createdDate = createdDate
         self.modifiedDate = modifiedDate
         self.fileType = fileType
-        self.isHidden = isHidden
-        self.isReadOnly = isReadOnly
-    }
-    
-    public init(name: String, path: String, createdDate: NSDate?, modifiedDate: NSDate?, isHidden: Bool, isReadOnly: Bool) {
-        self.absoluteURL = nil
-        self.name = name
-        self.path = path
-        self.size = -1
-        self.createdDate = createdDate
-        self.modifiedDate = modifiedDate
-        self.fileType = .Regular
         self.isHidden = isHidden
         self.isReadOnly = isReadOnly
     }

@@ -445,7 +445,7 @@ internal extension WebDAVFileProvider {
                     }
                     for propItemNode in propStatNode[proptag].children ?? [] {
                         propDic[propItemNode.name.componentsSeparatedByString(":").last!.lowercaseString] = propItemNode.value
-                        if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xmlStringCompact.containsString("collection") {
+                        if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xmlString.containsString("collection") {
                              propDic["getcontenttype"] = "httpd/unix-directory"
                         }
                     }

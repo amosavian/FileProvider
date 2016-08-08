@@ -31,22 +31,25 @@ internal func decode<T>(data: NSData) -> T {
 // This client implementation is for little-endian platform, namely x86, x64 & arm
 // For big-endian platforms like PowerPC, there must be a huge overhaul
 
+protocol SMBProtocolClientDelegate: class {
+    func receivedSMB2Response(header: SMB2.Header, response: SMBResponse)
+}
+
 class SMBProtocolClient: TCPSocketClient {
     var currentMessageID: UInt64 = 0
     
-    func negotiateToSMB2() -> SMB2.NegotiateResponse? {
+    weak var delegate: SMBProtocolClientDelegate?
+    
+    func negotiateToSMB2() throws {
         let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: messageId(), treeId: 0, sessionId: 0)
         currentMessageID += 1
         let negMessage = SMB2.NegotiateRequest(request: SMB2.NegotiateRequest.Header(capabilities: []))
-        SMBProtocolClient.createSMB2Message(smbHeader, message: negMessage)
+        createSMB2Message(smbHeader, message: negMessage)
         do {
             try self.send(data: nil)
-        } catch _ {
-            return nil
+        } catch let e {
+            throw e
         }
-        self.waitUntilResponse()
-        let response = try? SMBProtocolClient.digestSMB2Message(dataReceived)
-        return response??.message as? SMB2.NegotiateResponse
     }
     
     func sessionSetupForSMB2() -> SMB2.SessionSetupResponse? {
@@ -62,14 +65,14 @@ class SMBProtocolClient: TCPSocketClient {
     
     // MARK: create and analyse messages
     
-    class func determineSMBVersion(data: NSData) -> Float {
+    func determineSMBVersion(data: NSData) -> Float {
         var smbverChar: Int8 = 0
         data.getBytes(&smbverChar, length: 1)
         let version = 0 - smbverChar
         return Float(version)
     }
     
-    class func digestSMBMessage(data: NSData) throws -> (header: SMB1.Header, blocks: [(params: [UInt16], message: NSData?)]) {
+    func digestSMBMessage(data: NSData) throws -> (header: SMB1.Header, blocks: [(params: [UInt16], message: NSData?)]) {
         guard data.length > 30 else {
             throw NSURLError.BadServerResponse
         }
@@ -106,7 +109,7 @@ class SMBProtocolClient: TCPSocketClient {
         return (header, blocks)
     }
     
-    class func digestSMB2Message(data: NSData) throws -> (header: SMB2.Header, message: SMBResponse?)? {
+    func digestSMB2Message(data: NSData) throws -> (header: SMB2.Header, message: SMBResponse?)? {
         guard data.length > 65 else {
             throw NSURLError.BadServerResponse
         }
@@ -148,7 +151,7 @@ class SMBProtocolClient: TCPSocketClient {
         case .ECHO:
             return (header, SMB2.Echo(data: messageData))
         case .QUERY_DIRECTORY:
-            return (header, nil) // FIXME:
+            return (header, SMB2.QueryDirectoryResponse(data: messageData))
         case .CHANGE_NOTIFY:
             return (header, nil) // FIXME:
         case .QUERY_INFO:
@@ -162,7 +165,7 @@ class SMBProtocolClient: TCPSocketClient {
         }
     }
     
-    class func createSMBMessage(header: SMB1.Header, blocks: [(params: NSData?, message: NSData?)]) -> NSData {
+    func createSMBMessage(header: SMB1.Header, blocks: [(params: NSData?, message: NSData?)]) -> NSData {
         var headerv = header
         let result = NSMutableData(data: encode(&headerv))
         for block in blocks {
@@ -180,7 +183,7 @@ class SMBProtocolClient: TCPSocketClient {
         return result
     }
     
-    class func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> NSData {
+    func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> NSData {
         var headerv = header
         let result = NSMutableData(data: encode(&headerv))
         result.appendData(message.data())
