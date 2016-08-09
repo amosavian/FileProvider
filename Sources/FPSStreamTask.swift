@@ -2,8 +2,8 @@
 //  FPSStreamTask.swift
 //  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 5/19/95.
-//
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -20,17 +20,14 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
     private var streamDelegate: FPSStreamDelegate? {
         return (_underlyingSession.delegate as? FPSStreamDelegate)
     }
-    private var _underlyingTaskObject: NSURLSessionTask?
     private var _taskIdentifier: Int
     
     @available(iOS 9.0, OSX 10.11, *)
+    static var streamTasks = [Int: NSURLSessionStreamTask]()
+    
+    @available(iOS 9.0, OSX 10.11, *)
     internal var _underlyingTask: NSURLSessionStreamTask? {
-        get {
-            return _underlyingTaskObject as? NSURLSessionStreamTask
-        }
-        set {
-            _underlyingTaskObject = newValue
-        }
+        return FPSStreamTask.streamTasks[_taskIdentifier]
     }
     
     public override var taskIdentifier: Int {
@@ -111,23 +108,23 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
     internal init(session: NSURLSession, host: String, port: Int) {
         self._underlyingSession = session
         if #available(iOS 9.0, OSX 10.11, *) {
-            self._underlyingTaskObject = session.streamTaskWithHostName(host, port: port)
-            self._taskIdentifier = self._underlyingTaskObject!.taskIdentifier
-            super.init()
+            let task = session.streamTaskWithHostName(host, port: port)
+            self._taskIdentifier = task.taskIdentifier
+            FPSStreamTask.streamTasks[_taskIdentifier] = task
         } else {
             lasttaskIdAssociated += 1
             self._taskIdentifier = lasttaskIdAssociated
             self.host = (host, port)
             self.dispatch_queue = dispatch_queue_create("FSPStreamTask", DISPATCH_QUEUE_CONCURRENT)
-            super.init()
         }
     }
     
     internal init(session: NSURLSession, netService: NSNetService) {
         self._underlyingSession = session
         if #available(iOS 9.0, OSX 10.11, *) {
-            self._underlyingTaskObject = session.streamTaskWithNetService(netService)
-            self._taskIdentifier = self._underlyingTaskObject!.taskIdentifier
+            let task = session.streamTaskWithNetService(netService)
+            self._taskIdentifier = task.taskIdentifier
+            FPSStreamTask.streamTasks[_taskIdentifier] = task
         } else {
             lasttaskIdAssociated += 1
             self._taskIdentifier = lasttaskIdAssociated
@@ -249,7 +246,7 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
                         completionHandler(nil, inputStream.streamStatus == .AtEnd, inputStream.streamError)
                     })
                 }
-                while self.dataReceived.length < minBytes && !timedOut {
+                while (self.dataReceived.length == 0 || self.dataReceived.length < minBytes) && !timedOut {
                     NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
                     NSThread.sleepForTimeInterval(0.1)
                 }
@@ -262,7 +259,7 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
                     dR.appendData(self.dataReceived)
                     self.dataReceived.length = 0
                 }
-                completionHandler(self.dataReceived, inputStream.streamStatus == .AtEnd, inputStream.streamError)
+                completionHandler(dR, inputStream.streamStatus == .AtEnd, inputStream.streamError)
             }
         }
     }
@@ -322,8 +319,8 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
             guard let outputStream = outputStream, let inputStream = inputStream else {
                 return
             }
-            write(false)
             dispatch_async(dispatch_queue) {
+                self.write(false)
                 while inputStream.streamStatus != .AtEnd {
                     NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
                     NSThread.sleepForTimeInterval(0.1)
@@ -343,7 +340,9 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
         if #available(iOS 9.0, OSX 10.11, *) {
             _underlyingTask!.closeWrite()
         } else {
-            write(true)
+            dispatch_async(dispatch_queue, { 
+                self.write(true)
+            })
         }
     }
     
@@ -351,23 +350,21 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
         guard let outputStream = outputStream else {
             return
         }
-        dispatch_async(dispatch_queue) {
-            while self.dataToBeSent.length > 0 {
-                let bytesWritten = outputStream.write(UnsafePointer(self.dataToBeSent.bytes), maxLength: self.dataToBeSent.length) ?? -1
-                if bytesWritten > 0 {
-                    let range = NSRange(location: 0, length: bytesWritten)
-                    self.dataToBeSent.replaceBytesInRange(range, withBytes: nil, length: 0)
-                    self._countOfBytesSent += bytesWritten
-                } else {
-                    self._error = outputStream.streamError
-                }
-                NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
-                NSThread.sleepForTimeInterval(0.1)
+        while self.dataToBeSent.length > 0 {
+            let bytesWritten = outputStream.write(UnsafePointer(self.dataToBeSent.bytes), maxLength: self.dataToBeSent.length) ?? -1
+            if bytesWritten > 0 {
+                let range = NSRange(location: 0, length: bytesWritten)
+                self.dataToBeSent.replaceBytesInRange(range, withBytes: nil, length: 0)
+                self._countOfBytesSent += bytesWritten
+            } else {
+                self._error = outputStream.streamError
             }
-            if close {
-                outputStream.close()
-                self.streamDelegate?.URLSession?(self._underlyingSession, writeClosedForStreamTask: self)
-            }
+            NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
+            NSThread.sleepForTimeInterval(0.1)
+        }
+        if close {
+            outputStream.close()
+            self.streamDelegate?.URLSession?(self._underlyingSession, writeClosedForStreamTask: self)
         }
     }
     
