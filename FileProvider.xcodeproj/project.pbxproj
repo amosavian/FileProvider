@@ -16,6 +16,9 @@
 		794C220E1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
 		794C220F1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
 		794C22101D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
+		794C22121D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C22111D599FBE00EC49B8 /* FPSStreamTask.swift */; };
+		794C22131D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C22111D599FBE00EC49B8 /* FPSStreamTask.swift */; };
+		794C22141D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C22111D599FBE00EC49B8 /* FPSStreamTask.swift */; };
 		799396A71D48C02300086753 /* AEXML.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396921D48C02300086753 /* AEXML.swift */; };
 		799396A81D48C02300086753 /* AEXML.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396921D48C02300086753 /* AEXML.swift */; };
 		799396A91D48C02300086753 /* AEXML.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396921D48C02300086753 /* AEXML.swift */; };
@@ -67,9 +70,6 @@
 		799396DA1D48C02300086753 /* SMBErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A41D48C02300086753 /* SMBErrorType.swift */; };
 		799396DB1D48C02300086753 /* SMBErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A41D48C02300086753 /* SMBErrorType.swift */; };
 		799396DC1D48C02300086753 /* SMBErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A41D48C02300086753 /* SMBErrorType.swift */; };
-		799396DD1D48C02300086753 /* TCPSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A51D48C02300086753 /* TCPSocketClient.swift */; };
-		799396DE1D48C02300086753 /* TCPSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A51D48C02300086753 /* TCPSocketClient.swift */; };
-		799396DF1D48C02300086753 /* TCPSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A51D48C02300086753 /* TCPSocketClient.swift */; };
 		799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
@@ -79,6 +79,7 @@
 		794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DropboxHelper.swift; sourceTree = "<group>"; };
 		794C22091D5893F800EC49B8 /* SMB2Notification.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Notification.swift; sourceTree = "<group>"; };
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
+		794C22111D599FBE00EC49B8 /* FPSStreamTask.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FPSStreamTask.swift; sourceTree = "<group>"; };
 		799396671D48B7F600086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396751D48B80D00086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396821D48B82700086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,7 +104,6 @@
 		799396A21D48C02300086753 /* SMB2Tree.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Tree.swift; sourceTree = "<group>"; };
 		799396A31D48C02300086753 /* SMB2Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Types.swift; sourceTree = "<group>"; };
 		799396A41D48C02300086753 /* SMBErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMBErrorType.swift; sourceTree = "<group>"; };
-		799396A51D48C02300086753 /* TCPSocketClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TCPSocketClient.swift; sourceTree = "<group>"; };
 		799396A61D48C02300086753 /* WebDAVFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDAVFileProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -173,7 +173,7 @@
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
 				799396981D48C02300086753 /* SMBFileProvider.swift */,
-				799396A51D48C02300086753 /* TCPSocketClient.swift */,
+				794C22111D599FBE00EC49B8 /* FPSStreamTask.swift */,
 				799396A61D48C02300086753 /* WebDAVFileProvider.swift */,
 			);
 			path = Sources;
@@ -350,7 +350,6 @@
 				799396B31D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
-				799396DD1D48C02300086753 /* TCPSocketClient.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C51D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				799396BF1D48C02300086753 /* SMB2DataTypes.swift in Sources */,
@@ -366,6 +365,7 @@
 				799396DA1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C21D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CB1D48C02300086753 /* SMB2Query.swift in Sources */,
+				794C22121D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */,
 				799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				799396B01D48C02300086753 /* FileProvider.swift in Sources */,
 				799396B61D48C02300086753 /* SMBClient.swift in Sources */,
@@ -379,7 +379,6 @@
 				799396B41D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
-				799396DE1D48C02300086753 /* TCPSocketClient.swift in Sources */,
 				799396D81D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C61D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				799396C01D48C02300086753 /* SMB2DataTypes.swift in Sources */,
@@ -395,6 +394,7 @@
 				799396DB1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C31D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CC1D48C02300086753 /* SMB2Query.swift in Sources */,
+				794C22131D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */,
 				799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				799396B11D48C02300086753 /* FileProvider.swift in Sources */,
 				799396B71D48C02300086753 /* SMBClient.swift in Sources */,
@@ -408,7 +408,6 @@
 				799396B51D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,
-				799396DF1D48C02300086753 /* TCPSocketClient.swift in Sources */,
 				799396D91D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C71D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				799396C11D48C02300086753 /* SMB2DataTypes.swift in Sources */,
@@ -424,6 +423,7 @@
 				799396DC1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C41D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CD1D48C02300086753 /* SMB2Query.swift in Sources */,
+				794C22141D599FBE00EC49B8 /* FPSStreamTask.swift in Sources */,
 				799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				799396B21D48C02300086753 /* FileProvider.swift in Sources */,
 				799396B81D48C02300086753 /* SMBClient.swift in Sources */,

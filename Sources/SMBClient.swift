@@ -35,7 +35,7 @@ protocol SMBProtocolClientDelegate: class {
     func receivedSMB2Response(header: SMB2.Header, response: SMBResponse)
 }
 
-class SMBProtocolClient: TCPSocketClient {
+class SMBProtocolClient: FPSStreamTask {
     var currentMessageID: UInt64 = 0
     
     weak var delegate: SMBProtocolClientDelegate?
@@ -44,12 +44,10 @@ class SMBProtocolClient: TCPSocketClient {
         let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: messageId(), treeId: 0, sessionId: 0)
         currentMessageID += 1
         let negMessage = SMB2.NegotiateRequest(request: SMB2.NegotiateRequest.Header(capabilities: []))
-        createSMB2Message(smbHeader, message: negMessage)
-        do {
-            try self.send(data: nil)
-        } catch let e {
-            throw e
-        }
+        let data = createSMB2Message(smbHeader, message: negMessage)
+        self.writeData(data, timeout: 0, completionHandler: { (e) in
+            return
+        })
     }
     
     func sessionSetupForSMB2() -> SMB2.SessionSetupResponse? {

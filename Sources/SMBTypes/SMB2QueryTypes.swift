@@ -99,6 +99,23 @@ extension SMB2 {
         case FileFsVolumeInformation
     }
     
+    struct FileSecurityInfo: OptionSetType {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        static let OWNER        = FileSecurityInfo(rawValue: 0x00000001)
+        static let GROUP        = FileSecurityInfo(rawValue: 0x00000002)
+        static let DACL         = FileSecurityInfo(rawValue: 0x00000004)
+        static let SACL         = FileSecurityInfo(rawValue: 0x00000008)
+        static let LABEL        = FileSecurityInfo(rawValue: 0x00000010)
+        static let ATTRIBUTE    = FileSecurityInfo(rawValue: 0x00000020)
+        static let SCOPE        = FileSecurityInfo(rawValue: 0x00000040)
+        static let BACKUP       = FileSecurityInfo(rawValue: 0x00010000)
+    }
+    
     struct FileDirectoryInformationHeader: SMB2FilesInformationHeader {
         let nextEntryOffset: UInt32
         let fileIndex: UInt32

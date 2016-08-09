@@ -153,7 +153,7 @@ extension SMB2 {
             self.buffer = nil
         }
         
-        init(fileId: FileId, securityInfo: SecurityInfo, outputBufferLength: UInt32 = 65535) {
+        init(fileId: FileId, securityInfo: FileSecurityInfo, outputBufferLength: UInt32 = 65535) {
             self.header = Header(size: 41, infoType: 3, infoClass: 0, outputBufferLength: outputBufferLength, inputBufferOffset: 0, reserved: 0, inputBufferLength: 0, additionalInformation: securityInfo, flags: [], fileId: fileId)
             self.buffer = nil
         }
@@ -177,7 +177,7 @@ extension SMB2 {
             let inputBufferOffset: UInt16
             private let reserved: UInt16
             let inputBufferLength: UInt32
-            let additionalInformation: SecurityInfo
+            let additionalInformation: FileSecurityInfo
             let flags: QueryInfoRequest.Flags
             let fileId: FileId
         }
@@ -192,23 +192,6 @@ extension SMB2 {
             static let RESTART_SCAN         = Flags(rawValue: 0x00000001)
             static let RETURN_SINGLE_ENTRY  = Flags(rawValue: 0x00000002)
             static let INDEX_SPECIFIED      = Flags(rawValue: 0x00000004)
-        }
-        
-        struct SecurityInfo: OptionSetType {
-            let rawValue: UInt32
-            
-            init(rawValue: UInt32) {
-                self.rawValue = rawValue
-            }
-            
-            static let OWNER        = SecurityInfo(rawValue: 0x00000001)
-            static let GROUP        = SecurityInfo(rawValue: 0x00000002)
-            static let DACL         = SecurityInfo(rawValue: 0x00000004)
-            static let SACL         = SecurityInfo(rawValue: 0x00000008)
-            static let LABEL        = SecurityInfo(rawValue: 0x00000010)
-            static let ATTRIBUTE    = SecurityInfo(rawValue: 0x00000020)
-            static let SCOPE        = SecurityInfo(rawValue: 0x00000040)
-            static let BACKUP       = SecurityInfo(rawValue: 0x00010000)
         }
     }
     
