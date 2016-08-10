@@ -11,6 +11,7 @@ import Foundation
 public struct FileProviderDropboxError: ErrorType, CustomStringConvertible {
     public let code: FileProviderHTTPErrorCode
     public let path: String
+    public let errorDescription: String?
     
     public var description: String {
         return code.description
@@ -40,7 +41,7 @@ internal extension DropboxFileProvider {
         } else {
             url = NSURL(string: "https://api.dropboxapi.com/2/files/list_folder")!
             requestDictionary["path"] = correctPath(path)
-            requestDictionary["recursive"] = NSNumber(bool: recursive)
+            requestDictionary["recursive"] = recursive
         }
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "POST"
@@ -50,7 +51,7 @@ internal extension DropboxFileProvider {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             var responseError: FileProviderDropboxError?
             if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: path)
+                responseError = FileProviderDropboxError(code: rCode, path: path, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding))
             }
             if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
                 let json = self.jsonToDictionary(jsonStr)
@@ -95,7 +96,7 @@ internal extension DropboxFileProvider {
         let task = session.uploadTaskWithRequest(request, fromData: data) { (data, response, error) in
             var responseError: FileProviderDropboxError?
             if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: targetPath)
+                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding))
             }
             defer {
                 self.delegateNotify(.Create(path: targetPath), error: responseError ?? error)
@@ -135,7 +136,7 @@ internal extension DropboxFileProvider {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             var responseError: FileProviderDropboxError?
             if let code = (response as? NSHTTPURLResponse)?.statusCode where code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: startPath)
+                responseError = FileProviderDropboxError(code: rCode, path: startPath, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding))
             }
             if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
                 let json = self.jsonToDictionary(jsonStr)

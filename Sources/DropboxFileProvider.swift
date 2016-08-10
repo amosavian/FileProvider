@@ -35,11 +35,8 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
         return _session!
     }
     
-    public init? (baseURL: NSURL, credential: NSURLCredential?) {
-        if  !["http", "https"].contains(baseURL.uw_scheme.lowercaseString) {
-            return nil
-        }
-        self.baseURL = baseURL
+    public init? (credential: NSURLCredential?) {
+        self.baseURL = nil
         dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
@@ -69,7 +66,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
                     self.delegateNotify(FileOperation.Create(path: path), error: error)
                 }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding)) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = self.jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
                     completionHandler(attributes: file, error: dbError)
                     return
@@ -159,7 +156,7 @@ extension DropboxFileProvider: FileProviderOperations {
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
             if let response = response as? NSHTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "") : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding)) : nil
                 defer {
                     self.delegateNotify(operation, error: error ?? dbError)
                 }
@@ -184,7 +181,7 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     public func copyPathToLocalFile(path: String, toLocalURL destURL: NSURL, completionHandler: SimpleCompletionHandler) {
-        let url = NSURL(string: "https://api.dropboxapi.com/2/files/download")!
+        let url = NSURL(string: "https://content.dropboxapi.com/2/files/download")!
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -194,7 +191,7 @@ extension DropboxFileProvider: FileProviderOperations {
         let task = session.downloadTaskWithRequest(request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? NSHTTPURLResponse where httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: nil) : nil
                 completionHandler?(error: dbError ?? error)
                 return
             }
@@ -216,7 +213,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
-        let url = NSURL(string: "https://api.dropboxapi.com/2/files/download")!
+        let url = NSURL(string: "https://content.dropboxapi.com/2/files/download")!
         let request = NSMutableURLRequest(URL: url)
         request.HTTPMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -227,20 +224,14 @@ extension DropboxFileProvider: FileProviderReadWrite {
         }
         let requestDictionary = ["path": path]
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
-        let task = session.downloadTaskWithRequest(request, completionHandler: { (cacheURL, response, error) in
-            guard let cacheURL = cacheURL, let httpResponse = response as? NSHTTPURLResponse where httpResponse.statusCode < 300 else {
+        let task = session.dataTaskWithRequest(request, completionHandler: { (datam, response, error) in
+            guard let data = datam, let httpResponse = response as? NSHTTPURLResponse where httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? NSHTTPURLResponse)?.statusCode ?? -1)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path) : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: datam ?? NSData(), encoding: NSUTF8StringEncoding)) : nil
                 completionHandler(contents: nil, error: dbError ?? error)
                 return
             }
-            let destURL = NSURL(fileURLWithPath: NSTemporaryDirectory()).uw_URLByAppendingPathComponent(cacheURL.lastPathComponent ?? "tmpfile")
-            do {
-                try NSFileManager.defaultManager().moveItemAtURL(cacheURL, toURL: destURL)
-                completionHandler(contents: NSData(contentsOfURL: destURL), error: error)
-            } catch let e {
-                completionHandler(contents: nil, error: e)
-            }
+            completionHandler(contents: data, error: error)
         })
         task.resume()
     }

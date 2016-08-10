@@ -12,19 +12,25 @@ extension SMB2 {
     // MARK: SMB2 Negotiating
     
     struct NegotiateRequest: SMBRequest {
-        let request: NegotiateRequest.Header
+        let header: NegotiateRequest.Header
         let dialects: [UInt16]
         let contexts: [(type: NegotiateContextType, data: NSData)]
         
-        init(request: NegotiateRequest.Header, dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: NSData)] = []) {
-            self.request = request
+        init(header: NegotiateRequest.Header, dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: NSData)] = []) {
+            self.header = header
+            self.dialects = dialects
+            self.contexts = contexts
+        }
+        
+        init(dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: NSData)] = [],capabilities: GlobalCapabilities = [], clientStartTime: SMBTime? = nil, guid: uuid_t? = nil, signing: NegotiateSinging = [.ENABLED]) {
+            self.header = Header(capabilities: capabilities, clientStartTime: clientStartTime, guid: guid, signing: signing)
             self.dialects = dialects
             self.contexts = contexts
         }
         
         func data() -> NSData {
-            var request = self.request
-            request.dialectCount = UInt16(dialects.count)
+            var header = self.header
+            header.dialectCount = UInt16(dialects.count)
             let dialectData = NSMutableData()
             for dialect in dialects {
                 var dialect = dialect
@@ -32,8 +38,8 @@ extension SMB2 {
             }
             let pad = ((1024 - dialectData.length) % 8)
             dialectData.increaseLengthBy(pad)
-            request.contextOffset = UInt32(sizeof(request.dynamicType.self)) + UInt32(dialectData.length)
-            request.contextCount = UInt16(contexts.count)
+            header.contextOffset = UInt32(sizeof(header.dynamicType.self)) + UInt32(dialectData.length)
+            header.contextCount = UInt16(contexts.count)
             
             let contextData = NSMutableData()
             for context in contexts {
@@ -43,7 +49,7 @@ extension SMB2 {
                 contextData.increaseLengthBy(4)
                 contextData.appendBytes(&dataLen, length: 2)
             }
-            let result = NSMutableData(data: encode(&request))
+            let result = NSMutableData(data: encode(&header))
             result.appendData(dialectData)
             result.appendData(contextData)
             return result
@@ -52,7 +58,7 @@ extension SMB2 {
         struct Header {
             var size: UInt16
             var dialectCount: UInt16
-            let singing: NegotiateSinging
+            let signing: NegotiateSinging
             private let reserved: UInt16
             let capabilities: GlobalCapabilities
             let guid: uuid_t
@@ -64,13 +70,13 @@ extension SMB2 {
                 return SMBTime(time: time)
             }
             
-            init(singing: NegotiateSinging = [.ENABLED], capabilities: GlobalCapabilities, guid: uuid_t? = nil, clientStartTime: SMBTime? = nil) {
+            init(capabilities: GlobalCapabilities, clientStartTime: SMBTime? = nil, guid: uuid_t? = nil, signing: NegotiateSinging = [.ENABLED]) {
                 self.size = 36
                 self.dialectCount = 0
-                self.singing = singing
+                self.signing = signing
                 self.reserved = 0
                 self.capabilities = capabilities
-                self.guid = guid ?? (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                self.guid = guid ?? (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
                 if let clientStartTime = clientStartTime {
                     let time = clientStartTime.time
                     self.contextOffset = UInt32(time & 0xffffffff)
@@ -179,6 +185,11 @@ extension SMB2 {
             self.buffer = buffer
         }
         
+        init(sessionId: UInt64 = 0, flags: SessionSetupRequest.Flags = [], singing: SessionSetupSinging = [.ENABLED], capabilities: GlobalCapabilities = [], securityData: NSData? = nil) {
+            self.header = Header(sessionId: sessionId, flags: flags, singing: singing, capabilities: capabilities)
+            self.buffer = securityData
+        }
+        
         func data() -> NSData {
             var header = self.header
             header.bufferOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(SessionSetupRequest.Header.self))
@@ -272,8 +283,8 @@ extension SMB2 {
             self.rawValue = rawValue
         }
         
-        static let ENABLED   = NegotiateSinging(rawValue: 0x01)
-        static let REQUIRED  = NegotiateSinging(rawValue: 0x02)
+        static let ENABLED   = SessionSetupSinging(rawValue: 0x01)
+        static let REQUIRED  = SessionSetupSinging(rawValue: 0x02)
     }
     
     // MARK: SMB2 Log off

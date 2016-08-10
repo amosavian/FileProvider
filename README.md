@@ -22,11 +22,11 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 ## Features
 
 - [x] **LocalFileProvider** a wrapper around `NSFileManager` with some additions like searching and reading a portion of file.
-- [x] **WebDAVFileProvider** WebDAV protocol is usual file transmission system on Macs.
-- [x] **DropboxFileProvider** *implemented but not tested*
-- [ ] **SMBFileProvider** SMB/CIFS and SMB2/3 are file and printer sharing protocol which is originated from IBM & Microsoft and SMB2/3 is now replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!*
-- [ ] **FTPFileProvider**
-- [ ] **AmazonS3FileProvider**
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission protocol standard, replaced FTP.
+- [x] **DropboxFileProvider** A wrapper around Dropbox Web API. For now it has limitation in uploading files up to 150MB.
+- [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!*. SMB1/CIFS is depericated and very tricky to be implemented
+- [ ] **FTPFileProvider** while depericated in 1990s, it's still in use on some Web hosts.
+- [ ] **AmazonS3FileProvider** 
 
 ## Requirements
 

@@ -177,7 +177,11 @@ extension FileProviderBasic {
     
     internal func correctPath(path: String?) -> String? {
         guard let path = path else { return nil }
-        return path.hasPrefix("/") ? path : "/" + path
+        var p = path.hasPrefix("/") ? path : "/" + path
+        if p.hasSuffix("/") {
+            p.removeAtIndex(p.endIndex.predecessor())
+        }
+        return p
     }
     
     public func fileByUniqueName(filePath: String) -> String {

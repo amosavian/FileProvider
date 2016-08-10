@@ -35,23 +35,79 @@ protocol SMBProtocolClientDelegate: class {
     func receivedSMB2Response(header: SMB2.Header, response: SMBResponse)
 }
 
-class SMBProtocolClient: FPSStreamTask {
+class SMB2ProtocolClient: FPSStreamTask {
     var currentMessageID: UInt64 = 0
+    var sessionId: UInt64 = 0
     
     weak var delegate: SMBProtocolClientDelegate?
     
-    func negotiateToSMB2() throws {
-        let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: messageId(), treeId: 0, sessionId: 0)
-        currentMessageID += 1
-        let negMessage = SMB2.NegotiateRequest(request: SMB2.NegotiateRequest.Header(capabilities: []))
-        let data = createSMB2Message(smbHeader, message: negMessage)
+    func sendNegotiate(completionHandler: SimpleCompletionHandler) -> UInt64 {
+        let mId = messageId()
+        let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: 126, messageId: mId, treeId: 0, sessionId: 0)
+        let msg = SMB2.NegotiateRequest()
+        let data = createSMB2Message(smbHeader, message: msg)
         self.writeData(data, timeout: 0, completionHandler: { (e) in
-            return
+            completionHandler?(error: e)
         })
+        return mId
     }
     
-    func sessionSetupForSMB2() -> SMB2.SessionSetupResponse? {
-        return nil
+    func sendSessionSetup(completionHandler: SimpleCompletionHandler) -> UInt64 {
+        let mId = messageId()
+        let smbHeader = SMB2.Header(command: .SESSION_SETUP, creditRequestResponse: sessionId > 0 ? 124 : 125, messageId: mId, treeId: 0, sessionId: sessionId)
+        let msg = SMB2.SessionSetupRequest(singing: [])
+        let data = createSMB2Message(smbHeader, message: msg)
+        self.writeData(data, timeout: 0, completionHandler: { (e) in
+            if self.sessionId == 0 {
+                self.readDataOfMinLength(64, maxLength: 65536, timeout: 30, completionHandler: { (data, eof, e2) in
+                    // TODO: set session id
+                    completionHandler?(error: e2 ?? e)
+                })
+            }
+        })
+        return mId
+    }
+    
+    func sendTreeConnect(completionHandler: SimpleCompletionHandler) -> UInt64 {
+        let req = self.currentRequest ?? self.originalRequest
+        guard let url = req?.URL, let host = url.host else {
+            return 0
+        }
+        let mId = messageId()
+        let smbHeader = SMB2.Header(command: .TREE_CONNECT, creditRequestResponse: 123, messageId: mId, treeId: 0, sessionId: sessionId)
+        var share = ""
+        if let cmp = url.pathComponents where cmp.count > 0 {
+            share = cmp[0]
+        }
+        let tcHeader = SMB2.TreeConnectRequest.Header(flags: [])
+        let msg = SMB2.TreeConnectRequest(header: tcHeader, host: host, share: share)
+        let data = createSMB2Message(smbHeader, message: msg!)
+        self.writeData(data, timeout: 0, completionHandler: { (e) in
+            completionHandler?(error: e)
+            
+        })
+        return mId
+    }
+    func sendTreeDisconnect(treeId: UInt32, completionHandler: SimpleCompletionHandler) -> UInt64 {
+        let mId = messageId()
+        let smbHeader = SMB2.Header(command: .TREE_DISCONNECT, creditRequestResponse: 111, messageId: mId, treeId: treeId, sessionId: sessionId)
+        let msg = SMB2.TreeDisconnect()
+        let data = createSMB2Message(smbHeader, message: msg)
+        self.writeData(data, timeout: 0, completionHandler: { (e) in
+            completionHandler?(error: e)
+        })
+        return mId
+    }
+    
+    func sendLogoff(treeId: UInt32, completionHandler: SimpleCompletionHandler) -> UInt64 {
+        let mId = messageId()
+        let smbHeader = SMB2.Header(command: .LOGOFF, creditRequestResponse: 0, messageId: mId, treeId: 0, sessionId: sessionId)
+        let msg = SMB2.LogOff()
+        let data = createSMB2Message(smbHeader, message: msg)
+        self.writeData(data, timeout: 0, completionHandler: { (e) in
+            completionHandler?(error: e)
+        })
+        return mId
     }
     
     func messageId() -> UInt64 {
@@ -137,13 +193,13 @@ class SMBProtocolClient: FPSStreamTask {
         case .FLUSH:
             return (header, SMB2.FlushResponse(data: messageData))
         case .READ:
-            return (header, nil) // FIXME:
+            return (header, SMB2.ReadRespone(data: messageData))
         case .WRITE:
-            return (header, nil) // FIXME:
+            return (header, SMB2.WriteResponse(data: messageData))
         case .LOCK:
-            return (header, nil) // FIXME:
+            return (header, SMB2.LockResponse(data: messageData))
         case .IOCTL:
-            return (header, nil)
+            return (header, SMB2.IOCtlResponse(data: messageData))
         case .CANCEL:
             return (header, nil)
         case .ECHO:
@@ -151,11 +207,11 @@ class SMBProtocolClient: FPSStreamTask {
         case .QUERY_DIRECTORY:
             return (header, SMB2.QueryDirectoryResponse(data: messageData))
         case .CHANGE_NOTIFY:
-            return (header, nil) // FIXME:
+            return (header, SMB2.ChangeNotifyResponse(data: messageData))
         case .QUERY_INFO:
-            return (header, nil) // FIXME:
+            return (header, SMB2.QueryInfoResponse(data: messageData))
         case .SET_INFO:
-            return (header, nil) // FIXME:
+            return (header, SMB2.SetInfoResponse(data: messageData))
         case .OPLOCK_BREAK:
             return (header, nil) // FIXME:
         case .INVALID:

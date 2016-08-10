@@ -22,7 +22,7 @@ extension SMB2 {
         }
         
         init? (header: TreeConnectRequest.Header, host: String, share: String) {
-            guard !host.containsString("/") && !host.containsString("/") && !share.containsString("/") && !share.containsString("/") else {
+            guard !host.containsString("/") && !share.containsString("/") else {
                 return nil
             }
             self.header = header
