@@ -552,6 +552,9 @@ public struct FileProviderWebDavError: ErrorType, CustomStringConvertible {
 }
 
 public enum FileProviderHTTPErrorCode: Int {
+    case Continue = 100
+    case SwitchingProtocols = 101
+    case Processing = 102
     case OK = 200
     case Created = 201
     case Accepted = 202
@@ -568,6 +571,7 @@ public enum FileProviderHTTPErrorCode: Int {
     case SeeOther = 303
     case NotModified = 304
     case UseProxy = 305
+    case SwitchProxy = 306
     case TemporaryRedirect = 307
     case PermanentRedirect = 308
     case BadRequest = 400
@@ -592,6 +596,7 @@ public enum FileProviderHTTPErrorCode: Int {
     case UnprocessableEntity = 422
     case Locked = 423
     case FailedDependency = 424
+    case UnorderedCollection = 425
     case UpgradeRequired = 426
     case PreconditionRequired = 428
     case TooManyRequests = 429
@@ -605,70 +610,24 @@ public enum FileProviderHTTPErrorCode: Int {
     case VariantlsoNegotiates = 506
     case InsufficientStorage = 507
     case LoopDetected = 508
+    case BandwidthLimitExceeded = 509
     case NotExtended = 510
     case NetworkAuthenticationRequired = 511
     
+    private static let status1xx = [100: "Continue", 101: "Switching Protocols", 102: "Processing"]
+    private static let status2xx = [200: "OK", 201: "Created", 202: "Accepted", 203: "Non-Authoritative Information", 204: "No Content", 205: "Reset Content", 206: "Partial Content", 207: "Multi-Status", 208: "Already Reported", 226: "IM Used"]
+    private static let status3xx = [300: "Multiple Choices", 301: "Moved Permanently", 302: "Found", 303: "See Other", 304: "Not Modified", 305: "Use Proxy", 306: "Switch Proxy", 307: "Temporary Redirect", 308: "Permanent Redirect"]
+    private static let status4xx = [400: "Bad Request", 401: "Unauthorized/Expired Session", 402: "Payment Required", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 406: "Not Acceptable", 407: "Proxy Authentication Required", 408: "Request Timeout", 409: "Conflict", 410: "Gone", 411: "Length Required", 412: "Precondition Failed", 413: "Payload Too Large", 414: "URI Too Long", 415: "Unsupported Media Type", 416: "Range Not Satisfiable", 417: "Expectation Failed", 421: "Misdirected Request", 422: "Unprocessable Entity", 423: "Locked", 424: "Failed Dependency", 425: "Unordered Collection", 426: "Upgrade Required", 428: "Precondition Required", 429: "Too Many Requests", 431: "Request Header Fields Too Large", 451: "Unavailable For Legal Reasons"]
+    private static let status5xx = [500: "Internal Server Error", 501: "Not Implemented", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout", 505: "HTTP Version Not Supported", 506: "Variant Also Negotiates", 507: "Insufficient Storage", 508: "Loop Detected", 509: "Bandwidth Limit Exceeded", 510: "Not Extended", 511: "Network Authentication Required"]
+    
     public var description: String {
         switch self.rawValue {
-        case 100: return "Continue"
-        case 101: return "Switching Protocols"
-        case 102: return "Processing"
-        case 200: return "OK"
-        case 201: return "Created"
-        case 202: return "Accepted"
-        case 203: return "Non-Authoritative Information"
-        case 204: return "No Content"
-        case 205: return "Reset Content"
-        case 206: return "Partial Content"
-        case 207: return "Multi-Status"
-        case 208: return "Already Reported"
-        case 226: return "IM Used"
-        case 300: return "Multiple Choices"
-        case 301: return "Moved Permanently"
-        case 302: return "Found"
-        case 303: return "See Other"
-        case 304: return "Not Modified"
-        case 305: return "Use Proxy"
-        case 307: return "Temporary Redirect"
-        case 308: return "Permanent Redirect"
-        case 400: return "Bad Request"
-        case 401: return "Unauthorized/Expired Session"
-        case 402: return "Payment Required"
-        case 403: return "Forbidden"
-        case 404: return "Not Found"
-        case 405: return "Method Not Allowed"
-        case 406: return "Not Acceptable"
-        case 407: return "Proxy Authentication Required"
-        case 408: return "Request Timeout"
-        case 409: return "Conflict"
-        case 410: return "Gone"
-        case 411: return "Length Required"
-        case 412: return "Precondition Failed"
-        case 413: return "Payload Too Large"
-        case 414: return "URI Too Long"
-        case 415: return "Unsupported Media Type"
-        case 416: return "Range Not Satisfiable"
-        case 417: return "Expectation Failed"
-        case 421: return "Misdirected Request"
-        case 422: return "Unprocessable Entity"
-        case 423: return "Locked"
-        case 424: return "Failed Dependency"
-        case 426: return "Upgrade Required"
-        case 428: return "Precondition Required"
-        case 429: return "Too Many Requests"
-        case 431: return "Request Header Fields Too Large"
-        case 451: return "Unavailable For Legal Reasons"
-        case 500: return "Internal Server Error"
-        case 501: return "Not Implemented"
-        case 502: return "Bad Gateway"
-        case 503: return "Service Unavailable"
-        case 504: return "Gateway Timeout"
-        case 505: return "HTTP Version Not Supported"
-        case 506: return "Variant Also Negotiates"
-        case 507: return "Insufficient Storage"
-        case 508: return "Loop Detected"
-        case 510: return "Not Extended"
-        case 511: return "Network Authentication Required"
+        case 100...102: return FileProviderHTTPErrorCode.status1xx[self.rawValue]!
+        case 200...208, 226: return FileProviderHTTPErrorCode.status2xx[self.rawValue]!
+        case 300...308: return FileProviderHTTPErrorCode.status3xx[self.rawValue]!
+        case 400...417, 421...426: fallthrough
+        case 428, 429, 431, 451: return FileProviderHTTPErrorCode.status4xx[self.rawValue]!
+        case 500...511: return FileProviderHTTPErrorCode.status5xx[self.rawValue]!
         default: return typeDescription
         }
     }

@@ -10,6 +10,9 @@ import Foundation
 
 private var lasttaskIdAssociated = 1_000_000_000
 
+
+/// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
+/// while it will fallback to NSURLSessionStreamTask in iOS 9.
 @objc
 public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
     private var inputStream: NSInputStream?
@@ -358,6 +361,9 @@ public class FPSStreamTask: NSURLSessionTask, NSStreamDelegate {
                 self._countOfBytesSent += bytesWritten
             } else {
                 self._error = outputStream.streamError
+            }
+            if self.dataToBeSent.length == 0 {
+                break
             }
             NSRunLoop.currentRunLoop().runUntilDate(NSDate(timeIntervalSinceNow: 0.1));
             NSThread.sleepForTimeInterval(0.1)
