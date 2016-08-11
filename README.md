@@ -5,7 +5,7 @@
 [![Swift Version][swift-image]][swift-url]
 [![License][license-image]][license-url]
 [![Platform](https://img.shields.io/badge/Platform-iOS%2C%20OSX-lightgray.svg)]()
-[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://img.shields.io/cocoapods/v/FileProvider.svg)
+[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
 [![codebeat badge][codebeat-image]][codebeat-url]
 
 <!--- 
@@ -22,10 +22,10 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 ## Features
 
 - [x] **LocalFileProvider** a wrapper around `NSFileManager` with some additions like searching and reading a portion of file.
-- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission protocol standard, replaced FTP.
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API. For now it has limitation in uploading files up to 150MB.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!*. SMB1/CIFS is depericated and very tricky to be implemented
-- [ ] **FTPFileProvider** while depericated in 1990s, it's still in use on some Web hosts.
+- [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
 - [ ] **AmazonS3FileProvider** 
 
 ## Requirements
@@ -277,7 +277,7 @@ Amir-Abbas Mousavian  – [@amosavian](https://twitter.com/amosavian)
 
 Distributed under the MIT license. See `LICENSE` for more information.
 
-[https://github.com/yourname/github-link](https://github.com/dbader/)
+[https://github.com/amosavian/](https://github.com/amosavian/)
 
 [swift-image]:https://img.shields.io/badge/swift-2.2%2C%202.3-green.svg
 [swift-url]: https://swift.org/
