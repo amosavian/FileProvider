@@ -4,12 +4,13 @@
 
 [![Swift Version][swift-image]][swift-url]
 [![License][license-image]][license-url]
-[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20OSX-lightgray.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS-lightgray.svg)]()
+
+[![Build Status][travis-image]][travis-url]
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
 [![codebeat badge][codebeat-image]][codebeat-url]
 
 <!--- 
-[![Build Status][travis-image]][travis-url]
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) 
 ---> 
 
@@ -279,7 +280,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [https://github.com/amosavian/](https://github.com/amosavian/)
 
-[swift-image]:https://img.shields.io/badge/swift-2.2%2C%202.3-green.svg
+[swift-image]:https://img.shields.io/badge/Swift-2.2%2C%202.3-green.svg
 [swift-url]: https://swift.org/
 [license-image]: https://img.shields.io/badge/License-MIT-blue.svg
 [license-url]: LICENSE
