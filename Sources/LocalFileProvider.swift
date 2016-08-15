@@ -11,7 +11,7 @@ import Foundation
 public final class LocalFileObject: FileObject {
     public let allocatedSize: Int64
     
-    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, allocatedSize: Int64, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool) {
+    public init(absoluteURL: NSURL, name: String, path: String, size: Int64 = -1, allocatedSize: Int64 = 0, createdDate: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false) {
         self.allocatedSize = allocatedSize
         super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }

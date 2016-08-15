@@ -75,7 +75,7 @@ struct SMB1 {
             }
         }
         
-        init(command: Command, ntStatus: UInt32 = 0, flags: Flags, flags2: Flags2 = [.LONG_NAMES, .ERR_STATUS, .UNICODE], securityKey: UInt32 = 0, securityCID: UInt16 = 0, securitySequenceNumber: UInt16 = 0, treeId: UInt16, pid: UInt32, userId: UInt16, multiplexId: UInt16) {
+        init(command: Command, treeId: UInt16, pid: UInt32, userId: UInt16, multiplexId: UInt16, flags: Flags, flags2: Flags2 = [.LONG_NAMES, .ERR_STATUS, .UNICODE], ntStatus: UInt32 = 0, securityKey: UInt32 = 0, securityCID: UInt16 = 0, securitySequenceNumber: UInt16 = 0) {
             self.protocolID = Header.protocolConst
             self._command = command.rawValue
             _status = (UInt8(ntStatus & 0xff), UInt8(ntStatus >> 8 & 0xff), UInt8(ntStatus >> 16 & 0xff), UInt8(ntStatus >> 24 & 0xff))

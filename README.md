@@ -9,9 +9,10 @@
 [![Build Status][travis-image]][travis-url]
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
 [![codebeat badge][codebeat-image]][codebeat-url]
-[![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider)
 
 <!--- 
+
+[![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) 
 ---> 
 
@@ -287,3 +288,5 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [license-url]: LICENSE
 [codebeat-image]: https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517
 [codebeat-url]: https://codebeat.co/projects/github-com-amosavian-fileprovider
+[travis-image]: https://img.shields.io/travis/amosavian/FileProvider/master.svg
+[travis-url]: https://travis-ci.org/amosavian/FileProvider

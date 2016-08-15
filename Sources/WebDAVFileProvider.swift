@@ -12,7 +12,7 @@ public final class WebDavFileObject: FileObject {
     public let contentType: String
     public let entryTag: String?
     
-    public init(absoluteURL: NSURL, name: String, path: String, size: Int64, contentType: String, createdDate: NSDate?, modifiedDate: NSDate?, fileType: FileType, isHidden: Bool, isReadOnly: Bool, entryTag: String?) {
+    public init(absoluteURL: NSURL, name: String, path: String, size: Int64 = -1, contentType: String = "", createdDate: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false, entryTag: String? = nil) {
         self.contentType = contentType
         self.entryTag = entryTag
         super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
