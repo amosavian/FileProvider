@@ -26,11 +26,13 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
     public let credential: NSURLCredential?
     
     private var _session: NSURLSession?
+    private var sessionDelegate: SessionDelegate?
     internal var session: NSURLSession {
         if _session == nil {
+            self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
             let queue = NSOperationQueue()
             //queue.underlyingQueue = dispatch_queue
-            _session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration(), delegate: self, delegateQueue: queue)
+            _session = NSURLSession(configuration: NSURLSessionConfiguration.defaultSessionConfiguration(), delegate: sessionDelegate, delegateQueue: queue)
         }
         return _session!
     }
@@ -67,7 +69,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
                 }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = self.jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
+                if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
                     completionHandler(attributes: file, error: dbError)
                     return
                 }
@@ -85,7 +87,7 @@ public class DropboxFileProvider: NSObject,  FileProviderBasic {
         request.HTTPMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTaskWithRequest(request) { (data, response, error) in
-            if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = self.jsonToDictionary(jsonStr) {
+            if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding), let json = jsonToDictionary(jsonStr) {
                 let totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.longLongValue ?? -1
                 let usedSize = (json["used"] as? NSNumber)?.longLongValue ?? 0
                 completionHandler(total: totalSize, used: usedSize)
@@ -202,7 +204,7 @@ extension DropboxFileProvider: FileProviderOperations {
                 completionHandler?(error: e)
             }
         })
-        task.taskDescription = self.dictionaryToJSON(["type": "Copy", "source": path, "dest": destURL.uw_absoluteString])
+        task.taskDescription = dictionaryToJSON(["type": "Copy", "source": path, "dest": destURL.uw_absoluteString])
         task.resume()
     }
 }
@@ -309,7 +311,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         self.session.dataTaskWithRequest(request) { (data, response, error) in
             var image: ImageClass? = nil
-            if let r = response as? NSHTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = self.jsonToDictionary(result) {
+            if let r = response as? NSHTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = jsonToDictionary(result) {
                 if jsonResult["error"] != nil {
                     completionHandler(image: nil, error: self.throwError(path, code: NSURLError.CannotDecodeRawData))
                 }
@@ -327,52 +329,3 @@ extension DropboxFileProvider: ExtendedFileProvider {
 }
 
 extension DropboxFileProvider: FileProvider {}
-
-// MARK: URLSession delegate
-extension DropboxFileProvider: NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
-    public func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
-        return
-    }
-    
-    public func URLSession(session: NSURLSession, task: NSURLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
-        guard let desc = task.taskDescription, let json = jsonToDictionary(desc) else {
-            return
-        }
-        guard let type = json["type"] as? String, let source = json["source"] as? String else {
-            return
-        }
-        let dest = json["dest"] as? String
-        let op : FileOperation
-        switch type {
-        case "Create":
-            op = .Create(path: source)
-        case "Copy":
-            guard let dest = dest else { return }
-            op = .Copy(source: source, destination: dest)
-        case "Move":
-            guard let dest = dest else { return }
-            op = .Move(source: source, destination: dest)
-        case "Modify":
-            op = .Modify(path: source)
-        case "Remove":
-            op = .Remove(path: source)
-        case "Link":
-            guard let dest = dest else { return }
-            op = .Link(link: source, target: dest)
-        default:
-            return
-        }
-        
-        let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
-        
-        self.delegate?.fileproviderProgress(self, operation: op, progress: progress)
-    }
-    
-    public func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String, dest = json["dest"] as? String else {
-            return
-        }
-        
-        self.delegate?.fileproviderProgress(self, operation: .Copy(source: source, destination: dest), progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
-    }
-}

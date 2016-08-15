@@ -260,23 +260,6 @@ extension FileProviderBasic {
         //self.init()
         return nil
     }
-    
-    internal func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
-        guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
-            return nil
-        }
-        if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
-            return dic
-        }
-        return nil
-    }
-    
-    internal func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
-        if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
-            return String(data: data, encoding: NSUTF8StringEncoding)
-        }
-        return nil
-    }
 }
 
 
@@ -368,4 +351,21 @@ internal extension NSURL {
             return self.URLByAppendingPathExtension(pathExtension)
         #endif
     }
+}
+
+internal func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
+    guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
+        return nil
+    }
+    if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
+        return dic
+    }
+    return nil
+}
+
+internal func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
+    if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
+        return String(data: data, encoding: NSUTF8StringEncoding)
+    }
+    return nil
 }

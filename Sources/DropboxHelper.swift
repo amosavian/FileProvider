@@ -54,7 +54,7 @@ internal extension DropboxFileProvider {
                 responseError = FileProviderDropboxError(code: rCode, path: path, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding))
             }
             if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
-                let json = self.jsonToDictionary(jsonStr)
+                let json = jsonToDictionary(jsonStr)
                 if let entries = json?["entries"] as? [AnyObject] where entries.count > 0 {
                     var files = prevContents
                     for entry in entries {
@@ -118,7 +118,7 @@ internal extension DropboxFileProvider {
         default:
             break
         }
-        task.taskDescription = self.dictionaryToJSON(dic)
+        task.taskDescription = dictionaryToJSON(dic)
         task.resume()
     }
     
@@ -139,7 +139,7 @@ internal extension DropboxFileProvider {
                 responseError = FileProviderDropboxError(code: rCode, path: startPath, errorDescription: String(data: data ?? NSData(), encoding: NSUTF8StringEncoding))
             }
             if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
-                let json = self.jsonToDictionary(jsonStr)
+                let json = jsonToDictionary(jsonStr)
                 if let entries = json?["matches"] as? [AnyObject] where entries.count > 0 {
                     for entry in entries {
                         if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
@@ -164,7 +164,7 @@ internal extension DropboxFileProvider {
 
 internal extension DropboxFileProvider {
     func mapToFileObject(jsonStr: String) -> DropboxFileObject? {
-        guard let json = self.jsonToDictionary(jsonStr) else { return nil }
+        guard let json = jsonToDictionary(jsonStr) else { return nil }
         return self.mapToFileObject(json)
     }
     
