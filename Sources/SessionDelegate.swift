@@ -22,6 +22,7 @@ class SessionDelegate: NSObject, NSURLSessionDataDelegate, NSURLSessionDownloadD
         self.credential = credential
     }
     
+    // codebeat:disable[ARITY]
     func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
         self.finishDownloadHandler?(session: session, downloadTask: downloadTask, didFinishDownloadingToURL: location)
         return

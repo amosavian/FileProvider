@@ -45,6 +45,7 @@ struct SMB2 {
         let sessionId: UInt64
         let signature: (UInt64, UInt64)
         
+        // codebeat:disable[ARITY]
         init(command: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
             self.protocolID = self.dynamicType.protocolConst
             self.size = 64
@@ -76,6 +77,7 @@ struct SMB2 {
             self.sessionId = sessionId
             self.signature = signature
         }
+        // codebeat:enable[ARITY]
     }
     
     struct Flags: OptionSetType {

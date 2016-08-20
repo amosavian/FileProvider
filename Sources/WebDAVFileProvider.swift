@@ -12,11 +12,13 @@ public final class WebDavFileObject: FileObject {
     public let contentType: String
     public let entryTag: String?
     
+    // codebeat:disable[ARITY]
     public init(absoluteURL: NSURL, name: String, path: String, size: Int64 = -1, contentType: String = "", createdDate: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false, entryTag: String? = nil) {
         self.contentType = contentType
         self.entryTag = entryTag
         super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
+    // codebeat:enable[ARITY]
 }
 
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
@@ -409,54 +411,61 @@ internal extension WebDAVFileProvider {
                 break
             }
             for responseNode in rootnode[responsetag].all ?? [] {
-                var hreftag = "href"
-                var statustag = "status"
-                var propstattag = "propstat"
-                for node in responseNode.children ?? [] {
-                    if node.name.lowercaseString.hasSuffix("href") {
-                        hreftag = node.name
-                    }
-                    if node.name.lowercaseString.hasSuffix("status") {
-                        statustag = node.name
-                    }
-                    if node.name.lowercaseString.hasSuffix("propstat") {
-                        propstattag = node.name
-                    }
-                }
-                let href = responseNode[hreftag].value
-                if let href = href, hrefURL = NSURL(string: href) {
-                    var status: Int?
-                    let statusDesc = (responseNode[statustag].stringValue).componentsSeparatedByString(" ")
-                    if statusDesc.count > 2 {
-                        status = Int(statusDesc[1])
-                    }
-                    var propDic = [String: String]()
-                    let propStatNode = responseNode[propstattag]
-                    for node in propStatNode.children ?? [] where node.name.lowercaseString.hasSuffix("status"){
-                        statustag = node.name
-                        break
-                    }
-                    let statusDesc2 = (propStatNode[statustag].stringValue).componentsSeparatedByString(" ")
-                    if statusDesc2.count > 2 {
-                        status = Int(statusDesc2[1])
-                    }
-                    var proptag = "prop"
-                    for tnode in propStatNode.children ?? [] where tnode.name.lowercaseString.hasSuffix("prop") {
-                        proptag = tnode.name
-                        break
-                    }
-                    for propItemNode in propStatNode[proptag].children ?? [] {
-                        propDic[propItemNode.name.componentsSeparatedByString(":").last!.lowercaseString] = propItemNode.value
-                        if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xmlString.containsString("collection") {
-                             propDic["getcontenttype"] = "httpd/unix-directory"
-                        }
-                    }
-                    result.append(DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic))
+                if let davResponse = mapNodeToDavResponse(responseNode) {
+                    result.append(davResponse)
                 }
             }
         } catch _ { 
         }
         return result
+    }
+    
+    private func mapNodeToDavResponse(node: AEXMLElement) -> DavResponse? {
+        var hreftag = "href"
+        var statustag = "status"
+        var propstattag = "propstat"
+        for node in node.children ?? [] {
+            if node.name.lowercaseString.hasSuffix("href") {
+                hreftag = node.name
+            }
+            if node.name.lowercaseString.hasSuffix("status") {
+                statustag = node.name
+            }
+            if node.name.lowercaseString.hasSuffix("propstat") {
+                propstattag = node.name
+            }
+        }
+        let href = node[hreftag].value
+        if let href = href, hrefURL = NSURL(string: href) {
+            var status: Int?
+            let statusDesc = (node[statustag].stringValue).componentsSeparatedByString(" ")
+            if statusDesc.count > 2 {
+                status = Int(statusDesc[1])
+            }
+            var propDic = [String: String]()
+            let propStatNode = node[propstattag]
+            for node in propStatNode.children ?? [] where node.name.lowercaseString.hasSuffix("status"){
+                statustag = node.name
+                break
+            }
+            let statusDesc2 = (propStatNode[statustag].stringValue).componentsSeparatedByString(" ")
+            if statusDesc2.count > 2 {
+                status = Int(statusDesc2[1])
+            }
+            var proptag = "prop"
+            for tnode in propStatNode.children ?? [] where tnode.name.lowercaseString.hasSuffix("prop") {
+                proptag = tnode.name
+                break
+            }
+            for propItemNode in propStatNode[proptag].children ?? [] {
+                propDic[propItemNode.name.componentsSeparatedByString(":").last!.lowercaseString] = propItemNode.value
+                if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xmlString.containsString("collection") {
+                    propDic["getcontenttype"] = "httpd/unix-directory"
+                }
+            }
+            return DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic)
+        }
+        return nil
     }
     
     private func mapToFileObject(davResponse: DavResponse) -> WebDavFileObject {

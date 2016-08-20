@@ -23,14 +23,17 @@ public final class DropboxFileObject: FileObject {
     public let id: String?
     public let rev: String?
     
+    // codebeat:disable[ARITY]
     public init(name: String, path: String, size: Int64 = -1, serverTime: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false, id: String? = nil, rev: String? = nil) {
         self.serverTime = serverTime
         self.id = id
         self.rev = rev
         super.init(absoluteURL: NSURL(string: path), name: name, path: path, size: size, createdDate: nil, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
     }
+    // codebeat:enable[ARITY]
 }
 
+// codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
     func list(path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, completionHandler: ((contents: [FileObject], cursor: String?, error: ErrorType?) -> Void)) {
         var requestDictionary = [String: AnyObject]()
@@ -161,6 +164,7 @@ internal extension DropboxFileProvider {
         task.resume()
     }
 }
+// codebeat:enable[ARITY]
 
 internal extension DropboxFileProvider {
     func mapToFileObject(jsonStr: String) -> DropboxFileObject? {

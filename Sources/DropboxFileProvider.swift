@@ -179,7 +179,7 @@ extension DropboxFileProvider: FileProviderOperations {
             completionHandler?(error: error)
             return
         }
-        upload_simple(toPath, data: data, overwrite: true, operation: .Copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
+        upload_simple(toPath, data: data, overwrite: true, operation: .Copy(source: localFile.uw_absoluteString, destination: toPath), completionHandler: completionHandler)
     }
     
     public func copyPathToLocalFile(path: String, toLocalURL destURL: NSURL, completionHandler: SimpleCompletionHandler) {
