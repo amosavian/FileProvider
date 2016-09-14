@@ -22,15 +22,15 @@ extension SMB2 {
             self.contexts = contexts
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             var header = self.header
             var offset = 0x78 //UInt16(sizeof(SMB2.Header.self) + sizeof(CreateContext.Header.self) - 1)
             let body = NSMutableData()
-            if let name = self.name, let nameData = name.dataUsingEncoding(NSUTF16StringEncoding) {
+            if let name = self.name, let nameData = name.data(using: String.Encoding.utf16) {
                 header.nameOffset = UInt16(offset)
-                header.nameLength = UInt16(nameData.length)
-                offset += nameData.length
-                body.appendData(nameData)
+                header.nameLength = UInt16(nameData.count)
+                offset += nameData.count
+                body.append(nameData)
             }
             if contexts.count > 0 {
                 // TODO: Context CreateRequest implementation, 8 bit allign offset
@@ -40,15 +40,15 @@ extension SMB2 {
                 header.contextLength = 0
                 //result.appendData(nameData)
             }
-            let result = NSMutableData(data: encode(&header))
-            result.appendData(body)
+            var result = NSData(data: encode(&header)) as Data
+            result.append(body as Data)
             return result
         }
         
         struct Header {
             let size: UInt16
-            private let securityFlags: UInt8
-            private var _requestedOplockLevel: UInt8
+            fileprivate let securityFlags: UInt8
+            fileprivate var _requestedOplockLevel: UInt8
             var requestedOplockLevel: OplockLevel {
                 get {
                     return OplockLevel(rawValue: _requestedOplockLevel)!
@@ -57,7 +57,7 @@ extension SMB2 {
                     _requestedOplockLevel = newValue.rawValue
                 }
             }
-            private var _impersonationLevel: UInt32
+            fileprivate var _impersonationLevel: UInt32
             var impersonationLevel: ImpersonationLevel {
                 get {
                     return ImpersonationLevel(rawValue: _impersonationLevel)!
@@ -66,12 +66,12 @@ extension SMB2 {
                     _impersonationLevel = newValue.rawValue
                 }
             }
-            private let flags: UInt64
-            private let reserved: UInt64
+            fileprivate let flags: UInt64
+            fileprivate let reserved: UInt64
             let access: FileAccessMask
             let fileAttributes: FileAttributes
             let shareAccess: ShareAccess
-            private var _desposition: UInt32
+            fileprivate var _desposition: UInt32
             var desposition: CreateDisposition {
                 get {
                     return CreateDisposition(rawValue: _desposition)!
@@ -86,7 +86,7 @@ extension SMB2 {
             var contextOffset: UInt32
             var contextLength: UInt32
             
-            init(requestedOplockLevel: OplockLevel = .NONE, impersonationLevel: ImpersonationLevel = .Anonymous, access: FileAccessMask = [.GENERIC_ALL], fileAttributes: FileAttributes = [], shareAccess: ShareAccess = [.READ], desposition: CreateDisposition = .OPEN_IF, options: CreateOptions = []) {
+            init(requestedOplockLevel: OplockLevel = .NONE, impersonationLevel: ImpersonationLevel = .anonymous, access: FileAccessMask = [.GENERIC_ALL], fileAttributes: FileAttributes = [], shareAccess: ShareAccess = [.READ], desposition: CreateDisposition = .OPEN_IF, options: CreateOptions = []) {
                 self.size = 57
                 self.securityFlags = 0
                 self._requestedOplockLevel = requestedOplockLevel.rawValue
@@ -105,7 +105,7 @@ extension SMB2 {
             }
         }
         
-        struct CreateOptions: OptionSetType {
+        struct CreateOptions: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -125,14 +125,14 @@ extension SMB2 {
             static let NO_COMPRESSION               = CreateOptions(rawValue: 0x00008000)
             static let OPEN_REPARSE_POINT           = CreateOptions(rawValue: 0x00200000)
             static let OPEN_NO_RECALL               = CreateOptions(rawValue: 0x00400000)
-            private static let SYNCHRONOUS_IO_ALERT         = CreateOptions(rawValue: 0x00000010)
-            private static let SYNCHRONOUS_IO_NONALERT      = CreateOptions(rawValue: 0x00000020)
-            private static let COMPLETE_IF_OPLOCKED         = CreateOptions(rawValue: 0x00000100)
-            private static let REMOTE_INSTANCE              = CreateOptions(rawValue: 0x00000400)
-            private static let OPEN_FOR_FREE_SPACE_QUERY    = CreateOptions(rawValue: 0x00800000)
-            private static let OPEN_REQUIRING_OPLOCK        = CreateOptions(rawValue: 0x00010000)
-            private static let DISALLOW_EXCLUSIVE           = CreateOptions(rawValue: 0x00020000)
-            private static let RESERVE_OPFILTER             = CreateOptions(rawValue: 0x00100000)
+            fileprivate static let SYNCHRONOUS_IO_ALERT         = CreateOptions(rawValue: 0x00000010)
+            fileprivate static let SYNCHRONOUS_IO_NONALERT      = CreateOptions(rawValue: 0x00000020)
+            fileprivate static let COMPLETE_IF_OPLOCKED         = CreateOptions(rawValue: 0x00000100)
+            fileprivate static let REMOTE_INSTANCE              = CreateOptions(rawValue: 0x00000400)
+            fileprivate static let OPEN_FOR_FREE_SPACE_QUERY    = CreateOptions(rawValue: 0x00800000)
+            fileprivate static let OPEN_REQUIRING_OPLOCK        = CreateOptions(rawValue: 0x00010000)
+            fileprivate static let DISALLOW_EXCLUSIVE           = CreateOptions(rawValue: 0x00020000)
+            fileprivate static let RESERVE_OPFILTER             = CreateOptions(rawValue: 0x00100000)
         }
         
         enum CreateDisposition: UInt32 {
@@ -151,21 +151,21 @@ extension SMB2 {
         }
         
         enum ImpersonationLevel: UInt32 {
-            case Anonymous = 0x00000000
-            case Identification = 0x00000001
-            case Impersonation = 0x00000002
-            case Delegate = 0x00000003
+            case anonymous = 0x00000000
+            case identification = 0x00000001
+            case impersonation = 0x00000002
+            case delegate = 0x00000003
         }
     }
     
     struct CreateResponse: SMBResponse {
         struct Header {
             let size: UInt16
-            private let _oplockLevel: UInt8
+            fileprivate let _oplockLevel: UInt8
             var oplockLevel: OplockLevel {
                 return OplockLevel(rawValue: _oplockLevel)!
             }
-            private let reserved: UInt32
+            fileprivate let reserved: UInt32
             let creationTime: SMBTime
             let lastAccessTime: SMBTime
             let lastWriteTime: SMBTime
@@ -173,7 +173,7 @@ extension SMB2 {
             let allocationSize: UInt64
             let endOfFile: UInt64
             let fileAttributes: FileAttributes
-            private let reserved2: UInt32
+            fileprivate let reserved2: UInt32
             let fileId: FileId
             let contextsOffset: UInt32
             let ContextsLength: UInt32
@@ -182,27 +182,27 @@ extension SMB2 {
         let header: CreateResponse.Header
         let contexts: [CreateContext]
         
-        init? (data: NSData) {
-            guard data.length >= sizeof(CreateResponse.Header.self) else {
+        init? (data: Data) {
+            guard data.count >= MemoryLayout<CreateResponse.Header>.size else {
                 return nil
             }
             self.header = decode(data)
             if self.header.contextsOffset > 0 {
                 var contexts = [CreateContext]()
-                var contextOffset = Int(self.header.contextsOffset) - sizeof(SMB2.Header.self)
+                var contextOffset = Int(self.header.contextsOffset) - MemoryLayout<SMB2.Header>.size
                 while contextOffset > 0 {
-                    guard contextOffset < data.length else {
+                    guard contextOffset < data.count else {
                         self.contexts = contexts
                         return
                     }
-                    let contextDataHeader = data.subdataWithRange(NSRange(location: contextOffset, length: sizeof(CreateContext.Header.self)))
+                    let contextDataHeader = data.subdata(in: NSRange(location: contextOffset, length: MemoryLayout<CreateContext.Header>.size))
                     if let lastContextHeader = CreateContext(data: contextDataHeader) {
                         let lastContextLen = Int(lastContextHeader.header.dataOffset) + Int(lastContextHeader.header.dataLength) - contextOffset
-                        let lastContextData = data.subdataWithRange(NSRange(location: contextOffset, length: lastContextLen))
+                        let lastContextData = data.subdata(in: NSRange(location: contextOffset, length: lastContextLen))
                         if let newContext = CreateContext(data: lastContextData) {
                             contexts.append(newContext)
                         }
-                        contextOffset = Int(lastContextHeader.header.next) - sizeof(SMB2.Header.self)
+                        contextOffset = Int(lastContextHeader.header.next) - MemoryLayout<SMB2.Header>.size
                     }
                 }
                 self.contexts = contexts
@@ -217,40 +217,40 @@ extension SMB2 {
             var next: UInt32
             let nameOffset: UInt16
             let nameLength: UInt16
-            private let reserved: UInt16
+            fileprivate let reserved: UInt16
             let dataOffset: UInt16
             let dataLength: UInt32
         }
         
         var header: CreateContext.Header
-        let buffer: NSData
+        let buffer: Data
         
-        init(name: ContextNames, data: NSData) {
-            let nameData = NSMutableData(data: (name.rawValue).dataUsingEncoding(NSUTF16StringEncoding)!)
-            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.length))
+        init(name: ContextNames, data: Data) {
+            let nameData = NSData(data: (name.rawValue).data(using: String.Encoding.utf16)!) as Data
+            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.count), reserved: 0, dataOffset: UInt16(nameData.count), dataLength: UInt32(data.count))
             self.buffer = data
         }
         
-        init(name: NSUUID, data: NSData) {
+        init(name: UUID, data: Data) {
             var uuid = uuid_t(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-            name.getUUIDBytes(&uuid.0)
+            (name as NSUUID).getBytes(&uuid.0)
             let nameData = NSMutableData(bytes: &uuid, length: 16)
-            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.length))
+            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.count))
             self.buffer = data
         }
         
-        init? (data: NSData) {
-            let headersize = sizeof(Header)
-            guard data.length > headersize else {
+        init? (data: Data) {
+            let headersize = MemoryLayout<Header>.size
+            guard data.count > headersize else {
                 return nil
             }
             self.header = decode(data)
-            self.buffer = data.subdataWithRange(NSRange(location: headersize, length: data.length - headersize))
+            self.buffer = data.subdata(in: NSRange(location: headersize, length: data.count - headersize))
         }
         
-        func data() -> NSData {
-            let result = NSMutableData(data: encode(header))
-            result.appendData(buffer)
+        func data() -> Data {
+            var result = NSData(data: encode(header)) as Data
+            result.append(buffer)
             return result
         }
         
@@ -284,7 +284,7 @@ extension SMB2 {
         case LEASE = 0xFF
     }
     
-    struct ShareAccess: OptionSetType {
+    struct ShareAccess: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -296,7 +296,7 @@ extension SMB2 {
         static let DELETE   = ShareAccess(rawValue: 0x00000004)
     }
     
-    struct FileAccessMask: OptionSetType {
+    struct FileAccessMask: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -332,7 +332,7 @@ extension SMB2 {
         static let GENERIC_READ = FileAccessMask(rawValue: 0x80000000)
     }
     
-    struct FileAttributes: OptionSetType {
+    struct FileAttributes: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -366,7 +366,7 @@ extension SMB2 {
     struct CloseRequest: SMBRequest {
         let size: UInt16
         let flags: CloseFlags
-        private let reserved2: UInt32
+        fileprivate let reserved2: UInt32
         let filePersistantId: UInt64
         let fileVolatileId: UInt64
         
@@ -378,7 +378,7 @@ extension SMB2 {
             self.reserved2 = 0
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }
@@ -386,7 +386,7 @@ extension SMB2 {
     struct CloseResponse: SMBResponse {
         let size: UInt16
         let flags: CloseFlags
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
         let creationTime: SMBTime
         let lastAccessTime: SMBTime
         let lastWriteTime: SMBTime
@@ -395,12 +395,12 @@ extension SMB2 {
         let endOfFile: UInt64
         let fileAttributes: FileAttributes
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
     }
     
-    struct CloseFlags: OptionSetType {
+    struct CloseFlags: OptionSet {
         let rawValue: UInt16
         
         init(rawValue: UInt16) {
@@ -414,8 +414,8 @@ extension SMB2 {
     
     struct FlushRequest: SMBRequest {
         let size: UInt16
-        private let reserved: UInt16
-        private let reserved2: UInt32
+        fileprivate let reserved: UInt16
+        fileprivate let reserved2: UInt32
         let filePersistantId: UInt64
         let fileVolatileId: UInt64
         
@@ -427,7 +427,7 @@ extension SMB2 {
             self.reserved2 = 0
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }
@@ -441,7 +441,7 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
     }

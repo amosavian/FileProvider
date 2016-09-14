@@ -9,11 +9,11 @@
 import Foundation
 
 protocol SMBRequest {
-    func data() -> NSData
+    func data() -> Data
 }
 
 protocol SMBResponse {
-    init? (data: NSData)
+    init? (data: Data)
 }
 
 
@@ -32,11 +32,11 @@ struct SMBTime {
         self.time = (Int64(unixTime) + 11644473600) * 10000000
     }
     
-    init(timeIntervalSince1970: NSTimeInterval) {
+    init(timeIntervalSince1970: TimeInterval) {
         self.time = Int64((timeIntervalSince1970 + 11644473600) * 10000000)
     }
     
-    init(date: NSDate) {
+    init(date: Date) {
         self.init(timeIntervalSince1970: date.timeIntervalSince1970)
     }
     
@@ -44,7 +44,7 @@ struct SMBTime {
         return UInt(self.time / 10000000 - 11644473600)
     }
     
-    var date: NSDate {
-        return NSDate(timeIntervalSince1970: Double(self.time) / 10000000 - 11644473600)
+    var date: Date {
+        return Date(timeIntervalSince1970: Double(self.time) / 10000000 - 11644473600)
     }
 }

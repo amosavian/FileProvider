@@ -17,7 +17,7 @@ extension SMB2 {
         let outputBufferLength: UInt32
         let fileId: FileId
         let completionFilters: CompletionFilter
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
         
         init(fileId: FileId, completionFilters: CompletionFilter, flags: ChangeNotifyRequest.Flags = [], outputBufferLength: UInt32 = 65535) {
             self.size = 32
@@ -28,11 +28,11 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt16
             
             init(rawValue: UInt16) {
@@ -42,7 +42,7 @@ extension SMB2 {
             static let WATCH_TREE = Flags(rawValue: 0x0001)
         }
         
-        struct CompletionFilter: OptionSetType {
+        struct CompletionFilter: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -82,25 +82,25 @@ extension SMB2 {
     struct ChangeNotifyResponse: SMBResponse {
         let notifications: [(action: FileNotifyAction, fileName: String)]
         
-        init?(data: NSData) {
+        init?(data: Data) {
             let maxLoop = 1000
             var i = 0
             var result = [(action: FileNotifyAction, fileName: String)]()
             
             var offset: UInt32 = 0
             while i < maxLoop {
-                let actionData = data.subdataWithRange(NSRange(location: Int(offset + 4), length: 4))
+                let actionData = data.subdata(in: NSRange(location: Int(offset + 4), length: 4))
                 let actionValue: UInt32 = decode(actionData)
                 guard let action = FileNotifyAction(rawValue: actionValue) else {
                     continue
                 }
-                let fileLenData = data.subdataWithRange(NSRange(location: Int(offset + 8), length: 4))
+                let fileLenData = data.subdata(in: NSRange(location: Int(offset + 8), length: 4))
                 let fileNameLen: UInt32 = decode(fileLenData)
-                let fileNameData = data.subdataWithRange(NSRange(location: Int(offset + 12), length: Int(12 + fileNameLen)))
-                let fileName = String(data: fileNameData, encoding: NSUTF16StringEncoding) ?? ""
+                let fileNameData = data.subdata(in: NSRange(location: Int(offset + 12), length: Int(12 + fileNameLen)))
+                let fileName = String(data: fileNameData, encoding: String.Encoding.utf16) ?? ""
                 result.append((action: action, fileName: fileName))
                 
-                let nextOffsetData = data.subdataWithRange(NSRange(location: Int(offset), length: 4))
+                let nextOffsetData = data.subdata(in: NSRange(location: Int(offset), length: 4))
                 let nextOffset: UInt32 = decode(nextOffsetData)
                 offset += nextOffset
                 if nextOffset == 0 {

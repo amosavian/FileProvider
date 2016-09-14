@@ -14,7 +14,7 @@ struct SMB1 {
         // header is always \u{ff}SMB
         let protocolID: UInt32
         static let protocolConst: UInt32 = 0x424d53ff
-        private var _command: UInt8
+        fileprivate var _command: UInt8
         var command: Command {
             get {
                 return Command(rawValue: _command) ?? .INVALID
@@ -24,7 +24,7 @@ struct SMB1 {
             }
         }
         // error messages from the server to the client
-        private var _status: (UInt8, UInt8, UInt8, UInt8)
+        fileprivate var _status: (UInt8, UInt8, UInt8, UInt8)
         var error: (Class: UInt8, code: UInt16) {
             get {
                 return (_status.0, UInt16(_status.2) + (UInt16(_status.3) << 8))
@@ -47,7 +47,7 @@ struct SMB1 {
         var flags2: Flags2
         var pidHigh: UInt16
         //  encryption key used for validating messages over connectionless transports
-        private var _securityKey: (UInt16, UInt16)
+        fileprivate var _securityKey: (UInt16, UInt16)
         var securityKey: UInt32 {
             get {
                 return UInt32(_securityKey.1) << 16 + UInt32(_securityKey.0)
@@ -60,7 +60,7 @@ struct SMB1 {
         var securityCID: UInt16
         ///  Identifier of the sequence of a message over connectionless transports
         var securitySequenceNumber: UInt16
-        private var ununsed: UInt16
+        fileprivate var ununsed: UInt16
         var treeId: UInt16
         var pidLow: UInt16
         var userId: UInt16
@@ -93,7 +93,7 @@ struct SMB1 {
         }
     }
     
-    struct Flags: OptionSetType {
+    struct Flags: OptionSet {
         let rawValue: UInt8
         
         init(rawValue: UInt8) {
@@ -111,7 +111,7 @@ struct SMB1 {
         static let REPLY                  = Flags(rawValue: 0x80)
     }
     
-    struct Flags2: OptionSetType {
+    struct Flags2: OptionSet {
         let rawValue: UInt16
         
         init(rawValue: UInt16) {

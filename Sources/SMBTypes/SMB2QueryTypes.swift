@@ -16,90 +16,90 @@ protocol SMB2FilesInformationHeader: SMBResponse {
 
 extension SMB2 {
     enum FileInformationEnum: UInt8 {
-        case Nil = 0x00
-        case FileDirectoryInformation = 0x01
-        case FileFullDirectoryInformation = 0x02
-        case FileBothDirectoryInformation = 0x03
-        case FileBasicInformation = 0x04
-        case FileStandardInformation = 0x05
-        case FileInternalInformation = 0x06
-        case FileEaInformation = 0x07
-        case FileAccessInformation = 0x08
-        case FileNameInformation = 0x09
-        case FileRenameInformation = 0x0A
-        case FileLinkInformation = 0x0B
-        case FileNamesInformation = 0x0C
-        case FileDispositionInformation = 0x0D
-        case FilePositionInformation = 0x0E
-        case FileFullEaInformation = 0x0F
-        case FileModeInformation = 0x10
-        case FileAlignmentInformation = 0x11
-        case FileAllInformation = 0x12
-        case FileAllocationInformation = 0x13
-        case FileEndOfFileInformation = 0x14
-        case FileAlternateNameInformation = 0x15
-        case FileStreamInformation = 0x16
-        case FilePipeInformation = 0x17
-        case FilePipeLocalInformation = 0x18
-        case FilePipeRemoteInformation = 0x19
-        case FileMailslotQueryInformation = 0x1A
-        case FileMailslotSetInformation = 0x1B
-        case FileCompressionInformation = 0x1C
-        case FileObjectIdInformation = 0x1D
-        case FileCompletionInformation = 0x1E
-        case FileMoveClusterInformation = 0x1F
-        case FileQuotaInformation = 0x20
-        case FileReparsePointInformation = 0x21
-        case FileNetworkOpenInformation = 0x22
-        case FileAttributeTagInformation = 0x23
-        case FileTrackingInformation = 0x24
-        case FileIdBothDirectoryInformation = 0x25
-        case FileIdFullDirectoryInformation = 0x26
-        case FileValidDataLengthInformation = 0x27
-        case FileShortNameInformation = 0x28
-        case FileIoCompletionNotificationInformation = 0x29
-        case FileIoStatusBlockRangeInformation = 0x2A
-        case FileIoPriorityHintInformation = 0x2B
-        case FileSfioReserveInformation = 0x2C
-        case FileSfioVolumeInformation = 0x2D
-        case FileHardLinkInformation = 0x2E
-        case FileProcessIdsUsingFileInformation = 0x2F
-        case FileNormalizedNameInformation = 0x30
-        case FileNetworkPhysicalNameInformation = 0x31
-        case FileIdGlobalTxDirectoryInformation = 0x32
-        case FileIsRemoteDeviceInformation = 0x33
-        case FileUnusedInformation = 0x34
-        case FileNumaNodeInformation = 0x35
-        case FileStandardLinkInformation = 0x36
-        case FileRemoteProtocolInformation = 0x37
-        case FileRenameInformationBypassAccessCheck = 0x38
-        case FileLinkInformationBypassAccessCheck = 0x39
-        case FileVolumeNameInformation = 0x3A
-        case FileIdInformation = 0x3B
-        case FileIdExtdDirectoryInformation = 0x3C
-        case FileReplaceCompletionInformation = 0x3D
-        case FileHardLinkFullIdInformation = 0x3E
-        case FileIdExtdBothDirectoryInformation = 0x3F
-        case FileMaximumInformation = 0x40
+        case `nil` = 0x00
+        case fileDirectoryInformation = 0x01
+        case fileFullDirectoryInformation = 0x02
+        case fileBothDirectoryInformation = 0x03
+        case fileBasicInformation = 0x04
+        case fileStandardInformation = 0x05
+        case fileInternalInformation = 0x06
+        case fileEaInformation = 0x07
+        case fileAccessInformation = 0x08
+        case fileNameInformation = 0x09
+        case fileRenameInformation = 0x0A
+        case fileLinkInformation = 0x0B
+        case fileNamesInformation = 0x0C
+        case fileDispositionInformation = 0x0D
+        case filePositionInformation = 0x0E
+        case fileFullEaInformation = 0x0F
+        case fileModeInformation = 0x10
+        case fileAlignmentInformation = 0x11
+        case fileAllInformation = 0x12
+        case fileAllocationInformation = 0x13
+        case fileEndOfFileInformation = 0x14
+        case fileAlternateNameInformation = 0x15
+        case fileStreamInformation = 0x16
+        case filePipeInformation = 0x17
+        case filePipeLocalInformation = 0x18
+        case filePipeRemoteInformation = 0x19
+        case fileMailslotQueryInformation = 0x1A
+        case fileMailslotSetInformation = 0x1B
+        case fileCompressionInformation = 0x1C
+        case fileObjectIdInformation = 0x1D
+        case fileCompletionInformation = 0x1E
+        case fileMoveClusterInformation = 0x1F
+        case fileQuotaInformation = 0x20
+        case fileReparsePointInformation = 0x21
+        case fileNetworkOpenInformation = 0x22
+        case fileAttributeTagInformation = 0x23
+        case fileTrackingInformation = 0x24
+        case fileIdBothDirectoryInformation = 0x25
+        case fileIdFullDirectoryInformation = 0x26
+        case fileValidDataLengthInformation = 0x27
+        case fileShortNameInformation = 0x28
+        case fileIoCompletionNotificationInformation = 0x29
+        case fileIoStatusBlockRangeInformation = 0x2A
+        case fileIoPriorityHintInformation = 0x2B
+        case fileSfioReserveInformation = 0x2C
+        case fileSfioVolumeInformation = 0x2D
+        case fileHardLinkInformation = 0x2E
+        case fileProcessIdsUsingFileInformation = 0x2F
+        case fileNormalizedNameInformation = 0x30
+        case fileNetworkPhysicalNameInformation = 0x31
+        case fileIdGlobalTxDirectoryInformation = 0x32
+        case fileIsRemoteDeviceInformation = 0x33
+        case fileUnusedInformation = 0x34
+        case fileNumaNodeInformation = 0x35
+        case fileStandardLinkInformation = 0x36
+        case fileRemoteProtocolInformation = 0x37
+        case fileRenameInformationBypassAccessCheck = 0x38
+        case fileLinkInformationBypassAccessCheck = 0x39
+        case fileVolumeNameInformation = 0x3A
+        case fileIdInformation = 0x3B
+        case fileIdExtdDirectoryInformation = 0x3C
+        case fileReplaceCompletionInformation = 0x3D
+        case fileHardLinkFullIdInformation = 0x3E
+        case fileIdExtdBothDirectoryInformation = 0x3F
+        case fileMaximumInformation = 0x40
         
-        static let  queryDirectory: [FileInformationEnum] = [.FileDirectoryInformation, .FileFullDirectoryInformation, .FileIdFullDirectoryInformation, .FileBothDirectoryInformation, .FileIdBothDirectoryInformation, .FileNamesInformation]
+        static let  queryDirectory: [FileInformationEnum] = [.fileDirectoryInformation, .fileFullDirectoryInformation, .fileIdFullDirectoryInformation, .fileBothDirectoryInformation, .fileIdBothDirectoryInformation, .fileNamesInformation]
         
-        static let queryInfoFile: [FileInformationEnum] = [.FileAccessInformation, .FileAlignmentInformation, .FileAllInformation, .FileAlternateNameInformation, .FileAttributeTagInformation, .FileBasicInformation, .FileCompressionInformation, FileEaInformation, .FileFullEaInformation, .FileInternalInformation, .FileModeInformation, .FileNetworkOpenInformation, .FilePipeInformation, .FilePipeLocalInformation, .FilePipeRemoteInformation, .FilePositionInformation, .FileStandardInformation, .FileStreamInformation]
+        static let queryInfoFile: [FileInformationEnum] = [.fileAccessInformation, .fileAlignmentInformation, .fileAllInformation, .fileAlternateNameInformation, .fileAttributeTagInformation, .fileBasicInformation, .fileCompressionInformation, fileEaInformation, .fileFullEaInformation, .fileInternalInformation, .fileModeInformation, .fileNetworkOpenInformation, .filePipeInformation, .filePipeLocalInformation, .filePipeRemoteInformation, .filePositionInformation, .fileStandardInformation, .fileStreamInformation]
     }
     
     enum FileSystemInformationEnum: UInt8 {
-        case Nil = 0
-        case FileFsAttributeInformation
-        case FileFsControlInformation
-        case FileFsDeviceInformation
-        case FileFsFullSizeInformation
-        case FileFsObjectIdInformation
-        case FileFsSectorSizeInformation
-        case FileFsSizeInformation
-        case FileFsVolumeInformation
+        case `nil` = 0
+        case fileFsAttributeInformation
+        case fileFsControlInformation
+        case fileFsDeviceInformation
+        case fileFsFullSizeInformation
+        case fileFsObjectIdInformation
+        case fileFsSectorSizeInformation
+        case fileFsSizeInformation
+        case fileFsVolumeInformation
     }
     
-    struct FileSecurityInfo: OptionSetType {
+    struct FileSecurityInfo: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -128,7 +128,7 @@ extension SMB2 {
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -146,7 +146,7 @@ extension SMB2 {
         let fileNameLength : UInt32
         let extendedAttributesSize: UInt32
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -163,10 +163,10 @@ extension SMB2 {
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
         let extendedAttributesSize: UInt32
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
         let fileId: FileId
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -183,17 +183,17 @@ extension SMB2 {
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
         let extendedAttributesSize: UInt32
-        private let shortNameLen: UInt8
-        private let reserved: UInt8
-        private let _shortName: FileShortNameType
+        fileprivate let shortNameLen: UInt8
+        fileprivate let reserved: UInt8
+        fileprivate let _shortName: FileShortNameType
         var shortName: String? {
             let s = encode(_shortName)
-            let d = NSMutableData(data: s)
-            d.length = Int(shortNameLen)
-            return String(data: d, encoding: NSUTF16StringEncoding)
+            var d = NSData(data: s) as Data
+            d.count = Int(shortNameLen)
+            return String(data: d, encoding: String.Encoding.utf16)
         }
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -210,19 +210,19 @@ extension SMB2 {
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
         let extendedAttributesSize: UInt32
-        private let shortNameLen: UInt8
-        private let reserved: UInt8
-        private let _shortName: FileShortNameType
+        fileprivate let shortNameLen: UInt8
+        fileprivate let reserved: UInt8
+        fileprivate let _shortName: FileShortNameType
         var shortName: String? {
             let s = encode(_shortName)
-            let d = NSMutableData(data: s)
-            d.length = Int(shortNameLen)
-            return String(data: d, encoding: NSUTF16StringEncoding)
+            var d = NSData(data: s) as Data
+            d.count = Int(shortNameLen)
+            return String(data: d, encoding: String.Encoding.utf16)
         }
-        private let reserved2: UInt16
+        fileprivate let reserved2: UInt16
         let fileId : FileId
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -232,7 +232,7 @@ extension SMB2 {
         let fileIndex: UInt32
         let fileNameLength : UInt32
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -246,7 +246,7 @@ extension SMB2 {
     }
     
     struct FileAlignmentInformation {
-        private let _alignment: UInt32
+        fileprivate let _alignment: UInt32
         var alignmentLength: UInt32 {
             return _alignment + 1
         }
@@ -275,7 +275,7 @@ extension SMB2 {
         let lastWriteTime: SMBTime
         let changeTime: SMBTime
         let fileAttributes: FileAttributes
-        private let reserved: UInt32 = 0
+        fileprivate let reserved: UInt32 = 0
     }
     
     struct FileCompressionInformation {
@@ -285,7 +285,7 @@ extension SMB2 {
         let compressionUnitShift: UInt8
         let chunkShift: UInt8
         let clusterShift: UInt8
-        private let reserved: (UInt8, UInt16)
+        fileprivate let reserved: (UInt8, UInt16)
     }
     
     struct FileEaInformation {
@@ -303,7 +303,7 @@ extension SMB2 {
     struct FileModeInformation {
         let mode: Mode
         
-        struct Mode: OptionSetType {
+        struct Mode: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -325,15 +325,15 @@ extension SMB2 {
         let lastWriteTime: SMBTime
         let changeTime: SMBTime
         let fileAttributes: FileAttributes
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
     }
     
     struct FilePipeInformation {
-        private let _readMode: UInt32
+        fileprivate let _readMode: UInt32
         var readMode: ReadMode {
             return ReadMode(rawValue: _readMode) ?? .BYTE_STREAM_MODE
         }
-        private let _completionMode: UInt32
+        fileprivate let _completionMode: UInt32
         var completionMode: CompletionMode {
             return CompletionMode(rawValue: _completionMode) ?? .QUEUE_OPERATION
         }
@@ -350,11 +350,11 @@ extension SMB2 {
     }
     
     struct FilePipeLocalInformation {
-        private let _namedPipeType: UInt32
+        fileprivate let _namedPipeType: UInt32
         var namedPipeType: Type {
             return Type(rawValue: _namedPipeType) ?? .BYTE_STREAM_TYPE
         }
-        private let _namedPipeConfiguration: UInt32
+        fileprivate let _namedPipeConfiguration: UInt32
         var namedPipeConfiguration: Configuration {
             return Configuration(rawValue: _namedPipeConfiguration) ?? .INBOUND
         }
@@ -364,16 +364,16 @@ extension SMB2 {
         let readDataAvailable: UInt32
         let outboundQuota: UInt32
         let writeQuotaAvailable: UInt32
-        private let _namedPipeState: UInt32
+        fileprivate let _namedPipeState: UInt32
         var namedPipeState: State {
             return State(rawValue: _namedPipeState) ?? .DISCONNECTED_STATE
         }
-        private let _namedPipeEnd: UInt32
+        fileprivate let _namedPipeEnd: UInt32
         var namedPipeEnd: End {
             return End(rawValue: _namedPipeEnd) ?? .CLIENT_END
         }
         
-        enum Type: UInt32 {
+        enum `Type`: UInt32 {
             case BYTE_STREAM_TYPE   = 0x00000000
             case MESSAGE_TYPE       = 0x00000001
         }
@@ -412,7 +412,7 @@ extension SMB2 {
         let numberOfLinks: UInt32
         let deletePending: Bool
         let directory: Bool
-        private let reserved: UInt16
+        fileprivate let reserved: UInt16
     }
     
     struct FileStreamInformationHeader {
@@ -438,7 +438,7 @@ extension SMB2 {
     }
     
     struct FileFsDeviceInformation {
-        private let _deviceType: UInt32
+        fileprivate let _deviceType: UInt32
         var deviceType: DeviceType {
             return DeviceType(rawValue: _deviceType) ?? .DISK
         }
@@ -449,7 +449,7 @@ extension SMB2 {
             case DISK = 0x00000007
         }
         
-        struct Charactristics: OptionSetType {
+        struct Charactristics: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -488,7 +488,7 @@ extension SMB2 {
         let maximumFileNameLength: Int32
         let nameLength: UInt32
         
-        struct Attributes: OptionSetType {
+        struct Attributes: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -551,9 +551,9 @@ extension SMB2 {
         let defaultQuotaThreshold: UInt64
         let defaultQuotaLimit: UInt64
         let flags: Flags
-        private let padding: UInt32 = 0
+        fileprivate let padding: UInt32 = 0
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -603,7 +603,7 @@ extension SMB2 {
         let byteOffsetForSectorAlignment: UInt32
         let byteOffsetForPartitionAlignment: UInt32
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {

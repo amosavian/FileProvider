@@ -12,21 +12,21 @@ extension SMB2 {
     // MARK: SMB2 Set Info
     struct SetInfoRequest: SMBRequest {
         let header: Header
-        let buffer: NSData?
+        let buffer: Data?
         
         
         
-        func data() -> NSData {
-            return NSData()
+        func data() -> Data {
+            return Data()
         }
         
         struct Header {
             let size: UInt16 = 33
             let infoType: UInt8
-            private let infoClass: UInt8
+            fileprivate let infoClass: UInt8
             let bufferLength: UInt32
             let bufferOffset: UInt16
-            private let reserved: UInt16
+            fileprivate let reserved: UInt16
             let securityInfo: FileSecurityInfo
             let fileId: FileId
         }
@@ -39,7 +39,7 @@ extension SMB2 {
             self.size = 2
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
     }

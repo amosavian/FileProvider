@@ -20,23 +20,23 @@ extension SMB2 {
         let requestData:  IOCtlRequestProtocol?
         
         init(fileId: FileId ,ctlCode: IOCtlCode, requestData: IOCtlRequestProtocol?, flags: IOCtlRequest.Flags = []) {
-            let offset = requestData != nil ? UInt32(sizeof(SMB2.Header.self) + sizeof(IOCtlRequest.Header.self)) : 0
-            self.header = Header(size: 57, reserved: 0, _ctlCode: ctlCode.rawValue, fileId: fileId, inputOffset: offset, inputCount: UInt32((requestData?.data().length ?? 0)), maxInputResponse: 0, outputOffset: offset, outputCount: 0, maxOutputResponse: UInt32(Int32.max), flags: flags, reserved2: 0)
+            let offset = requestData != nil ? UInt32(MemoryLayout<SMB2.Header>.size + MemoryLayout<IOCtlRequest.Header>.size) : 0
+            self.header = Header(size: 57, reserved: 0, _ctlCode: ctlCode.rawValue, fileId: fileId, inputOffset: offset, inputCount: UInt32((requestData?.data().count ?? 0)), maxInputResponse: 0, outputOffset: offset, outputCount: 0, maxOutputResponse: UInt32(Int32.max), flags: flags, reserved2: 0)
             self.requestData = requestData
         }
         
-        func data() -> NSData {
-            let result = NSMutableData(data: encode(self.header))
+        func data() -> Data {
+            var result = NSData(data: encode(self.header)) as Data
             if let reqData = requestData?.data() {
-                result.appendData(reqData)
+                result.append(reqData)
             }
             return result
         }
         
         struct Header {
             let size: UInt16
-            private let reserved: UInt16
-            private let _ctlCode: UInt32
+            fileprivate let reserved: UInt16
+            fileprivate let _ctlCode: UInt32
             var ctlCode: IOCtlCode {
                 return IOCtlCode(rawValue: _ctlCode)!
             }
@@ -48,10 +48,10 @@ extension SMB2 {
             let outputCount: UInt32
             let maxOutputResponse: UInt32
             let flags: IOCtlRequest.Flags
-            private let reserved2: UInt32
+            fileprivate let reserved2: UInt32
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -67,10 +67,10 @@ extension SMB2 {
         let header: Header
         let responseData:  IOCtlResponseProtocol?
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self.header = decode(data)
             let responseRange = NSRange(location: Int(self.header.outputOffset - 64), length: Int(self.header.outputCount))
-            let response = data.subdataWithRange(responseRange)
+            let response = data.subdata(in: responseRange)
             switch self.header.ctlCode {
             case .SRV_COPYCHUNK, .SRV_COPYCHUNK_WRITE:
                 self.responseData = IOCtlResponseData.SrvCopyChunk(data: response)
@@ -91,8 +91,8 @@ extension SMB2 {
         
         struct Header {
             let size: UInt16
-            private let reserved: UInt16
-            private let _ctlCode: UInt32
+            fileprivate let reserved: UInt16
+            fileprivate let _ctlCode: UInt32
             var ctlCode: IOCtlCode {
                 return IOCtlCode(rawValue: _ctlCode)!
             }
@@ -101,8 +101,8 @@ extension SMB2 {
             let inputCount: UInt32
             let outputOffset: UInt32
             let outputCount: UInt32
-            private let flags: UInt32
-            private let reserved2: UInt32
+            fileprivate let flags: UInt32
+            fileprivate let reserved2: UInt32
         }
     }
     
@@ -139,21 +139,21 @@ extension SMB2 {
             let chunkCount: UInt32
             let chunks: [Chunk]
             
-            func data() -> NSData {
-                let result = NSMutableData(data: encode(sourceKey))
-                result.appendData(encode(chunkCount))
+            func data() -> Data {
+                var result = NSData(data: encode(sourceKey)) as Data
+                result.append(encode(chunkCount))
                 var reserved: UInt32 = 0
-                result.appendData(encode(&reserved))
-                return NSData()
+                result.append(encode(&reserved))
+                return Data()
             }
             
             struct Chunk {
                 let sourceOffset: UInt64
                 let targetOffset: UInt64
                 let length: UInt32
-                private let reserved: UInt32
+                fileprivate let reserved: UInt32
                 
-                func data() -> NSData {
+                func data() -> Data {
                     return encode(self)
                 }
             }
@@ -183,14 +183,14 @@ extension SMB2 {
                 self.offset = offset
             }
             
-            func data() -> NSData {
+            func data() -> Data {
                 return encode(self)
             }
         }
         
         struct ResilencyRequest: IOCtlRequestProtocol {
             let timeout: UInt32
-            private let reserved: UInt32
+            fileprivate let reserved: UInt32
             
             /// The requested time the server holds the file open after a disconnect before releasing it. This time is in milliseconds.
             init(timeout: UInt32) {
@@ -198,7 +198,7 @@ extension SMB2 {
                 self.reserved = 0
             }
             
-            func data() -> NSData {
+            func data() -> Data {
                 return encode(self)
             }
         }
@@ -212,9 +212,9 @@ extension SMB2 {
                 self.dialects = dialects
             }
             
-            func data() -> NSData {
-                let result = NSMutableData(data: encode(self.header))
-                dialects.forEach { result.appendData(encode($0)) }
+            func data() -> Data {
+                var result = NSData(data: encode(self.header)) as Data
+                dialects.forEach { result.append(encode($0)) }
                 return result
             }
             
@@ -235,7 +235,7 @@ extension SMB2 {
             let chunksBytesWritten: UInt32
             let totalBytesWriiten: UInt32
             
-            init?(data: NSData) {
+            init?(data: Data) {
                 self = decode(data)
             }
         }
@@ -246,20 +246,20 @@ extension SMB2 {
             let returnedCount: UInt32
             let snapshots: [SMBTime]
             
-            init?(data: NSData) {
+            init?(data: Data) {
                 self.count = decode(data)
-                self.returnedCount = decode(data.subdataWithRange(NSRange(location: 4, length: 4)))
+                self.returnedCount = decode(data.subdata(in: NSRange(location: 4, length: 4)))
                 //let size: UInt32 = decode(data.subdataWithRange(NSRange(location: 8, length: 4)))
                 var snapshots = [SMBTime]()
-                let dateFormatter = NSDateFormatter()
+                let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "'@GMT-'yyyy'.'MM'.'dd'-'HH'.'mm'.'ss"
                 for i in 0..<Int(returnedCount) {
                     let offset = 24 + i * 48
-                    if data.length < offset + 48 {
+                    if data.count < offset + 48 {
                         return nil
                     }
-                    let datestring = String(data: data.subdataWithRange(NSRange(location: offset, length: 48)), encoding: NSUTF16StringEncoding)
-                    if let datestring = datestring, let date = dateFormatter.dateFromString(datestring) {
+                    let datestring = String(data: data.subdata(in: NSRange(location: offset, length: 48)), encoding: String.Encoding.utf16)
+                    if let datestring = datestring, let date = dateFormatter.date(from: datestring) {
                         snapshots.append(SMBTime(date: date))
                     }
                 }
@@ -269,10 +269,10 @@ extension SMB2 {
         
         struct ResumeKey: IOCtlResponseProtocol {
             let key: (UInt64, UInt64, UInt64)
-            private let contextLength: UInt32
-            private let context: UInt32
+            fileprivate let contextLength: UInt32
+            fileprivate let context: UInt32
             
-            init?(data: NSData) {
+            init?(data: Data) {
                 self = decode(data)
             }
         }
@@ -280,7 +280,7 @@ extension SMB2 {
         struct ReadHash: IOCtlResponseProtocol {
             // TODO: Implement IOCTL READ_HASH
             
-            init?(data: NSData) {
+            init?(data: Data) {
                 self = decode(data)
             }
         }
@@ -288,14 +288,14 @@ extension SMB2 {
         struct NetworkInterfaceInfo: IOCtlResponseProtocol {
             let items: [NetworkInterfaceInfo.Item]
             
-            init?(data: NSData) {
-                let count = data.length / sizeof(Item)
+            init?(data: Data) {
+                let count = data.count / MemoryLayout<Item>.size
                 guard count > 0 else {
                     return nil
                 }
                 var items = [Item]()
                 for i in 0..<count {
-                    let itemdata = data.subdataWithRange(NSRange(location: i * sizeof(Item), length: sizeof(Item)))
+                    let itemdata = data.subdata(in: NSRange(location: i * MemoryLayout<Item>.size, length: MemoryLayout<Item>.size))
                     items.append(decode(itemdata))
                 }
                 self.items = items
@@ -307,10 +307,10 @@ extension SMB2 {
                 /// specifies the network interface index.
                 let ifIndex: UInt32
                 let capability: IOCtlCapabilities
-                private let reserved: UInt32
+                fileprivate let reserved: UInt32
                 /// Speed of the network interface in bits per second
                 let linkSpeed: UInt64
-                private let sockaddrStorage:   (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                fileprivate let sockaddrStorage:   (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
@@ -335,13 +335,13 @@ extension SMB2 {
                 
                 var sockaddr: sockaddr_in {
                     var sockaddrStorage = self.sockaddrStorage
-                    let data = NSData(bytes: &sockaddrStorage, length: 16)
+                    let data = Data(bytes: &sockaddrStorage, count: 16)
                     return decode(data)
                 }
                 
                 var sockaddr6: sockaddr_in6 {
                     var sockaddrStorage = self.sockaddrStorage
-                    let data = NSData(bytes: &sockaddrStorage, length: 28)
+                    let data = Data(bytes: &sockaddrStorage, count: 28)
                     return decode(data)
                 }
             }
@@ -351,18 +351,18 @@ extension SMB2 {
             let capabilities: IOCtlCapabilities
             let guid: uuid_t
             let securityMode: UInt16
-            private let _dialect: UInt16
+            fileprivate let _dialect: UInt16
             var dialect: (major: Int, minor: Int) {
                 return (major: Int(_dialect & 0xFF), minor: Int(_dialect >> 8))
             }
             
-            init?(data: NSData) {
+            init?(data: Data) {
                 self = decode(data)
             }
         }
     }
     
-    struct IOCtlCapabilities: OptionSetType {
+    struct IOCtlCapabilities: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {

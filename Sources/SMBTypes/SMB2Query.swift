@@ -20,17 +20,17 @@ extension SMB2 {
         /// - **fileIndex:** The byte offset within the directory, indicating the position at which to resume the enumeration.
         init(fileId: FileId, infoClass: FileInformationEnum, flags: Flags, bufferLength: UInt32 = 65535, searchPattern: String? = nil, fileIndex: UInt32 = 0) {
             assert(FileInformationEnum.queryDirectory.contains(infoClass), "Invalid FileInformationClass used for QueryDirectoryRequest")
-            let searchPatternOffset = searchPattern != nil ? sizeof(SMB2.Header.self) + sizeof(QueryDirectoryRequest.Header.self) : 0
-            let nflags = flags.intersect(fileIndex > 0 ? [.INDEX_SPECIFIED] : [])
-            let searchPatternLength = searchPattern?.dataUsingEncoding(NSUTF16StringEncoding)?.length ?? 0
+            let searchPatternOffset = searchPattern != nil ? MemoryLayout<SMB2.Header>.size + MemoryLayout<QueryDirectoryRequest.Header>.size : 0
+            let nflags = flags.intersection(fileIndex > 0 ? [.INDEX_SPECIFIED] : [])
+            let searchPatternLength = searchPattern?.data(using: String.Encoding.utf16)?.count ?? 0
             self.header = Header(size: 53, infoClass: infoClass, flags: nflags, fileIndex: fileIndex, fileId: fileId, searchPatternOffset: UInt8(searchPatternOffset), searchPatternLength: UInt8(searchPatternLength), bufferLength: bufferLength)
             self.searchPattern = searchPattern
         }
         
-        func data() -> NSData {
-            let result = NSMutableData(data: encode(header))
-            if let patternData = searchPattern?.dataUsingEncoding(NSUTF16StringEncoding) {
-                result.appendData(patternData)
+        func data() -> Data {
+            var result = NSData(data: encode(header)) as Data
+            if let patternData = searchPattern?.data(using: String.Encoding.utf16) {
+                result.append(patternData)
             }
             return result
         }
@@ -46,7 +46,7 @@ extension SMB2 {
             let bufferLength: UInt32
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt8
             
             init(rawValue: UInt8) {
@@ -61,43 +61,43 @@ extension SMB2 {
     }
     
     struct QueryDirectoryResponse: SMBResponse {
-        let buffer: NSData
+        let buffer: Data
         
-        func parseAs(type type: FileInformationEnum) -> [(header: SMB2FilesInformationHeader, fileName: String)] {
+        func parseAs(type: FileInformationEnum) -> [(header: SMB2FilesInformationHeader, fileName: String)] {
             var offset = 0
             var result = [(header: SMB2FilesInformationHeader, fileName: String)]()
             while true {
                 let header: SMB2FilesInformationHeader
                 switch type {
-                case .FileDirectoryInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileDirectoryInformationHeader)))
+                case .fileDirectoryInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileDirectoryInformationHeader>.size))
                     let h: FileDirectoryInformationHeader = decode(headerData)
                     header = h
-                case .FileFullDirectoryInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileFullDirectoryInformationHeader)))
+                case .fileFullDirectoryInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileFullDirectoryInformationHeader>.size))
                     let h: FileFullDirectoryInformationHeader = decode(headerData)
                     header = h
-                case .FileIdFullDirectoryInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileIdFullDirectoryInformationHeader)))
+                case .fileIdFullDirectoryInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileIdFullDirectoryInformationHeader>.size))
                     let h: FileIdFullDirectoryInformationHeader = decode(headerData)
                     header = h
-                case .FileBothDirectoryInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileBothDirectoryInformationHeader)))
+                case .fileBothDirectoryInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileBothDirectoryInformationHeader>.size))
                     let h: FileBothDirectoryInformationHeader = decode(headerData)
                     header = h
-                case .FileIdBothDirectoryInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileIdBothDirectoryInformationHeader)))
+                case .fileIdBothDirectoryInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileIdBothDirectoryInformationHeader>.size))
                     let h: FileIdBothDirectoryInformationHeader = decode(headerData)
                     header = h
-                case .FileNamesInformation:
-                    let headerData = buffer.subdataWithRange(NSRange(location: offset, length: sizeof(FileNamesInformationHeader)))
+                case .fileNamesInformation:
+                    let headerData = buffer.subdata(in: NSRange(location: offset, length: MemoryLayout<FileNamesInformationHeader>.size))
                     let h: FileNamesInformationHeader = decode(headerData)
                     header = h
                 default:
                     return []
                 }
-                let fnData = buffer.subdataWithRange(NSRange(location: offset + sizeofValue(header), length: Int(header.fileNameLength)))
-                let fileName = String(data: fnData, usingEncoding: NSUTF16StringEncoding)
+                let fnData = buffer.subdata(in: NSRange(location: offset + MemoryLayout.size(ofValue: header), length: Int(header.fileNameLength)))
+                let fileName = String(data: fnData, encoding: String.Encoding.utf16) ?? ""
                 result.append((header: header, fileName: fileName))
                 if header.nextEntryOffset == 0 {
                     break
@@ -107,13 +107,13 @@ extension SMB2 {
             return result
         }
         
-        init? (data: NSData) {
-            let offset: UInt16 = decode(data.subdataWithRange(NSRange(location: 2, length: 2)))
-            let length: UInt32 = decode(data.subdataWithRange(NSRange(location: 4, length: 4)))
-            guard data.length > Int(offset) + Int(length) else {
+        init? (data: Data) {
+            let offset: UInt16 = decode(data.subdata(in: NSRange(location: 2, length: 2)))
+            let length: UInt32 = decode(data.subdata(in: NSRange(location: 4, length: 4)))
+            guard data.count > Int(offset) + Int(length) else {
                 return nil
             }
-            self.buffer = data.subdataWithRange(NSRange(location: Int(offset), length: Int(length)))
+            self.buffer = data.subdata(in: NSRange(location: Int(offset), length: Int(length)))
         }
     }
     
@@ -121,7 +121,7 @@ extension SMB2 {
     
     struct QueryInfoRequest: SMBRequest {
         let header: Header
-        let buffer: NSData?
+        let buffer: Data?
         
         init(fileId: FileId, infoClass: FileInformationEnum, outputBufferLength: UInt32 = 65535) {
             self.header = Header(size: 41, infoType: 1, infoClass: infoClass.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: 0, reserved: 0, inputBufferLength: 0, additionalInformation: [], flags: [], fileId: fileId)
@@ -131,21 +131,21 @@ extension SMB2 {
         init(fileId: FileId, extendedAttributes: [String], flags: Flags = [], outputBufferLength: UInt32 = 65535) {
             let buffer = NSMutableData()
             for ea in extendedAttributes {
-                let strData = ea.dataUsingEncoding(NSASCIIStringEncoding)!
-                let strLength = UInt8(strData.length)
-                let nextOffset = UInt32(4 + 1 + strData.length)
-                let data = encode(nextOffset).mutableCopy() as! NSMutableData
-                data.appendData(encode(strLength))
-                data.appendData(strData)
+                let strData = ea.data(using: String.Encoding.ascii)!
+                let strLength = UInt8(strData.count)
+                let nextOffset = UInt32(4 + 1 + strData.count)
+                let data = (encode(nextOffset) as NSData).mutableCopy() as! NSMutableData
+                data.append(encode(strLength))
+                data.append(strData)
                 data.length += 1
                 let padSize = (data.length) % 4
                 data.length += padSize
-                buffer.appendData(data)
+                buffer.append(data as Data)
             }
             
-            let bufferOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(QueryInfoRequest.Header.self))
-            self.header = Header(size: 41, infoType: 1, infoClass: FileInformationEnum.FileFullEaInformation.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: bufferOffset, reserved: 0, inputBufferLength: UInt32(buffer.length), additionalInformation: [], flags: flags, fileId: fileId)
-            self.buffer = buffer
+            let bufferOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<QueryInfoRequest.Header>.size)
+            self.header = Header(size: 41, infoType: 1, infoClass: FileInformationEnum.fileFullEaInformation.rawValue, outputBufferLength: outputBufferLength, inputBufferOffset: bufferOffset, reserved: 0, inputBufferLength: UInt32(buffer.length), additionalInformation: [], flags: flags, fileId: fileId)
+            self.buffer = buffer as Data
         }
         
         init(fileId: FileId, infoClass: FileSystemInformationEnum, outputBufferLength: UInt32 = 65535) {
@@ -160,11 +160,11 @@ extension SMB2 {
         
         // TODO: Implement QUOTA_INFO init
         
-        func data() -> NSData {
+        func data() -> Data {
             let headerData = encode(header)
-            let result = NSMutableData(data: headerData)
+            var result = NSData(data: headerData) as Data
             if let buffer = buffer {
-                result.appendData(buffer)
+                result.append(buffer)
             }
             return result
         }
@@ -175,14 +175,14 @@ extension SMB2 {
             let infoClass: UInt8
             let outputBufferLength: UInt32
             let inputBufferOffset: UInt16
-            private let reserved: UInt16
+            fileprivate let reserved: UInt16
             let inputBufferLength: UInt32
             let additionalInformation: FileSecurityInfo
             let flags: QueryInfoRequest.Flags
             let fileId: FileId
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -196,10 +196,10 @@ extension SMB2 {
     }
     
     struct QueryInfoResponse: SMBResponse {
-        let buffer: NSData
+        let buffer: Data
         
-        init?(data: NSData) {
-            let structSizeData = data.subdataWithRange(NSRange(location: 0, length: 2))
+        init?(data: Data) {
+            let structSizeData = data.subdata(in: NSRange(location: 0, length: 2))
             let structSize: UInt16 = decode(structSizeData)
             guard structSize == 9 else {
                 return nil
@@ -208,14 +208,14 @@ extension SMB2 {
             /*let offsetData = data.subdataWithRange(NSRange(location: 2, length: 2))
             let offset: UInt16 = decode(offsetData)*/
             
-            let lengthData = data.subdataWithRange(NSRange(location: 4, length: 4))
+            let lengthData = data.subdata(in: NSRange(location: 4, length: 4))
             let length: UInt32 = decode(lengthData)
             
-            guard data.length >= 8 + Int(length) else {
+            guard data.count >= 8 + Int(length) else {
                 return nil
             }
             
-            self.buffer = data.subdataWithRange(NSRange(location: 8, length: Int(length)))
+            self.buffer = data.subdata(in: NSRange(location: 8, length: Int(length)))
         }
         
         var asAccessInformation: FileAccessInformation {
@@ -228,14 +228,14 @@ extension SMB2 {
         
         var asAllInformation: (header: FileAllInformationHeader, name: String) {
             let header: FileAllInformationHeader = decode(buffer)
-            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileAllInformationHeader), length: Int(header.nameLength)))
-            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            let nameData = buffer.subdata(in: NSRange(location: MemoryLayout<FileAllInformationHeader>.size, length: Int(header.nameLength)))
+            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
             return (header, name)
         }
         
         var asAlternateNameInformation: String {
-            let b = UnsafePointer<CChar>(buffer.bytes)
-            return String(CString: b, encoding: NSUTF16StringEncoding) ?? ""
+            let b = (buffer as NSData).bytes.bindMemory(to: CChar.self, capacity: buffer.count)
+            return String(cString: b, encoding: String.Encoding.utf16) ?? ""
         }
         
         var asAttributeTagInformation: FileAttributeTagInformation {
@@ -293,15 +293,15 @@ extension SMB2 {
         
         var asStreamInformation: (header: FileStreamInformationHeader, name: String) {
             let header: FileStreamInformationHeader = decode(buffer)
-            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileStreamInformationHeader), length: Int(header.streamNameLength)))
-            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            let nameData = buffer.subdata(in: NSRange(location: MemoryLayout<FileStreamInformationHeader>.size, length: Int(header.streamNameLength)))
+            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
             return (header, name)
         }
         
         var asFsVolumeInformation: (header: FileFsVolumeInformationHeader, name: String) {
             let header: FileFsVolumeInformationHeader = decode(buffer)
-            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileFsVolumeInformationHeader), length: Int(header.labelLength)))
-            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            let nameData = buffer.subdata(in: NSRange(location: MemoryLayout<FileFsVolumeInformationHeader>.size, length: Int(header.labelLength)))
+            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
             return (header, name)
         }
         
@@ -315,8 +315,8 @@ extension SMB2 {
         
         var asFsAttributeInformation: (header: FileFsAttributeInformationHeader, name: String) {
             let header: FileFsAttributeInformationHeader = decode(buffer)
-            let nameData = buffer.subdataWithRange(NSRange(location: sizeof(FileFsAttributeInformationHeader), length: Int(header.nameLength)))
-            let name = String(data: nameData, encoding: NSUTF16StringEncoding) ?? ""
+            let nameData = buffer.subdata(in: NSRange(location: MemoryLayout<FileFsAttributeInformationHeader>.size, length: Int(header.nameLength)))
+            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
             return (header, name)
         }
         

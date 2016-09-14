@@ -16,39 +16,39 @@ public typealias ImageClass = NSImage
 #endif
 
 public enum FileType: String {
-    case Directory
-    case Regular
-    case SymbolicLink
-    case Socket
-    case CharacterSpecial
-    case BlockSpecial
-    case NamedPipe
-    case Unknown
+    case directory
+    case regular
+    case symbolicLink
+    case socket
+    case characterSpecial
+    case blockSpecial
+    case namedPipe
+    case unknown
     
-    public init(urlResourceTypeValue: String) {
+    public init(urlResourceTypeValue: URLFileResourceType) {
         switch urlResourceTypeValue {
-        case NSURLFileResourceTypeNamedPipe: self = .NamedPipe
-        case NSURLFileResourceTypeCharacterSpecial: self = .CharacterSpecial
-        case NSURLFileResourceTypeDirectory: self = .Directory
-        case NSURLFileResourceTypeBlockSpecial: self = .BlockSpecial
-        case NSURLFileResourceTypeRegular: self = .Regular
-        case NSURLFileResourceTypeSymbolicLink: self = .SymbolicLink
-        case NSURLFileResourceTypeSocket: self = .Socket
-        case NSURLFileResourceTypeUnknown: self = .Unknown
-        default: self = .Unknown
+        case URLFileResourceType.namedPipe: self = .namedPipe
+        case URLFileResourceType.characterSpecial: self = .characterSpecial
+        case URLFileResourceType.directory: self = .directory
+        case URLFileResourceType.blockSpecial: self = .blockSpecial
+        case URLFileResourceType.regular: self = .regular
+        case URLFileResourceType.symbolicLink: self = .symbolicLink
+        case URLFileResourceType.socket: self = .socket
+        case URLFileResourceType.unknown: self = .unknown
+        default: self = .unknown
         }
     }
     
-    public init(fileTypeValue: String) {
+    public init(fileTypeValue: FileAttributeType) {
         switch fileTypeValue {
-        case NSFileTypeCharacterSpecial: self = .CharacterSpecial
-        case NSFileTypeDirectory: self = .Directory
-        case NSFileTypeBlockSpecial: self = .BlockSpecial
-        case NSFileTypeRegular: self = .Regular
-        case NSFileTypeSymbolicLink: self = .SymbolicLink
-        case NSFileTypeSocket: self = .Socket
-        case NSFileTypeUnknown: self = .Unknown
-        default: self = .Unknown
+        case FileAttributeType.typeCharacterSpecial: self = .characterSpecial
+        case FileAttributeType.typeDirectory: self = .directory
+        case FileAttributeType.typeBlockSpecial: self = .blockSpecial
+        case FileAttributeType.typeRegular: self = .regular
+        case FileAttributeType.typeSymbolicLink: self = .symbolicLink
+        case FileAttributeType.typeSocket: self = .socket
+        case FileAttributeType.typeUnknown: self = .unknown
+        default: self = .unknown
         }
     }
 }
@@ -58,21 +58,21 @@ public protocol FoundationErrorEnum {
     var rawValue: Int { get }
 }
 
-extension NSURLError: FoundationErrorEnum {}
-extension NSCocoaError: FoundationErrorEnum {}
+extension URLError.Code: FoundationErrorEnum {}
+extension CocoaError.Code: FoundationErrorEnum {}
 
-public class FileObject {
-    public let absoluteURL: NSURL?
-    public let name: String
-    public let path: String
-    public let size: Int64
-    public let createdDate: NSDate?
-    public let modifiedDate: NSDate?
-    public let fileType: FileType
-    public let isHidden: Bool
-    public let isReadOnly: Bool
+open class FileObject {
+    open let absoluteURL: URL?
+    open let name: String
+    open let path: String
+    open let size: Int64
+    open let createdDate: Date?
+    open let modifiedDate: Date?
+    open let fileType: FileType
+    open let isHidden: Bool
+    open let isReadOnly: Bool
     
-    public init(absoluteURL: NSURL? = nil, name: String, path: String, size: Int64 = -1, createdDate: NSDate? = nil, modifiedDate: NSDate? = nil, fileType: FileType = .Regular, isHidden: Bool = false, isReadOnly: Bool = false) {
+    public init(absoluteURL: URL? = nil, name: String, path: String, size: Int64 = -1, createdDate: Date? = nil, modifiedDate: Date? = nil, fileType: FileType = .regular, isHidden: Bool = false, isReadOnly: Bool = false) {
         self.absoluteURL = absoluteURL
         self.name = name
         self.path = path
@@ -84,59 +84,59 @@ public class FileObject {
         self.isReadOnly = isReadOnly
     }
     
-    public var isDirectory: Bool {
-        return self.fileType == .Directory
+    open var isDirectory: Bool {
+        return self.fileType == .directory
     }
     
-    public var isSymLink: Bool {
-        return self.fileType == .SymbolicLink
+    open var isSymLink: Bool {
+        return self.fileType == .symbolicLink
     }
 }
 
 
-public typealias SimpleCompletionHandler = ((error: ErrorType?) -> Void)?
+public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 public protocol FileProviderBasic: class {
     var type: String { get }
     var isPathRelative: Bool { get }
-    var baseURL: NSURL? { get }
+    var baseURL: URL? { get }
     var currentPath: String { get set }
-    var dispatch_queue: dispatch_queue_t { get set }
+    var dispatch_queue: DispatchQueue { get set }
     var delegate: FileProviderDelegate? { get set }
-    var credential: NSURLCredential? { get }
+    var credential: URLCredential? { get }
     
     /**
      *
     */
-    func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObject], error: ErrorType?) -> Void))
-    func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObject?, error: ErrorType?) -> Void))
+    func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void))
+    func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
-    func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void))
+    func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
 }
 
 public protocol FileProviderOperations: FileProviderBasic {
     var fileOperationDelegate : FileOperationDelegate? { get set }
     
-    func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler)
-    func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler)
-    func moveItemAtPath(path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
-    func copyItemAtPath(path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
-    func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler)
+    func create(folder: String, at: String, completionHandler: SimpleCompletionHandler)
+    func create(file: FileObject, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler)
+    func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
+    func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
+    func removeItem(path: String, completionHandler: SimpleCompletionHandler)
     
-    func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler)
-    func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler)
+    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler)
+    func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler)
 }
 
 public protocol FileProviderReadWrite: FileProviderBasic {
-    func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void))
-    func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void))
-    func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler)
+    func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void))
+    func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void))
+    func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler)
     
-    func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: ((files: [FileObject], error: ErrorType?) -> Void))
+    func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
 }
 
 public protocol FileProviderMonitor: FileProviderBasic {
-    func registerNotifcation(path: String, eventHandler: (() -> Void))
+    func registerNotifcation(path: String, eventHandler: @escaping (() -> Void))
     func unregisterNotifcation(path: String)
     func isRegisteredForNotification(path: String) -> Bool
 }
@@ -147,10 +147,10 @@ public protocol FileProvider: FileProviderBasic, FileProviderOperations, FilePro
 
 extension FileProviderBasic {
     public var bareCurrentPath: String {
-        return currentPath.stringByTrimmingCharactersInSet(NSCharacterSet(charactersInString: ". /"))
+        return currentPath.trimmingCharacters(in: CharacterSet(charactersIn: ". /"))
     }
     
-    public func absoluteURL(path: String? = nil) -> NSURL {
+    public func absoluteURL(_ path: String? = nil) -> URL {
         let rpath: String
         if let path = path {
             rpath = path
@@ -160,49 +160,47 @@ extension FileProviderBasic {
         if isPathRelative, let baseURL = baseURL {
             if rpath.hasPrefix("/") && baseURL.uw_absoluteString.hasSuffix("/") {
                 var npath = rpath
-                npath.removeAtIndex(npath.startIndex)
+                npath.remove(at: npath.startIndex)
                 return baseURL.uw_URLByAppendingPathComponent(npath)
             } else {
                 return baseURL.uw_URLByAppendingPathComponent(rpath)
             }
         } else {
-            return NSURL(fileURLWithPath: rpath).URLByStandardizingPath!
+            return URL(fileURLWithPath: rpath).standardizedFileURL
         }
     }
     
-    public func relativePathOf(url url: NSURL) -> String {
+    public func relativePathOf(url: URL) -> String {
         guard let baseURL = self.baseURL else { return url.uw_absoluteString }
-        return url.URLByStandardizingPath!.uw_absoluteString.stringByReplacingOccurrencesOfString(baseURL.uw_absoluteString, withString: "/").stringByRemovingPercentEncoding!
+        return url.standardizedFileURL.uw_absoluteString.replacingOccurrences(of: baseURL.uw_absoluteString, with: "/").removingPercentEncoding!
     }
     
-    internal func correctPath(path: String?) -> String? {
+    internal func correctPath(_ path: String?) -> String? {
         guard let path = path else { return nil }
         var p = path.hasPrefix("/") ? path : "/" + path
         if p.hasSuffix("/") {
-            p.removeAtIndex(p.endIndex.predecessor())
+            p.remove(at: p.characters.index(before: p.endIndex))
         }
         return p
     }
     
-    public func fileByUniqueName(filePath: String) -> String {
-        let fileUrl = NSURL(fileURLWithPath: filePath)
-        let dirPath = fileUrl.URLByDeletingLastPathComponent?.path ?? ""
-        guard let fileName = fileUrl.URLByDeletingPathExtension?.lastPathComponent else {
-            return filePath
-        }
-        let fileExt = fileUrl.pathExtension ?? ""
+    public func fileByUniqueName(_ filePath: String) -> String {
+        let fileUrl = URL(fileURLWithPath: filePath)
+        let dirPath = fileUrl.deletingLastPathComponent().path 
+        let fileName = fileUrl.deletingPathExtension().lastPathComponent
+        let fileExt = fileUrl.pathExtension 
         var result = fileName
-        let group = dispatch_group_create()
-        dispatch_group_enter(group)
-        self.contentsOfDirectoryAtPath(dirPath) { (contents, error) in
+        let group = DispatchGroup()
+        group.enter()
+        self.contentsOfDirectory(path: dirPath) { (contents, error) in
             var bareFileName = fileName
-            let number = Int(fileName.componentsSeparatedByString(" ").filter {
-                !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
+            let number = Int(fileName.components(separatedBy: " ").filter {
+                !$0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
                 }.last ?? "noname")
             if let _ = number {
-                result = fileName.componentsSeparatedByString(" ").filter {
-                    !$0.stringByTrimmingCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).isEmpty
-                    }.dropLast().joinWithSeparator(" ")
+                result = fileName.components(separatedBy: " ").filter {
+                    !$0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
+                    }.dropLast().joined(separator: " ")
                 bareFileName = result
             }
             var i = number ?? 2
@@ -215,18 +213,18 @@ extension FileProviderBasic {
                 result = "\(bareFileName) \(i)"
                 i += 1
             }
-            dispatch_group_leave(group)
+            group.leave()
         }
-        dispatch_group_wait(group, DISPATCH_TIME_FOREVER)
+        _ = group.wait(timeout: DispatchTime.distantFuture)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
-        return (dirPath as NSString).stringByAppendingPathComponent(finalFile)
+        return (dirPath as NSString).appendingPathComponent(finalFile)
     }
     
-    internal func throwError(path: String, code: FoundationErrorEnum) -> NSError {
+    internal func throwError(_ path: String, code: FoundationErrorEnum) -> NSError {
         let fileURL = self.absoluteURL(path)
         let domain: String
         switch code {
-        case is NSURLError:
+        case is URLError:
             domain = NSURLErrorDomain
         default:
             domain = NSCocoaErrorDomain
@@ -238,23 +236,23 @@ extension FileProviderBasic {
         assert(false, "method not implemented")
     }
     
-    internal func resolveDate(dateString: String) -> NSDate? {
-        let dateFor: NSDateFormatter = NSDateFormatter()
-        dateFor.locale = NSLocale(localeIdentifier: "en_US")
+    internal func resolve(dateString: String) -> Date? {
+        let dateFor: DateFormatter = DateFormatter()
+        dateFor.locale = Locale(identifier: "en_US")
         dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
-        if let rfc1123 = dateFor.dateFromString(dateString) {
+        if let rfc1123 = dateFor.date(from: dateString) {
             return rfc1123
         }
         dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
-        if let rfc850 = dateFor.dateFromString(dateString) {
+        if let rfc850 = dateFor.date(from: dateString) {
             return rfc850
         }
         dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        if let asctime = dateFor.dateFromString(dateString) {
+        if let asctime = dateFor.date(from: dateString) {
             return asctime
         }
         dateFor.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
-        if let isotime = dateFor.dateFromString(dateString) {
+        if let isotime = dateFor.date(from: dateString) {
             return isotime
         }
         //self.init()
@@ -266,60 +264,60 @@ extension FileProviderBasic {
 public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileSupported(path: String) -> Bool
     func propertiesOfFileSupported(path: String) -> Bool
-    func thumbnailOfFileAtPath(path: String, dimension: CGSize, completionHandler: ((image: ImageClass?, error: ErrorType?) -> Void))
-    func propertiesOfFileAtPath(path: String, completionHandler: ((propertiesDictionary: [String: AnyObject], keys: [String], error: ErrorType?) -> Void))
+    func thumbnailOfFile(path: String, dimension: CGSize, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
+    func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: AnyObject], _ keys: [String], _ error: Error?) -> Void))
 }
 
 public enum FileOperation: CustomStringConvertible {
-    case Create (path: String)
-    case Copy   (source: String, destination: String)
-    case Move   (source: String, destination: String)
-    case Modify (path: String)
-    case Remove (path: String)
-    case Link   (link: String, target: String)
+    case create (path: String)
+    case copy   (source: String, destination: String)
+    case move   (source: String, destination: String)
+    case modify (path: String)
+    case remove (path: String)
+    case link   (link: String, target: String)
     
     public var description: String {
         switch self {
-        case .Create(path: _): return "Create"
-        case .Copy(source: _, destination: _): return "Copy"
-        case .Move(source: _, destination: _): return "Move"
-        case .Modify(path: _): return "Modify"
-        case .Remove(path: _): return "Remove"
-        case .Link(link: _, target: _): return "Link"
+        case .create(path: _): return "Create"
+        case .copy(source: _, destination: _): return "Copy"
+        case .move(source: _, destination: _): return "Move"
+        case .modify(path: _): return "Modify"
+        case .remove(path: _): return "Remove"
+        case .link(link: _, target: _): return "Link"
         }
     }
     
     internal var actionDescription: String {
         switch self {
-        case .Create(path: _): return "Creating"
-        case .Copy(source: _, destination: _): return "Copying"
-        case .Move(source: _, destination: _): return "Moving"
-        case .Modify(path: _): return "Modifying"
-        case .Remove(path: _): return "Removing"
-        case .Link(link: _, target: _): return "Linking"
+        case .create(path: _): return "Creating"
+        case .copy(source: _, destination: _): return "Copying"
+        case .move(source: _, destination: _): return "Moving"
+        case .modify(path: _): return "Modifying"
+        case .remove(path: _): return "Removing"
+        case .link(link: _, target: _): return "Linking"
         }
     }
     
 }
 
 public protocol FileProviderDelegate: class {
-    func fileproviderSucceed(fileProvider: FileProviderOperations, operation: FileOperation)
-    func fileproviderFailed(fileProvider: FileProviderOperations, operation: FileOperation)
-    func fileproviderProgress(fileProvider: FileProviderOperations, operation: FileOperation, progress: Float)
+    func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation)
+    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation)
+    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float)
 }
 
 public protocol FileOperationDelegate: class {
     
     /// fileProvider(_:shouldOperate:) gives the delegate an opportunity to filter the file operation. Returning true from this method will allow the copy to happen. Returning false from this method causes the item in question to be skipped. If the item skipped was a directory, no children of that directory will be subject of the operation, nor will the delegate be notified of those children.
-    func fileProvider(fileProvider: FileProviderOperations, shouldDoOperation operation: FileOperation) -> Bool
+    func fileProvider(_ fileProvider: FileProviderOperations, shouldDoOperation operation: FileOperation) -> Bool
     
     /// fileProvider(_:shouldProceedAfterError:copyingItemAtPath:toPath:) gives the delegate an opportunity to recover from or continue copying after an error. If an error occurs, the error object will contain an ErrorType indicating the problem. The source path and destination paths are also provided. If this method returns true, the FileProvider instance will continue as if the error had not occurred. If this method returns false, the NSFileManager instance will stop copying, return false from copyItemAtPath:toPath:error: and the error will be provied there.
-    func fileProvider(fileProvider: FileProviderOperations, shouldProceedAfterError error: ErrorType, operation: FileOperation) -> Bool
+    func fileProvider(_ fileProvider: FileProviderOperations, shouldProceedAfterError error: Error, operation: FileOperation) -> Bool
 }
 
 // THESE ARE METHODS TO PROVIDE COMPATIBILITY WITH SWIFT 2.3 SIMOULTANIOUSLY!
 
-internal extension NSURL {
+internal extension URL {
     var uw_scheme: String {
         #if swift(>=2.3)
             return self.scheme ?? ""
@@ -329,43 +327,31 @@ internal extension NSURL {
     }
     
     var uw_absoluteString: String {
-        #if swift(>=2.3)
-            return self.absoluteString ?? ""
-        #else
-            return self.absoluteString
-        #endif
+        return self.absoluteString
     }
     
-    func uw_URLByAppendingPathComponent(pathComponent: String) -> NSURL {
-        #if swift(>=2.3)
-            return self.URLByAppendingPathComponent(pathComponent)!
-        #else
-            return self.URLByAppendingPathComponent(pathComponent)
-        #endif
+    func uw_URLByAppendingPathComponent(_ pathComponent: String) -> URL {
+        return self.appendingPathComponent(pathComponent)
     }
     
-    func uw_URLByAppendingPathExtension(pathExtension: String) -> NSURL {
-        #if swift(>=2.3)
-            return self.URLByAppendingPathExtension(pathExtension)!
-        #else
-            return self.URLByAppendingPathExtension(pathExtension)
-        #endif
+    func uw_URLByAppendingPathExtension(_ pathExtension: String) -> URL {
+        return self.appendingPathExtension(pathExtension)
     }
 }
 
-internal func jsonToDictionary(jsonString: String) -> [String: AnyObject]? {
-    guard let data = jsonString.dataUsingEncoding(NSUTF8StringEncoding) else {
+internal func jsonToDictionary(_ jsonString: String) -> [String: AnyObject]? {
+    guard let data = jsonString.data(using: String.Encoding.utf8) else {
         return nil
     }
-    if let dic = try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions()) as? [String: AnyObject] {
+    if let dic = try? JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions()) as? [String: AnyObject] {
         return dic
     }
     return nil
 }
 
-internal func dictionaryToJSON(dictionary: [String: AnyObject]) -> String? {
-    if let data = try? NSJSONSerialization.dataWithJSONObject(dictionary, options: NSJSONWritingOptions()) {
-        return String(data: data, encoding: NSUTF8StringEncoding)
+internal func dictionaryToJSON(_ dictionary: [String: AnyObject]) -> String? {
+    if let data = try? JSONSerialization.data(withJSONObject: dictionary, options: JSONSerialization.WritingOptions()) {
+        return String(data: data, encoding: String.Encoding.utf8)
     }
     return nil
 }

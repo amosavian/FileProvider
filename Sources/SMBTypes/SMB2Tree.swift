@@ -13,7 +13,7 @@ extension SMB2 {
     
     struct TreeConnectRequest: SMBRequest {
         let header: TreeConnectRequest.Header
-        let buffer: NSData?
+        let buffer: Data?
         var path: String {
             return ""
         }
@@ -22,21 +22,21 @@ extension SMB2 {
         }
         
         init? (header: TreeConnectRequest.Header, host: String, share: String) {
-            guard !host.containsString("/") && !share.containsString("/") else {
+            guard !host.contains("/") && !share.contains("/") else {
                 return nil
             }
             self.header = header
             let path = "\\\\\(host)\\\(share)"
-            self.buffer = path.dataUsingEncoding(NSUTF16StringEncoding)
+            self.buffer = path.data(using: String.Encoding.utf16)
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             var header = self.header
-            header.pathOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(TreeConnectRequest.Header.self))
-            header.pathLength = UInt16(buffer?.length ?? 0)
-            let result = NSMutableData(data: encode(&header))
+            header.pathOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<TreeConnectRequest.Header>.size)
+            header.pathLength = UInt16(buffer?.count ?? 0)
+            var result = NSData(data: encode(&header)) as Data
             if let buffer = self.buffer {
-                result.appendData(buffer)
+                result.append(buffer)
             }
             return result
         }
@@ -55,7 +55,7 @@ extension SMB2 {
             }
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt16
             
             init(rawValue: UInt16) {
@@ -68,17 +68,17 @@ extension SMB2 {
     
     struct TreeConnectResponse: SMBResponse {
         let size: UInt16  // = 16
-        private let _type: UInt8
+        fileprivate let _type: UInt8
         var type: ShareType {
             return ShareType(rawValue: _type) ?? .UNKNOWN
         }
-        private let reserved: UInt8
+        fileprivate let reserved: UInt8
         let flags: TreeConnectResponse.ShareFlags
         let capabilities: TreeConnectResponse.Capabilities
         let maximalAccess: FileAccessMask
         
-        init? (data: NSData) {
-            if data.length != 16 {
+        init? (data: Data) {
+            if data.count != 16 {
                 return nil
             }
             self = decode(data)
@@ -91,7 +91,7 @@ extension SMB2 {
             case PRINT    = 0x03
         }
         
-        struct ShareFlags: OptionSetType {
+        struct ShareFlags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -114,7 +114,7 @@ extension SMB2 {
             static let ENCRYPT_DATA                 = ShareFlags(rawValue: 0x00008000)
         }
         
-        struct Capabilities: OptionSetType {
+        struct Capabilities: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -140,11 +140,11 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }

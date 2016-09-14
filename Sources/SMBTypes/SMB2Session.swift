@@ -14,44 +14,44 @@ extension SMB2 {
     struct NegotiateRequest: SMBRequest {
         let header: NegotiateRequest.Header
         let dialects: [UInt16]
-        let contexts: [(type: NegotiateContextType, data: NSData)]
+        let contexts: [(type: NegotiateContextType, data: Data)]
         
-        init(header: NegotiateRequest.Header, dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: NSData)] = []) {
+        init(header: NegotiateRequest.Header, dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: Data)] = []) {
             self.header = header
             self.dialects = dialects
             self.contexts = contexts
         }
         
-        init(dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: NSData)] = [],capabilities: GlobalCapabilities = [], clientStartTime: SMBTime? = nil, guid: uuid_t? = nil, signing: NegotiateSinging = [.ENABLED]) {
+        init(dialects: [UInt16] = [0x0202], contexts: [(type: NegotiateContextType, data: Data)] = [],capabilities: GlobalCapabilities = [], clientStartTime: SMBTime? = nil, guid: uuid_t? = nil, signing: NegotiateSinging = [.ENABLED]) {
             self.header = Header(capabilities: capabilities, clientStartTime: clientStartTime, guid: guid, signing: signing)
             self.dialects = dialects
             self.contexts = contexts
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             var header = self.header
             header.dialectCount = UInt16(dialects.count)
             let dialectData = NSMutableData()
             for dialect in dialects {
                 var dialect = dialect
-                dialectData.appendBytes(&dialect, length: 2)
+                dialectData.append(&dialect, length: 2)
             }
             let pad = ((1024 - dialectData.length) % 8)
-            dialectData.increaseLengthBy(pad)
-            header.contextOffset = UInt32(sizeof(header.dynamicType.self)) + UInt32(dialectData.length)
+            dialectData.increaseLength(by: pad)
+            header.contextOffset = UInt32(MemoryLayout<NegotiateRequest.Header>.size) + UInt32(dialectData.length)
             header.contextCount = UInt16(contexts.count)
             
             let contextData = NSMutableData()
             for context in contexts {
                 var contextType = context.type.rawValue
-                contextData.appendBytes(&contextType, length: 2)
-                var dataLen = UInt16(context.data.length)
-                contextData.increaseLengthBy(4)
-                contextData.appendBytes(&dataLen, length: 2)
+                contextData.append(&contextType, length: 2)
+                var dataLen = UInt16(context.data.count)
+                contextData.increaseLength(by: 4)
+                contextData.append(&dataLen, length: 2)
             }
-            let result = NSMutableData(data: encode(&header))
-            result.appendData(dialectData)
-            result.appendData(contextData)
+            var result = NSData(data: encode(&header)) as Data
+            result.append(dialectData as Data)
+            result.append(contextData as Data)
             return result
         }
         
@@ -59,12 +59,12 @@ extension SMB2 {
             var size: UInt16
             var dialectCount: UInt16
             let signing: NegotiateSinging
-            private let reserved: UInt16
+            fileprivate let reserved: UInt16
             let capabilities: GlobalCapabilities
             let guid: uuid_t
             var contextOffset: UInt32
             var contextCount: UInt16
-            private let reserved2: UInt16
+            fileprivate let reserved2: UInt16
             var clientStartTime: SMBTime {
                 let time = Int64(contextOffset) + (Int64(contextCount) << 32) + (Int64(contextCount) << 48)
                 return SMBTime(time: time)
@@ -93,26 +93,26 @@ extension SMB2 {
     
     struct NegotiateResponse: SMBResponse {
         let header: NegotiateResponse.Header
-        let buffer: NSData?
-        let contexts: [(type: NegotiateContextType, data: NSData)]
+        let buffer: Data?
+        let contexts: [(type: NegotiateContextType, data: Data)]
         
-        init? (data: NSData) {
-            if data.length < 64 {
+        init? (data: Data) {
+            if data.count < 64 {
                 return nil
             }
             self.header = decode(data)
             if Int(header.size) != 65 {
                 return nil
             }
-            let bufOffset = Int(self.header.bufferOffset) - sizeof(SMB2.Header.self)
+            let bufOffset = Int(self.header.bufferOffset) - MemoryLayout<SMB2.Header>.size
             let bufLen = Int(self.header.bufferLength)
-            if bufOffset > 0 && bufLen > 0 && data.length >= bufOffset + bufLen {
-                self.buffer = data.subdataWithRange(NSRange(location: bufOffset, length: bufLen))
+            if bufOffset > 0 && bufLen > 0 && data.count >= bufOffset + bufLen {
+                self.buffer = data.subdata(in: NSRange(location: bufOffset, length: bufLen))
             } else {
                 self.buffer = nil
             }
             let contextCount = Int(self.header.contextCount)
-            let contextOffset = Int(self.header.contextOffset) - sizeof(SMB2.Header.self)
+            let contextOffset = Int(self.header.contextOffset) - MemoryLayout<SMB2.Header>.size
             if  contextCount > 0 &&  contextOffset > 0 {
                 // TODO: NegotiateResponse context support for SMB3
                 self.contexts = []
@@ -139,7 +139,7 @@ extension SMB2 {
         }
     }
     
-    struct NegotiateSinging: OptionSetType {
+    struct NegotiateSinging: OptionSet {
         let rawValue: UInt16
         
         init(rawValue: UInt16) {
@@ -149,7 +149,7 @@ extension SMB2 {
         static let REQUIRED  = NegotiateSinging(rawValue: 0x0002)
     }
     
-    struct NegotiateContextType: OptionSetType {
+    struct NegotiateContextType: OptionSet {
         let rawValue: UInt16
         
         init(rawValue: UInt16) {
@@ -159,7 +159,7 @@ extension SMB2 {
         static let ENCRYPTION_CAPABILITIES          = NegotiateContextType(rawValue: 0x0002)
     }
     
-    struct GlobalCapabilities: OptionSetType {
+    struct GlobalCapabilities: OptionSet {
         let rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -178,25 +178,25 @@ extension SMB2 {
     
     struct SessionSetupRequest: SMBRequest {
         let header: SessionSetupRequest.Header
-        let buffer: NSData?
+        let buffer: Data?
         
-        init(header: SessionSetupRequest.Header, buffer: NSData) {
+        init(header: SessionSetupRequest.Header, buffer: Data) {
             self.header = header
             self.buffer = buffer
         }
         
-        init(sessionId: UInt64 = 0, flags: SessionSetupRequest.Flags = [], singing: SessionSetupSinging = [.ENABLED], capabilities: GlobalCapabilities = [], securityData: NSData? = nil) {
+        init(sessionId: UInt64 = 0, flags: SessionSetupRequest.Flags = [], singing: SessionSetupSinging = [.ENABLED], capabilities: GlobalCapabilities = [], securityData: Data? = nil) {
             self.header = Header(sessionId: sessionId, flags: flags, singing: singing, capabilities: capabilities)
             self.buffer = securityData
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             var header = self.header
-            header.bufferOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(SessionSetupRequest.Header.self))
-            header.bufferLength = UInt16(buffer?.length ?? 0)
-            let result = NSMutableData(data: encode(&header))
+            header.bufferOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<SessionSetupRequest.Header>.size)
+            header.bufferLength = UInt16(buffer?.count ?? 0)
+            var result = NSData(data: encode(&header)) as Data
             if let buffer = self.buffer {
-                result.appendData(buffer)
+                result.append(buffer)
             }
             return result
         }
@@ -206,7 +206,7 @@ extension SMB2 {
             let flags: SessionSetupRequest.Flags
             let signing: SessionSetupSinging
             let capabilities: GlobalCapabilities
-            private let channel: UInt32
+            fileprivate let channel: UInt32
             var bufferOffset: UInt16
             var bufferLength: UInt16
             let sessionId: UInt64
@@ -224,7 +224,7 @@ extension SMB2 {
         }
         
         /// Works the client implements the SMB 3.x dialect family
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt8
             
             init(rawValue: UInt8) {
@@ -237,20 +237,20 @@ extension SMB2 {
     
     struct SessionSetupResponse: SMBResponse {
         let header: SessionSetupResponse.Header
-        let buffer: NSData?
+        let buffer: Data?
         
-        init? (data: NSData) {
-            if data.length < 64 {
+        init? (data: Data) {
+            if data.count < 64 {
                 return nil
             }
             self.header = decode(data)
             if Int(header.size) != 9 {
                 return nil
             }
-            let bufOffset = Int(self.header.bufferOffset) - sizeof(SMB2.Header.self)
+            let bufOffset = Int(self.header.bufferOffset) - MemoryLayout<SMB2.Header>.size
             let bufLen = Int(self.header.bufferLength)
-            if bufOffset > 0 && bufLen > 0 && data.length >= bufOffset + bufLen {
-                self.buffer = data.subdataWithRange(NSRange(location: bufOffset, length: bufLen))
+            if bufOffset > 0 && bufLen > 0 && data.count >= bufOffset + bufLen {
+                self.buffer = data.subdata(in: NSRange(location: bufOffset, length: bufLen))
             } else {
                 self.buffer = nil
             }
@@ -263,7 +263,7 @@ extension SMB2 {
             let bufferLength: UInt16
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt16
             
             init(rawValue: UInt16) {
@@ -276,7 +276,7 @@ extension SMB2 {
         }
     }
     
-    struct SessionSetupSinging: OptionSetType {
+    struct SessionSetupSinging: OptionSet {
         let rawValue: UInt8
         
         init(rawValue: UInt8) {
@@ -298,11 +298,11 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }
@@ -318,11 +318,11 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }

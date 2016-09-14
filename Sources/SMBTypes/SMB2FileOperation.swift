@@ -13,20 +13,20 @@ extension SMB2 {
     
     struct ReadRequest: SMBRequest {
         let size: UInt16
-        private let padding: UInt8
+        fileprivate let padding: UInt8
         let flags: ReadRequest.Flags
         let length: UInt32
         let offset: UInt64
         let fileId: FileId
         let minimumLength: UInt32
-        private let _channel: UInt32
+        fileprivate let _channel: UInt32
         var channel: Channel {
             return Channel(rawValue: _channel) ?? .NONE
         }
         let remainingBytes: UInt32
-        private let channelInfoOffset: UInt16
-        private let channelInfoLength: UInt16
-        private let channelBuffer: UInt8
+        fileprivate let channelInfoOffset: UInt16
+        fileprivate let channelInfoLength: UInt16
+        fileprivate let channelBuffer: UInt8
         
         init (fileId: FileId, offset: UInt64, length: UInt32, flags: ReadRequest.Flags = [], minimumLength: UInt32 = 0, remainingBytes: UInt32 = 0, channel: Channel = .NONE) {
             self.size = 49
@@ -43,11 +43,11 @@ extension SMB2 {
             self.channelBuffer = 0
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(read)
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt8
             
             init(rawValue: UInt8) {
@@ -62,22 +62,22 @@ extension SMB2 {
         struct Header {
             let size: UInt16
             let offset: UInt8
-            private let reserved: UInt8
+            fileprivate let reserved: UInt8
             let length: UInt32
             let remaining: UInt32
-            private let reserved2: UInt32
+            fileprivate let reserved2: UInt32
             
         }
         let header: ReadRespone.Header
-        let buffer: NSData
+        let buffer: Data
         
-        init?(data: NSData) {
-            guard data.length > 16 else {
+        init?(data: Data) {
+            guard data.count > 16 else {
                 return nil
             }
             self.header = decode(data)
-            let headersize = sizeof(Header)
-            self.buffer = data.subdataWithRange(NSRange(location: headersize, length: data.length - headersize))
+            let headersize = MemoryLayout<Header>.size
+            self.buffer = data.subdata(in: NSRange(location: headersize, length: data.count - headersize))
         }
     }
     
@@ -92,7 +92,7 @@ extension SMB2 {
     struct WriteRequest: SMBRequest {
         let header: WriteRequest.Header
         let channelInfo: ChannelInfo?
-        let fileData: NSData
+        let fileData: Data
         
         struct Header {
             let size: UInt16
@@ -100,7 +100,7 @@ extension SMB2 {
             let length: UInt32
             let offset: UInt64
             let fileId: FileId
-            private let _channel: UInt32
+            fileprivate let _channel: UInt32
             var channel: Channel {
                 return Channel(rawValue: _channel) ?? .NONE
             }
@@ -110,29 +110,29 @@ extension SMB2 {
             let flags: WriteRequest.Flags
         }
         
-        init(fileId: FileId, offset: UInt64, remainingBytes: UInt32 = 0, data: NSData, channel: Channel = .NONE, channelInfo: ChannelInfo? = nil, flags: WriteRequest.Flags = []) {
+        init(fileId: FileId, offset: UInt64, remainingBytes: UInt32 = 0, data: Data, channel: Channel = .NONE, channelInfo: ChannelInfo? = nil, flags: WriteRequest.Flags = []) {
             var channelInfoOffset: UInt16 = 0
             var channelInfoLength: UInt16 = 0
-            if channel != .NONE, let channelInfo = channelInfo {
-                channelInfoOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(WriteRequest.Header.self))
-                channelInfoLength = UInt16(sizeof(channelInfo.dynamicType))
+            if channel != .NONE, let _ = channelInfo {
+                channelInfoOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<WriteRequest.Header>.size)
+                channelInfoLength = UInt16(MemoryLayout<SMB2.ChannelInfo>.size)
             }
-            let dataOffset = UInt16(sizeof(SMB2.Header.self) + sizeof(WriteRequest.Header.self)) + channelInfoLength
-            self.header = WriteRequest.Header(size: UInt16(49), dataOffset: dataOffset, length: UInt32(data.length), offset: offset, fileId: fileId, _channel: channel.rawValue, remainingBytes: remainingBytes, channelInfoOffset: channelInfoOffset, channelInfoLength: channelInfoLength, flags: flags)
+            let dataOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<WriteRequest.Header>.size) + channelInfoLength
+            self.header = WriteRequest.Header(size: UInt16(49), dataOffset: dataOffset, length: UInt32(data.count), offset: offset, fileId: fileId, _channel: channel.rawValue, remainingBytes: remainingBytes, channelInfoOffset: channelInfoOffset, channelInfoLength: channelInfoLength, flags: flags)
             self.channelInfo = channelInfo
             self.fileData = data
         }
         
-        func data() -> NSData {
-            let result = NSMutableData(data: encode(self.header))
+        func data() -> Data {
+            var result = NSData(data: encode(self.header)) as Data
             if let channelInfo = channelInfo {
-                result.appendData(channelInfo.data())
+                result.append(channelInfo.data())
             }
-            result.appendData(fileData)
+            result.append(fileData)
             return result
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -146,13 +146,13 @@ extension SMB2 {
     
     struct WriteResponse: SMBResponse {
         let size: UInt16
-        private let reserved: UInt16
+        fileprivate let reserved: UInt16
         let writtenBytes: UInt32
-        private let remaining: UInt32
-        private let channelInfoOffset: UInt16
-        private let channelInfoLength: UInt16
+        fileprivate let remaining: UInt32
+        fileprivate let channelInfoOffset: UInt16
+        fileprivate let channelInfoLength: UInt16
         
-        init?(data: NSData) {
+        init?(data: Data) {
             self = decode(data)
         }
     }
@@ -162,7 +162,7 @@ extension SMB2 {
         let token: UInt32
         let length: UInt32
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(data)
         }
     }
@@ -173,13 +173,13 @@ extension SMB2 {
         let offset: UInt64
         let length: UInt64
         let flags: LockElement.Flags
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
         
-        struct Flags: OptionSetType {
+        struct Flags: OptionSet {
             let rawValue: UInt32
             
             init(rawValue: UInt32) {
@@ -202,17 +202,17 @@ extension SMB2 {
             self.locks = locks
         }
         
-        func data() -> NSData {
-            let result = NSMutableData(data: encode(header))
+        func data() -> Data {
+            var result = NSData(data: encode(header)) as Data
             for lock in locks {
-                result.appendData(encode(lock))
+                result.append(encode(lock))
             }
             return result
         }
         
         struct Header {
             let size: UInt16
-            private let lockCount: UInt16
+            fileprivate let lockCount: UInt16
             let lockSequence: UInt32
             let fileId : FileId
         }
@@ -227,7 +227,7 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        init? (data: NSData) {
+        init? (data: Data) {
             self = decode(data)
         }
     }
@@ -243,7 +243,7 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        func data() -> NSData {
+        func data() -> Data {
             return encode(self)
         }
     }

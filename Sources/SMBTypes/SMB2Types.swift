@@ -8,6 +8,31 @@
 
 import Foundation
 
+internal func encode<T>(_ value: inout T) -> Data {
+    return withUnsafePointer(to: &value) { p in
+        NSData(bytes: p, length: MemoryLayout.size(ofValue: value)) as Data
+    }
+}
+
+internal func encode<T>(_ value: T) -> Data {
+    var value = value
+    return withUnsafePointer(to: &value) { p in
+        NSData(bytes: p, length: MemoryLayout.size(ofValue: value)) as Data
+    }
+}
+
+internal func decode<T>(_ data: Data) -> T {
+    let pointer = UnsafeMutablePointer<T>.allocate(capacity: MemoryLayout<T.Type>.size)
+    (data as NSData).getBytes(pointer, length: MemoryLayout<T.Type>.size)
+    
+    return pointer.move()
+}
+
+protocol FileProviderSMBHeader {
+    var protocolID: UInt32 { get }
+    static var protocolConst: UInt32 { get }
+}
+
 // SMB2 Types
 struct SMB2 {
     struct Header: FileProviderSMBHeader { // 64 bytes
@@ -19,13 +44,13 @@ struct SMB2 {
         // error messages from the server to the client
         let status: UInt32
         enum StatusSeverity: UInt8 {
-            case Success = 0, Information, Warning, Error
+            case success = 0, information, warning, error
         }
         var statusDetails: (severity: StatusSeverity, customer: Bool, facility: UInt16, code: UInt16) {
             let severity = StatusSeverity(rawValue: UInt8(status >> 30))!
             return (severity, status & 0x20000000 != 0, UInt16((status & 0x0FFF0000) >> 16), UInt16(status & 0x0000FFFF))
         }
-        private let _command: UInt16
+        fileprivate let _command: UInt16
         var command: Command {
             get {
                 return Command(rawValue: _command) ?? .INVALID
@@ -35,7 +60,7 @@ struct SMB2 {
         let flags: Flags
         var nextCommand: UInt32
         let messageId: UInt64
-        private let reserved: UInt32
+        fileprivate let reserved: UInt32
         let treeId: UInt32
         var asyncId: UInt64 {
             get {
@@ -47,7 +72,7 @@ struct SMB2 {
         
         // codebeat:disable[ARITY]
         init(command: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [], nextCommand: UInt32 = 0, messageId: UInt64, treeId: UInt32, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
-            self.protocolID = self.dynamicType.protocolConst
+            self.protocolID = type(of: self).protocolConst
             self.size = 64
             self.status = status.rawValue
             self._command = command.rawValue
@@ -63,7 +88,7 @@ struct SMB2 {
         }
         
         init(asyncCommand: Command, status: NTStatus = .SUCCESS, creditCharge: UInt16 = 0, creditRequestResponse: UInt16, flags: Flags = [.ASYNC_COMMAND], nextCommand: UInt32 = 0, messageId: UInt64, asyncId: UInt64, sessionId: UInt64, signature: (UInt64, UInt64) = (0, 0)) {
-            self.protocolID = self.dynamicType.protocolConst
+            self.protocolID = type(of: self).protocolConst
             self.size = 64
             self.status = status.rawValue
             self._command = asyncCommand.rawValue
@@ -80,7 +105,7 @@ struct SMB2 {
         // codebeat:enable[ARITY]
     }
     
-    struct Flags: OptionSetType {
+    struct Flags: OptionSet {
         var rawValue: UInt32
         
         init(rawValue: UInt32) {
@@ -100,7 +125,7 @@ struct SMB2 {
         static let ASYNC_COMMAND         = Flags(rawValue: 0x00000002)
         static let RELATED_OPERATIONS    = Flags(rawValue: 0x00000004)
         static let SIGNED                = Flags(rawValue: 0x00000008)
-        private static let PRIORITY_MASK = Flags(rawValue: 0x00000070)
+        fileprivate static let PRIORITY_MASK = Flags(rawValue: 0x00000070)
         static let DFS_OPERATIONS        = Flags(rawValue: 0x10000000)
         static let REPLAY_OPERATION      = Flags(rawValue: 0x20000000)
     }
@@ -130,4 +155,10 @@ struct SMB2 {
     
     // MARK: SMB2 Oplock Break
     
+}
+
+extension Data {
+    func subdata(in range: NSRange) -> Data {
+        return (self as NSData).subdata(with: range)
+    }
 }

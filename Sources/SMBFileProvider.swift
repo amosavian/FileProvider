@@ -8,108 +8,108 @@
 
 import Foundation
 
-public class SMBFileProvider: FileProvider, FileProviderMonitor {
-    public var type: String = "Samba"
-    public var isPathRelative: Bool = true
-    public var baseURL: NSURL?
-    public var currentPath: String = ""
-    public var dispatch_queue: dispatch_queue_t
-    public weak var delegate: FileProviderDelegate?
-    public let credential: NSURLCredential?
+open class SMBFileProvider: FileProvider, FileProviderMonitor {
+    open var type: String = "Samba"
+    open var isPathRelative: Bool = true
+    open var baseURL: URL?
+    open var currentPath: String = ""
+    open var dispatch_queue: DispatchQueue
+    open weak var delegate: FileProviderDelegate?
+    open let credential: URLCredential?
     
     public typealias FileObjectClass = FileObject
     
-    public init? (baseURL: NSURL, credential: NSURLCredential, afterInitialized: SimpleCompletionHandler) {
-        guard baseURL.uw_scheme.lowercaseString == "smb" else {
+    public init? (baseURL: URL, credential: URLCredential, afterInitialized: SimpleCompletionHandler) {
+        guard baseURL.uw_scheme.lowercased() == "smb" else {
             return nil
         }
         self.baseURL = baseURL
-        dispatch_queue = dispatch_queue_create("FileProvider.\(type)", DISPATCH_QUEUE_CONCURRENT)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
     }
         
-    public func contentsOfDirectoryAtPath(path: String, completionHandler: ((contents: [FileObjectClass], error: ErrorType?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObjectClass], _ error: Error?) -> Void)) {
         NotImplemented()
-        dispatch_async(dispatch_queue) { 
+        dispatch_queue.async { 
             
         }
     }
     
-    public func attributesOfItemAtPath(path: String, completionHandler: ((attributes: FileObjectClass?, error: ErrorType?) -> Void)) {
+    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObjectClass?, _ error: Error?) -> Void)) {
         NotImplemented()
     }
     
-    public func storageProperties(completionHandler: ((total: Int64, used: Int64) -> Void)) {
+    open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
         NotImplemented()
     }
     
-    public weak var fileOperationDelegate: FileOperationDelegate?
+    open weak var fileOperationDelegate: FileOperationDelegate?
     
-    public func createFolder(folderName: String, atPath: String, completionHandler: SimpleCompletionHandler) {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func createFile(fileAttribs: FileObject, atPath: String, contents data: NSData?, completionHandler: SimpleCompletionHandler) {
+    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func moveItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func copyItemAtPath(path: String, toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func removeItemAtPath(path: String, completionHandler: SimpleCompletionHandler) {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func copyLocalFileToPath(localFile: NSURL, toPath: String, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func copyPathToLocalFile(path: String, toLocalURL: NSURL, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func contentsAtPath(path: String, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
         NotImplemented()
     }
     
-    public func contentsAtPath(path: String, offset: Int64, length: Int, completionHandler: ((contents: NSData?, error: ErrorType?) -> Void)) {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
         NotImplemented()
     }
     
-    public func writeContentsAtPath(path: String, contents data: NSData, atomically: Bool, completionHandler: SimpleCompletionHandler) {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) {
         NotImplemented()
     }
     
-    public func searchFilesAtPath(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObjectClass) -> Void)?, completionHandler: ((files: [FileObjectClass], error: ErrorType?) -> Void)) {
+    open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) {
         NotImplemented()
     }
     
-    public func registerNotifcation(path: String, eventHandler: (() -> Void)) {
+    open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         NotImplemented()
     }
     
-    public func unregisterNotifcation(path: String) {
+    open func unregisterNotifcation(path: String) {
         NotImplemented()
     }
     
-    public func isRegisteredForNotification(path: String) -> Bool {
+    open func isRegisteredForNotification(path: String) -> Bool {
         return false
     }
 }
 
 // MARK: basic CIFS interactivity
-public enum SMBFileProviderError: Int, ErrorType, CustomStringConvertible {
-    case BadHeader
-    case IncompatibleHeader
-    case IncorrectParamsLength
-    case IncorrectMessageLength
-    case InvalidCommand
+public enum SMBFileProviderError: Int, Error, CustomStringConvertible {
+    case badHeader
+    case incompatibleHeader
+    case incorrectParamsLength
+    case incorrectMessageLength
+    case invalidCommand
     
     public var description: String {
         return "SMB message structure is invalid"
@@ -117,8 +117,8 @@ public enum SMBFileProviderError: Int, ErrorType, CustomStringConvertible {
 }
 
 private extension SMBFileProvider {
-    private func getPID() -> UInt32 {
-        return UInt32(NSProcessInfo.processInfo().processIdentifier)
+    func getPID() -> UInt32 {
+        return UInt32(ProcessInfo.processInfo.processIdentifier)
     }
 }
 
