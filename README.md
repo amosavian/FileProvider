@@ -33,9 +33,11 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 
 ## Requirements
 
-- **Swift 2.2 or 2.3**
+- **Swift 3**
 - iOS 8.0 , OSX 10.10
-- XCode 7.3
+- XCode 8.0
+
+Legacy version is available in swift-2 branch
 
 ## Installation
 
@@ -76,14 +78,14 @@ For LocalFileProvider if you want to deal with `Documents` folder
 is equal to:
 	    
 	let documentPath = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true);
-	let documentsURL = NSURL(fileURLWithPath: documentPath);
+	let documentsURL = URL(fileURLWithPath: documentPath);
 	let documentsProvider = LocalFileProvider(baseURL: documentsURL)
 
 You can't change the base url later. and all paths are related to this base url by default.
 
 For remote file providers authentication may be necessary:
 
-	let credential = NSURLCredential(user: "user", password: "pass", persistence: NSURLCredentialPersistence.Permanent)
+	let credential = URLCredential(user: "user", password: "pass", persistence: URLCredentialPersistence.Permanent)
 	let webdavProvider = WebDAVFileProvider(baseURL: NSURL(string: "http://www.example.com/dav")!, credential: credential)
 
 * In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
@@ -103,35 +105,35 @@ It's simply tree method which indicated whether the operation failed, succeed an
 Your class should conforms `FileProviderDelegate` class:
 
 	override func viewDidLoad() {
-		documentsProvider.delegate = self
+		documentsProvider.delegate = self as FileProviderDelegate
 	}
 	
-	func fileproviderSucceed(fileProvider: FileProviderOperations, operation: FileOperation) {
+	func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
 		switch operation {
-		case .Copy(source: let source, destination: let dest):
-			NSLog("\(source) copied to \(dest).")
-		case .Remove(path: let path):
-			NSLog("\(path) has been deleted.")
+		case .copy(source: let source, destination: let dest):
+			print("\(source) copied to \(dest).")
+		case .remove(path: let path):
+			print("\(path) has been deleted.")
 		default:
 			break
 		}
 	}
 	
-    func fileproviderFailed(fileProvider: FileProviderOperations, operation: FileOperation) {
+    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
     	switch operation {
-		case .Copy(source: let source, destination: let dest):
-			NSLog("copy of \(source) failed.")
-		case .Remove(path: let path):
-			NSLog("\(path) can't be deleted.")
+		case .copy(source: let source, destination: let dest):
+			print("copy of \(source) failed.")
+		case .remove(path: let path):
+			print("\(path) can't be deleted.")
 		default:
 			break
 		}
     }
 	
-    func fileproviderProgress(fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
+    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
 		switch operation {
-		case .Copy(source: let source, destination: let dest):
-			NSLog("Copy\(source) to \(dest): \(progress * 100) completed.")
+		case .copy(source: let source, destination: let dest):
+			print("Copy\(source) to \(dest): \(progress * 100) completed.")
 		default:
 			break
 		}
@@ -157,7 +159,7 @@ There is a `FileObject` class which holds file attributes like size and creation
 
 For a single file:
 
-	documentsProvider.attributesOfItemAtPath(path: "/file.txt", completionHandler: {
+	documentsProvider.attributesOfItem(path: "/file.txt", completionHandler: {
 	    (attributes: LocalFileObject?, error: ErrorType?) -> Void in
 		if let attributes = attributes {
 			print("File Size: \(attributes.size)")
@@ -169,7 +171,7 @@ For a single file:
 
 To get list of files in a directory:
 
-	documentsProvider.contentsOfDirectoryAtPath(path: "/", 	completionHandler: {
+	documentsProvider.contentsOfDirectory(path: "/", 	completionHandler: {
 	    (contents: [LocalFileObject], error: ErrorType?) -> Void in
 		for file in contents {
 			print("Name: \(attributes.name)")
@@ -200,27 +202,27 @@ You can then pass "" (empty string) to contentsOfDirectoryAtPath method to list 
 
 Creating new directory:
 
-	documentsProvider.createFolder(folderName: "new folder", atPath: "/", completionHandler: nil)
+	documentsProvider.create(folder: "new folder", at: "/", completionHandler: nil)
 
 Creating new file from data stream:
 
-	let data = "hello world!".dataUsingEncoding(NSUTF8StringEncoding)
-	let file = FileObject(name: "old.txt", createdDate: NSDate(), modifiedDate: NSDate(), isHidden: false, isReadOnly: true)
-	documentsProvider.createFile(fileAttribs: file, atPath: "/", contents: data, completionHandler: nil)
+	let data = "hello world!".data(encoding: String.encoding.utf8)
+	let file = FileObject(name: "old.txt", createdDate: Date(), modifiedDate: Date(), isHidden: false, isReadOnly: true)
+	documentsProvider.create(file: file, at: "/", contents: data, completionHandler: nil)
 
 ### Copy and Move/Rename Files
 
 Copy file old.txt to new.txt in current path:
 
-	documentsProvider.copyItemAtPath(path: "new folder/old.txt", toPath: "new.txt", overwrite: false, completionHandler: nil)
+	documentsProvider.copyItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
 
 Move file old.txt to new.txt in current path:
 
-	documentsProvider.moveItemAtPath(path: "new folder/old.txt", toPath: "new.txt", overwrite: false, completionHandler: nil)
+	documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
 
 ### Delete Files
 
-	documentsProvider.removeItemAtPath(path: "new.txt", completionHandler: nil)
+	documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
 
 ***Caution:*** This method will delete directories with all it's content recursively.
 
@@ -228,38 +230,38 @@ Move file old.txt to new.txt in current path:
 
 There is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
 
-	documentsProvider.contentsAtPath(path: "old.txt", completionHandler: {
-		(contents: NSData?, error: ErrorType?) -> Void
+	documentsProvider.contents(path: "old.txt", completionHandler: {
+		(contents: Data?, error: ErrorType?) -> Void
 		if let contents = contents {
-			print(String(data: contents, encoding: NSUTF8StringEncoding)) // "hello world!"
+			print(String(data: contents, encoding: String.encoding.utf8)) // "hello world!"
 		}
 	})
 	
 If you want to retrieve a portion of file you should can `contentsAtPath` method with offset and length arguments. Please note first byte of file has offset: 0.
 
-	documentsProvider.contentsAtPath(path: "old.txt", offset: 2, length: 5, completionHandler: {
-		(contents: NSData?, error: ErrorType?) -> Void
+	documentsProvider.contents(path: "old.txt", offset: 2, length: 5, completionHandler: {
+		(contents: Data?, error: ErrorType?) -> Void
 		if let contents = contents {
-			print(String(data: contents, encoding: NSUTF8StringEncoding)) // "llo w"
+			print(String(data: contents, encoding: String.encoding.utf8)) // "llo w"
 		}
 	})
 
 ### Write Data To Files
 
-	let data = "What's up Newyork!".dataUsingEncoding(NSUTF8StringEncoding)
-	documentsProvider.writeContentsAtPath(path: "old.txt", contents data: data, atomically: true, completionHandler: nil)
+	let data = "What's up Newyork!".data(encoding: String.encoding.utf8)
+	documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
 
 ### Monitoring FIle Changes
 
 You can monitor updates in some file system (Local and SMB2), there is three methods in supporting provider you can use to register a handler, to unregister and to check whether it's being monitored or not. It's useful to find out when new files added or removed from directory and update user interface. The handler will be dispatched to main threads to avoid UI bugs with a 0.25 sec delay.
 
-	documentsProvider.registerNotifcation(provider.currentPath)
+	documentsProvider.registerNotifcation(path: provider.currentPath)
 	{
 		// calling functions to update UI 
 	}
 	
 	// To discontinue monitoring folders:
-	documentsProvider.unregisterNotifcation(provider.currentPath)
+	documentsProvider.unregisterNotifcation(path: provider.currentPath)
 
 * **Please note** in LocalFileProvider it will also monitor changes in subfolders. This behaviour can varies according to file system specification.
 
@@ -282,7 +284,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [https://github.com/amosavian/](https://github.com/amosavian/)
 
-[swift-image]:https://img.shields.io/badge/Swift-2.2%2C%202.3-green.svg
+[swift-image]:https://img.shields.io/badge/swift-3.0-orange.svg
 [swift-url]: https://swift.org/
 [license-image]: https://img.shields.io/badge/License-MIT-blue.svg
 [license-url]: LICENSE
