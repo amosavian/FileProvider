@@ -265,7 +265,7 @@ public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileSupported(path: String) -> Bool
     func propertiesOfFileSupported(path: String) -> Bool
     func thumbnailOfFile(path: String, dimension: CGSize, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
-    func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: AnyObject], _ keys: [String], _ error: Error?) -> Void))
+    func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
 }
 
 public enum FileOperation: CustomStringConvertible {

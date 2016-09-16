@@ -326,7 +326,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         }) 
     }
     
-    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : AnyObject], _ keys: [String], _ error: Error?) -> Void)) {
+    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
         NotImplemented()
     }
 }
