@@ -1,5 +1,5 @@
 language: objective-c
-osx_image: xcode8.0
+osx_image: xcode8
 script:
   - set pipefail
   - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider OSX" -sdk macosx | xcpretty

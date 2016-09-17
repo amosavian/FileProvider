@@ -40,11 +40,11 @@ internal extension DropboxFileProvider {
         let url: URL
         if let cursor = cursor {
             url = URL(string: "https://api.dropboxapi.com/2/files/list_folder/continue")!
-            requestDictionary["cursor"] = cursor as AnyObject?
+            requestDictionary["cursor"] = cursor as NSString?
         } else {
             url = URL(string: "https://api.dropboxapi.com/2/files/list_folder")!
             requestDictionary["path"] = correctPath(path) as NSString?
-            requestDictionary["recursive"] = recursive as AnyObject?
+            requestDictionary["recursive"] = recursive as NSNumber?
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -89,7 +89,7 @@ internal extension DropboxFileProvider {
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
-        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate) as AnyObject?
+        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate) as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -106,7 +106,7 @@ internal extension DropboxFileProvider {
             }
             completionHandler?(responseError ?? error)
         }) 
-        var dic: [String: AnyObject] = ["type": operation.description as AnyObject]
+        var dic: [String: AnyObject] = ["type": operation.description as NSString]
         switch operation {
         case .create(path: let s):
             dic["source"] = s as NSString
@@ -131,10 +131,10 @@ internal extension DropboxFileProvider {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var requestDictionary: [String: AnyObject] = ["path": startPath as AnyObject]
-        requestDictionary["query"] = query as AnyObject?
-        requestDictionary["start"] = start as AnyObject?
-        requestDictionary["max_results"] = maxResultPerPage as AnyObject?
+        var requestDictionary: [String: AnyObject] = ["path": startPath as NSString]
+        requestDictionary["query"] = query as NSString
+        requestDictionary["start"] = start as NSNumber
+        requestDictionary["max_results"] = maxResultPerPage as NSNumber
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: String.Encoding.utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?

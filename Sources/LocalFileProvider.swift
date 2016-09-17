@@ -89,8 +89,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
         let dict = (try? FileManager.default.attributesOfFileSystem(forPath: baseURL?.path ?? "/"))
-        let totalSize = (dict?[FileAttributeKey.systemSize] as AnyObject).int64Value ?? -1;
-        let freeSize = (dict?[FileAttributeKey.systemFreeSize] as AnyObject).int64Value ?? 0;
+        let totalSize = (dict?[FileAttributeKey.systemSize] as? NSNumber)?.int64Value ?? -1;
+        let freeSize = (dict?[FileAttributeKey.systemFreeSize] as? NSNumber)?.int64Value ?? 0;
         completionHandler(totalSize, totalSize - freeSize)
     }
     
@@ -442,7 +442,7 @@ internal class LocalFileProviderManagerDelegate: NSObject, FileManagerDelegate {
 }
 
 internal class LocalFolderMonitor {
-    fileprivate let source: DispatchSource
+    fileprivate let source: DispatchSourceFileSystemObject
     fileprivate let descriptor: CInt
     fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: DispatchQoS.QoSClass.default)
     fileprivate var state: Bool = false
@@ -453,8 +453,7 @@ internal class LocalFolderMonitor {
     init(url: URL, handler: @escaping ()->Void) {
         self.url = url
         descriptor = open((url as NSURL).fileSystemRepresentation, O_EVTONLY)
-        
-        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: DispatchSource.FileSystemEvent.write, queue: qq) /*Migrator FIXME: Use DispatchSourceFileSystemObject to avoid the cast*/ as! DispatchSource
+        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: DispatchSource.FileSystemEvent.write, queue: qq)
         // Folder monitoring is recursive and deep. Monitoring a root folder may be very costly
         // We have a 0.2 second delay to ensure we wont call handler 1000s times when there is
         // a huge file operation. This ensures app will work smoothly while this 250 milisec won't
@@ -464,7 +463,7 @@ internal class LocalFolderMonitor {
                 return
             }
             self.monitoredTime = Date().timeIntervalSinceReferenceDate
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + Double(Int64(NSEC_PER_SEC) / 4) / Double(NSEC_PER_SEC), execute: {
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.25, execute: {
                 handler()
             })
         }
