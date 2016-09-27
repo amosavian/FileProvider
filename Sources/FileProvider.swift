@@ -97,7 +97,7 @@ open class FileObject {
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 public protocol FileProviderBasic: class {
-    var type: String { get }
+    static var type: String { get }
     var isPathRelative: Bool { get }
     var baseURL: URL? { get }
     var currentPath: String { get set }
@@ -146,6 +146,10 @@ public protocol FileProvider: FileProviderBasic, FileProviderOperations, FilePro
 }
 
 extension FileProviderBasic {
+    public var type: String {
+        return type(of: self).type
+    }
+    
     public var bareCurrentPath: String {
         return currentPath.trimmingCharacters(in: CharacterSet(charactersIn: ". /"))
     }

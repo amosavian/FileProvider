@@ -45,7 +45,7 @@ public final class WebDavFileObject: FileObject {
 // in case of using this class with unencrypted HTTP connection.
 
 open class WebDAVFileProvider: NSObject,  FileProviderBasic {
-    open let type: String = "WebDAV"
+    open static let type: String = "WebDAV"
     open let isPathRelative: Bool = true
     open let baseURL: URL?
     open var currentPath: String = ""
@@ -74,7 +74,7 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
             return nil
         }
         self.baseURL = baseURL
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(WebDAVFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
     }

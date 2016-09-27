@@ -14,7 +14,7 @@ import CoreGraphics
 // in case of using this class with unencrypted HTTP connection.
 
 open class DropboxFileProvider: NSObject,  FileProviderBasic {
-    open let type: String = "WebDAV"
+    open static let type: String = "WebDAV"
     open let isPathRelative: Bool = true
     open let baseURL: URL?
     open var currentPath: String = ""
@@ -40,7 +40,7 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
     
     public init? (credential: URLCredential?) {
         self.baseURL = nil
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
     }

@@ -19,7 +19,7 @@ public final class LocalFileObject: FileObject {
 }
 
 open class LocalFileProvider: FileProvider, FileProviderMonitor {
-    open let type = "Local"
+    open static let type = "Local"
     open var isPathRelative: Bool = true
     open var baseURL: URL? = LocalFileProvider.defaultBaseURL()
     open var currentPath: String = ""
@@ -33,16 +33,16 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
     public init () {
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
-        operation_queue = DispatchQueue(label: "FileProvider.\(type).Operation", attributes: [])
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        operation_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type).Operation", attributes: [])
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
     }
     
     public init (baseURL: URL) {
         self.baseURL = baseURL
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
-        operation_queue = DispatchQueue(label: "FileProvider.\(type).Operation", attributes: [])
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        operation_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type).Operation", attributes: [])
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
     }

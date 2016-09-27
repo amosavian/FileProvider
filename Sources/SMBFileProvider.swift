@@ -9,7 +9,7 @@
 import Foundation
 
 open class SMBFileProvider: FileProvider, FileProviderMonitor {
-    open var type: String = "Samba"
+    open static var type: String = "Samba"
     open var isPathRelative: Bool = true
     open var baseURL: URL?
     open var currentPath: String = ""
@@ -24,7 +24,7 @@ open class SMBFileProvider: FileProvider, FileProviderMonitor {
             return nil
         }
         self.baseURL = baseURL
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(SMBFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
     }
