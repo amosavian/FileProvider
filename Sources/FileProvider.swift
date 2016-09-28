@@ -162,12 +162,12 @@ extension FileProviderBasic {
             rpath = self.currentPath
         }
         if isPathRelative, let baseURL = baseURL {
-            if rpath.hasPrefix("/") && baseURL.uw_absoluteString.hasSuffix("/") {
+            if rpath.hasPrefix("/") && baseURL.absoluteString.hasSuffix("/") {
                 var npath = rpath
                 npath.remove(at: npath.startIndex)
-                return baseURL.uw_URLByAppendingPathComponent(npath)
+                return baseURL.appendingPathComponent(npath)
             } else {
-                return baseURL.uw_URLByAppendingPathComponent(rpath)
+                return baseURL.appendingPathComponent(rpath)
             }
         } else {
             return URL(fileURLWithPath: rpath).standardizedFileURL
@@ -175,8 +175,8 @@ extension FileProviderBasic {
     }
     
     public func relativePathOf(url: URL) -> String {
-        guard let baseURL = self.baseURL else { return url.uw_absoluteString }
-        return url.standardizedFileURL.uw_absoluteString.replacingOccurrences(of: baseURL.uw_absoluteString, with: "/").removingPercentEncoding!
+        guard let baseURL = self.baseURL else { return url.absoluteString }
+        return url.standardizedFileURL.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").removingPercentEncoding!
     }
     
     internal func correctPath(_ path: String?) -> String? {
@@ -233,7 +233,7 @@ extension FileProviderBasic {
         default:
             domain = NSCocoaErrorDomain
         }
-        return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.uw_absoluteString])
+        return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
     internal func NotImplemented() {
@@ -323,23 +323,7 @@ public protocol FileOperationDelegate: class {
 
 internal extension URL {
     var uw_scheme: String {
-        #if swift(>=2.3)
-            return self.scheme ?? ""
-        #else
-            return self.scheme
-        #endif
-    }
-    
-    var uw_absoluteString: String {
-        return self.absoluteString
-    }
-    
-    func uw_URLByAppendingPathComponent(_ pathComponent: String) -> URL {
-        return self.appendingPathComponent(pathComponent)
-    }
-    
-    func uw_URLByAppendingPathExtension(_ pathExtension: String) -> URL {
-        return self.appendingPathExtension(pathExtension)
+        return self.scheme ?? ""
     }
 }
 

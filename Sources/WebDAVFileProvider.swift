@@ -221,7 +221,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         } else {
             request.httpMethod = "COPY"
         }
-        request.setValue(absoluteURL(path).uw_absoluteString, forHTTPHeaderField: "Destination")
+        request.setValue(absoluteURL(path).absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
@@ -280,9 +280,9 @@ extension WebDAVFileProvider: FileProviderOperations {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.move(source: localFile.uw_absoluteString, destination: toPath), error: responseError ?? error)
+            self.delegateNotify(.move(source: localFile.absoluteString, destination: toPath), error: responseError ?? error)
         }) 
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": localFile.uw_absoluteString as NSString, "dest": toPath as NSString])
+        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": localFile.absoluteString as NSString, "dest": toPath as NSString])
         task.resume()
     }
     
@@ -304,7 +304,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             }
             completionHandler?(responseError ?? error)
         }) 
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": toLocalURL.uw_absoluteString as NSString])
+        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": toLocalURL.absoluteString as NSString])
         task.resume()
     }
 }
@@ -335,7 +335,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
         // FIXME: lock destination before writing process
-        let url = atomically ? absoluteURL(path).uw_URLByAppendingPathExtension("tmp") : absoluteURL(path)
+        let url = atomically ? absoluteURL(path).appendingPathExtension("tmp") : absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in

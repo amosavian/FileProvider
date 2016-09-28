@@ -105,7 +105,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @objc(createWithFolder:at:completionHandler:) open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.async {
             do {
-                try self.opFileManager.createDirectory(at: self.absoluteURL(atPath).uw_URLByAppendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
+                try self.opFileManager.createDirectory(at: self.absoluteURL(atPath).appendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
                     self.delegate?.fileproviderSucceed(self, operation: .create(path: (atPath as NSString).appendingPathComponent(folderName) + "/"))
@@ -121,7 +121,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
         operation_queue.async {
-            let fileURL = self.absoluteURL(atPath).uw_URLByAppendingPathComponent(fileAttribs.name)
+            let fileURL = self.absoluteURL(atPath).appendingPathComponent(fileAttribs.name)
             var attributes = [String : Any]()
             if let createdDate = fileAttribs.createdDate {
                 attributes[FileAttributeKey.creationDate.rawValue] = createdDate as NSDate
@@ -217,12 +217,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 try self.opFileManager.copyItem(at: localFile, to: self.absoluteURL(toPath))
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderSucceed(self, operation: .copy(source: localFile.uw_absoluteString, destination: toPath))
+                    self.delegate?.fileproviderSucceed(self, operation: .copy(source: localFile.absoluteString, destination: toPath))
                 })
             } catch let e as NSError {
                 completionHandler?(e)
                 DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderFailed(self, operation: .copy(source: localFile.uw_absoluteString, destination: toPath))
+                    self.delegate?.fileproviderFailed(self, operation: .copy(source: localFile.absoluteString, destination: toPath))
                 })
             }
         }
@@ -234,12 +234,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 try self.opFileManager.copyItem(at: self.absoluteURL(path), to: toLocalURL)
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderSucceed(self, operation: .copy(source: path, destination: toLocalURL.uw_absoluteString))
+                    self.delegate?.fileproviderSucceed(self, operation: .copy(source: path, destination: toLocalURL.absoluteString))
                 })
             } catch let e as NSError {
                 completionHandler?(e)
                 DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderFailed(self, operation: .copy(source: path, destination: toLocalURL.uw_absoluteString))
+                    self.delegate?.fileproviderFailed(self, operation: .copy(source: path, destination: toLocalURL.absoluteString))
                 })
             }
         }

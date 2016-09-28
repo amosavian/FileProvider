@@ -1,10 +1,23 @@
 language: objective-c
 osx_image: xcode8
+before_install:
+  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
+  - brew update
+  - brew outdated carthage || brew upgrade carthage
 script:
   - set pipefail
+  - xcodebuild -version
   - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider OSX" -sdk macosx | xcpretty
   - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO | xcpretty
   - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulator ONLY_ACTIVE_ARCH=NO | xcpretty
   - pod lib lint --quick
 after_success:
   - bash <(curl -s https://codecov.io/bash)
+before_deploy:
+  - carthage build --no-skip-current
+  - carthage archive FileProvider
+deploy:
+  file: FileProvider.framework.zip
+  skip_cleanup: true
+  on:
+    tags: true

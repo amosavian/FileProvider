@@ -178,11 +178,11 @@ extension DropboxFileProvider: FileProviderOperations {
     
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
         guard let data = try? Data(contentsOf: localFile) else {
-            let error = throwError(localFile.uw_absoluteString, code: URLError.fileDoesNotExist as FoundationErrorEnum)
+            let error = throwError(localFile.absoluteString, code: URLError.fileDoesNotExist as FoundationErrorEnum)
             completionHandler?(error)
             return
         }
-        upload_simple(toPath, data: data, overwrite: true, operation: .copy(source: localFile.uw_absoluteString, destination: toPath), completionHandler: completionHandler)
+        upload_simple(toPath, data: data, overwrite: true, operation: .copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
     }
     
     public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) {
@@ -207,7 +207,7 @@ extension DropboxFileProvider: FileProviderOperations {
                 completionHandler?(e)
             }
         })
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": destURL.uw_absoluteString as NSString])
+        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": destURL.absoluteString as NSString])
         task.resume()
     }
 }
