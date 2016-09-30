@@ -127,6 +127,9 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     fileprivate func doOperation(_ operation: FileOperation, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+            return
+        }
         let url: String
         var path: String?, fromPath: String?, toPath: String?
         switch operation {
@@ -177,6 +180,9 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: localFile.absoluteString, destination: toPath)) ?? true == true else {
+            return
+        }
         guard let data = try? Data(contentsOf: localFile) else {
             let error = throwError(localFile.absoluteString, code: URLError.fileDoesNotExist as FoundationErrorEnum)
             completionHandler?(error)
@@ -186,6 +192,9 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: destURL.absoluteString)) ?? true == true else {
+            return
+        }
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -242,6 +251,9 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .modify(path: path)) ?? true == true else {
+            return
+        }
         // FIXME: remove 150MB restriction
         upload_simple(path, data: data, overwrite: true, operation: .modify(path: path), completionHandler: completionHandler)
     }

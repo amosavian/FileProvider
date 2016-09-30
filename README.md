@@ -4,7 +4,7 @@
 
 [![Swift Version][swift-image]][swift-url]
 [![License][license-image]][license-url]
-[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS-lightgray.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS%2C%20tvOS-lightgray.svg)]()
 
 [![Build Status][travis-image]][travis-url]
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
@@ -16,7 +16,7 @@
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) 
 ---> 
 
-This library provides implementaion of WebDav and SMB/CIFS (incomplete) and local files.
+This library provides implementaion of WebDav and SMB2 (incomplete) and local files.
 
 All functions are async calls and it wont block your main thread.
 

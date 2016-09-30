@@ -1,5 +1,9 @@
 language: objective-c
 osx_image: xcode8
+xcode_project: FileProvider.xcodeproj
+env:
+  global: 
+    - FRAMEWORK_NAME=FileProvider.framework
 before_install:
   - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
   - brew update

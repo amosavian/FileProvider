@@ -7,26 +7,6 @@
 //
 
 import Foundation
-fileprivate func < <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
-  switch (lhs, rhs) {
-  case let (l?, r?):
-    return l < r
-  case (nil, _?):
-    return true
-  default:
-    return false
-  }
-}
-
-fileprivate func >= <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
-  switch (lhs, rhs) {
-  case let (l?, r?):
-    return l >= r
-  default:
-    return !(lhs < rhs)
-  }
-}
-
 
 public final class WebDavFileObject: FileObject {
     public let contentType: String
@@ -171,6 +151,9 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
 
 extension WebDAVFileProvider: FileProviderOperations {
     public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")) ?? true == true else {
+            return
+        }
         let url = absoluteURL((atPath as NSString).appendingPathComponent(folderName) + "/")
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
@@ -190,6 +173,9 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .create(path: path)) ?? true == true else {
+            return
+        }
         let url = absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -206,10 +192,16 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .move(source: path, destination: toPath)) ?? true == true else {
+            return
+        }
         self.copyMoveItem(move: true, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: toPath)) ?? true == true else {
+            return
+        }
         self.copyMoveItem(move: false, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
     }
     
@@ -233,7 +225,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                 }
                 if code == .multiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses where xresponse.status >= 300 {
+                    for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         completionHandler?(FileProviderWebDavError(code: code, url: url))
                     }
                 } else {
@@ -247,6 +239,9 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func removeItem(path: String, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .remove(path: path)) ?? true == true else {
+            return
+        }
         let url = absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -257,7 +252,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                 }
                 if code == .multiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses where xresponse.status >= 300 {
+                    for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         completionHandler?(FileProviderWebDavError(code: code, url: url))
                     }
                 } else {
@@ -271,6 +266,9 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: localFile.absoluteString, destination: toPath)) ?? true == true else {
+            return
+        }
         let url = absoluteURL(toPath)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -287,6 +285,9 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     public func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: toLocalURL.absoluteString)) ?? true == true else {
+            return
+        }
         let url = absoluteURL(path)
         let request = URLRequest(url: url)
         let task = session.downloadTask(with: request, completionHandler: { (sourceFileURL, response, error) in
@@ -334,6 +335,9 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .modify(path: path)) ?? true == true else {
+            return
+        }
         // FIXME: lock destination before writing process
         let url = atomically ? absoluteURL(path).appendingPathExtension("tmp") : absoluteURL(path)
         var request = URLRequest(url: url)
