@@ -26,7 +26,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = NSData(data: encode(self.header)) as Data
+            var result = encode(self.header)
             if let reqData = requestData?.data() {
                 result.append(reqData)
             }
@@ -69,8 +69,8 @@ extension SMB2 {
         
         init?(data: Data) {
             self.header = decode(data)
-            let responseRange = NSRange(location: Int(self.header.outputOffset - 64), length: Int(self.header.outputCount))
-            let response = data.subdata(in: responseRange)
+            let endRange = Int(self.header.outputOffset - 64) + Int(self.header.outputCount)
+            let response = data.subdata(in: Int(self.header.outputOffset - 64)..<endRange)
             switch self.header.ctlCode {
             case .SRV_COPYCHUNK, .SRV_COPYCHUNK_WRITE:
                 self.responseData = IOCtlResponseData.SrvCopyChunk(data: response)
@@ -140,7 +140,7 @@ extension SMB2 {
             let chunks: [Chunk]
             
             func data() -> Data {
-                var result = NSData(data: encode(sourceKey)) as Data
+                var result = encode(sourceKey)
                 result.append(encode(chunkCount))
                 var reserved: UInt32 = 0
                 result.append(encode(&reserved))
@@ -213,7 +213,7 @@ extension SMB2 {
             }
             
             func data() -> Data {
-                var result = NSData(data: encode(self.header)) as Data
+                var result = encode(self.header)
                 dialects.forEach { result.append(encode($0)) }
                 return result
             }
@@ -248,7 +248,7 @@ extension SMB2 {
             
             init?(data: Data) {
                 self.count = decode(data)
-                self.returnedCount = decode(data.subdata(in: NSRange(location: 4, length: 4)))
+                self.returnedCount = decode(data.subdata(in: 4..<8))
                 //let size: UInt32 = decode(data.subdataWithRange(NSRange(location: 8, length: 4)))
                 var snapshots = [SMBTime]()
                 let dateFormatter = DateFormatter()
@@ -258,7 +258,7 @@ extension SMB2 {
                     if data.count < offset + 48 {
                         return nil
                     }
-                    let datestring = String(data: data.subdata(in: NSRange(location: offset, length: 48)), encoding: String.Encoding.utf16)
+                    let datestring = String(data: data.subdata(in: offset..<(offset + 48)), encoding: String.Encoding.utf16)
                     if let datestring = datestring, let date = dateFormatter.date(from: datestring) {
                         snapshots.append(SMBTime(date: date))
                     }
@@ -295,7 +295,7 @@ extension SMB2 {
                 }
                 var items = [Item]()
                 for i in 0..<count {
-                    let itemdata = data.subdata(in: NSRange(location: i * MemoryLayout<Item>.size, length: MemoryLayout<Item>.size))
+                    let itemdata = data.subdata(in: (i * MemoryLayout<Item>.size)..<((i + 1) * MemoryLayout<Item>.size))
                     items.append(decode(itemdata))
                 }
                 self.items = items
@@ -310,7 +310,8 @@ extension SMB2 {
                 fileprivate let reserved: UInt32
                 /// Speed of the network interface in bits per second
                 let linkSpeed: UInt64
-                fileprivate let sockaddrStorage:   (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                fileprivate let sockaddrStorage:
+                (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
                 UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,

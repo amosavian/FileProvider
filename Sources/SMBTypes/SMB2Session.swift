@@ -31,25 +31,25 @@ extension SMB2 {
         func data() -> Data {
             var header = self.header
             header.dialectCount = UInt16(dialects.count)
-            let dialectData = NSMutableData()
+            var dialectData = Data()
             for dialect in dialects {
                 var dialect = dialect
-                dialectData.append(&dialect, length: 2)
+                dialectData.append(UnsafeBufferPointer(start: &dialect, count: 2))
             }
-            let pad = ((1024 - dialectData.length) % 8)
-            dialectData.increaseLength(by: pad)
-            header.contextOffset = UInt32(MemoryLayout<NegotiateRequest.Header>.size) + UInt32(dialectData.length)
+            let pad = ((1024 - dialectData.count) % 8)
+            dialectData.count += pad
+            header.contextOffset = UInt32(MemoryLayout<NegotiateRequest.Header>.size) + UInt32(dialectData.count)
             header.contextCount = UInt16(contexts.count)
             
-            let contextData = NSMutableData()
+            var contextData = Data()
             for context in contexts {
                 var contextType = context.type.rawValue
-                contextData.append(&contextType, length: 2)
+                contextData.append(UnsafeBufferPointer(start: &contextType, count: 2))
                 var dataLen = UInt16(context.data.count)
-                contextData.increaseLength(by: 4)
-                contextData.append(&dataLen, length: 2)
+                contextData.count += 4
+                contextData.append(UnsafeBufferPointer(start: &dataLen, count: 2))
             }
-            var result = NSData(data: encode(&header)) as Data
+            var result = encode(&header)
             result.append(dialectData as Data)
             result.append(contextData as Data)
             return result
@@ -107,7 +107,7 @@ extension SMB2 {
             let bufOffset = Int(self.header.bufferOffset) - MemoryLayout<SMB2.Header>.size
             let bufLen = Int(self.header.bufferLength)
             if bufOffset > 0 && bufLen > 0 && data.count >= bufOffset + bufLen {
-                self.buffer = data.subdata(in: NSRange(location: bufOffset, length: bufLen))
+                self.buffer = data.subdata(in: bufOffset..<(bufOffset + bufLen))
             } else {
                 self.buffer = nil
             }
@@ -194,7 +194,7 @@ extension SMB2 {
             var header = self.header
             header.bufferOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<SessionSetupRequest.Header>.size)
             header.bufferLength = UInt16(buffer?.count ?? 0)
-            var result = NSData(data: encode(&header)) as Data
+            var result = encode(&header)
             if let buffer = self.buffer {
                 result.append(buffer)
             }
@@ -250,7 +250,7 @@ extension SMB2 {
             let bufOffset = Int(self.header.bufferOffset) - MemoryLayout<SMB2.Header>.size
             let bufLen = Int(self.header.bufferLength)
             if bufOffset > 0 && bufLen > 0 && data.count >= bufOffset + bufLen {
-                self.buffer = data.subdata(in: NSRange(location: bufOffset, length: bufLen))
+                self.buffer = data.subdata(in: bufOffset..<(bufOffset + bufLen))
             } else {
                 self.buffer = nil
             }

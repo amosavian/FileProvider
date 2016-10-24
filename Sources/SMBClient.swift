@@ -102,8 +102,7 @@ class SMB2ProtocolClient: FPSStreamTask {
     // MARK: create and analyse messages
     
     func determineSMBVersion(_ data: Data) -> Float {
-        var smbverChar: Int8 = 0
-        (data as NSData).getBytes(&smbverChar, length: 1)
+        let smbverChar: Int8 = Int8(bitPattern: data.first ?? 0)
         let version = 0 - smbverChar
         return Float(version)
     }
@@ -136,9 +135,9 @@ class SMB2ProtocolClient: FPSStreamTask {
             guard data.count >= (offset + messageBytesCount) else {
                 throw SMBFileProviderError.incorrectMessageLength
             }
-            var rawMessage = [UInt8](buffer[offset..<(offset + messageBytesCount)])
+            let rawMessage = [UInt8](buffer[offset..<(offset + messageBytesCount)])
             offset += messageBytesCount
-            let message = NSData(bytes: &rawMessage, length: rawMessage.count) as Data
+            let message = Data(bytes: rawMessage)
             blocks.append((params: paramWords, message: message))
         }
         return (header, blocks)
@@ -152,9 +151,9 @@ class SMB2ProtocolClient: FPSStreamTask {
             throw SMBFileProviderError.incompatibleHeader
         }
         let headersize = MemoryLayout<SMB2.Header>.size
-        let headerData = data.subdata(in: NSRange(location: 0, length: headersize))
+        let headerData = data.subdata(in: 0..<headersize)
         let messageSize = data.count - headersize
-        let messageData = data.subdata(in: NSRange(location: headersize, length: messageSize))
+        let messageData = data.subdata(in: headersize..<(headersize + messageSize))
         let header: SMB2.Header = decode(headerData)
         switch header.command {
         case .NEGOTIATE:
@@ -202,7 +201,7 @@ class SMB2ProtocolClient: FPSStreamTask {
     
     func createSMBMessage(header: SMB1.Header, blocks: [(params: Data?, message: Data?)]) -> Data {
         var headerv = header
-        var result = NSData(data: encode(&headerv)) as Data
+        var result = encode(&headerv)
         for block in blocks {
             var paramWordsCount = UInt8(block.params?.count ?? 0)
             result.append(&paramWordsCount, count: MemoryLayout.size(ofValue: paramWordsCount))
@@ -221,8 +220,8 @@ class SMB2ProtocolClient: FPSStreamTask {
     
     func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> Data {
         var headerv = header
-        var result = NSData(data: encode(&headerv)) as Data
-        result.append(message.data() as Data)
+        var result = encode(&headerv)
+        result.append(message.data())
         return result
     }
 }

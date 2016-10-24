@@ -16,7 +16,7 @@ protocol SMB2FilesInformationHeader: SMBResponse {
 
 extension SMB2 {
     enum FileInformationEnum: UInt8 {
-        case `nil` = 0x00
+        case none = 0x00
         case fileDirectoryInformation = 0x01
         case fileFullDirectoryInformation = 0x02
         case fileBothDirectoryInformation = 0x03
@@ -88,7 +88,7 @@ extension SMB2 {
     }
     
     enum FileSystemInformationEnum: UInt8 {
-        case `nil` = 0
+        case none = 0
         case fileFsAttributeInformation
         case fileFsControlInformation
         case fileFsDeviceInformation
@@ -188,7 +188,7 @@ extension SMB2 {
         fileprivate let _shortName: FileShortNameType
         var shortName: String? {
             let s = encode(_shortName)
-            var d = NSData(data: s) as Data
+            var d = s
             d.count = Int(shortNameLen)
             return String(data: d, encoding: String.Encoding.utf16)
         }
@@ -215,7 +215,7 @@ extension SMB2 {
         fileprivate let _shortName: FileShortNameType
         var shortName: String? {
             let s = encode(_shortName)
-            var d = NSData(data: s) as Data
+            var d = s
             d.count = Int(shortNameLen)
             return String(data: d, encoding: String.Encoding.utf16)
         }

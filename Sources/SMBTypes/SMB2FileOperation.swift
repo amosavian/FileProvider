@@ -77,7 +77,7 @@ extension SMB2 {
             }
             self.header = decode(data)
             let headersize = MemoryLayout<Header>.size
-            self.buffer = data.subdata(in: NSRange(location: headersize, length: data.count - headersize))
+            self.buffer = data.subdata(in: headersize..<data.count)
         }
     }
     
@@ -124,7 +124,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = NSData(data: encode(self.header)) as Data
+            var result = encode(self.header)
             if let channelInfo = channelInfo {
                 result.append(channelInfo.data())
             }
@@ -203,7 +203,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = NSData(data: encode(header)) as Data
+            var result = encode(header)
             for lock in locks {
                 result.append(encode(lock))
             }

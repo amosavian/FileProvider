@@ -25,7 +25,7 @@ extension SMB2 {
         func data() -> Data {
             var header = self.header
             var offset = 0x78 //UInt16(sizeof(SMB2.Header.self) + sizeof(CreateContext.Header.self) - 1)
-            let body = NSMutableData()
+            var body = Data()
             if let name = self.name, let nameData = name.data(using: String.Encoding.utf16) {
                 header.nameOffset = UInt16(offset)
                 header.nameLength = UInt16(nameData.count)
@@ -40,8 +40,8 @@ extension SMB2 {
                 header.contextLength = 0
                 //result.appendData(nameData)
             }
-            var result = NSData(data: encode(&header)) as Data
-            result.append(body as Data)
+            var result = encode(&header)
+            result.append(body)
             return result
         }
         
@@ -195,10 +195,10 @@ extension SMB2 {
                         self.contexts = contexts
                         return
                     }
-                    let contextDataHeader = data.subdata(in: NSRange(location: contextOffset, length: MemoryLayout<CreateContext.Header>.size))
+                    let contextDataHeader = data.subdata(in: contextOffset..<(contextOffset + MemoryLayout<CreateContext.Header>.size))
                     if let lastContextHeader = CreateContext(data: contextDataHeader) {
                         let lastContextLen = Int(lastContextHeader.header.dataOffset) + Int(lastContextHeader.header.dataLength) - contextOffset
-                        let lastContextData = data.subdata(in: NSRange(location: contextOffset, length: lastContextLen))
+                        let lastContextData = data.subdata(in: contextOffset..<(contextOffset + lastContextLen))
                         if let newContext = CreateContext(data: lastContextData) {
                             contexts.append(newContext)
                         }
@@ -226,7 +226,7 @@ extension SMB2 {
         let buffer: Data
         
         init(name: ContextNames, data: Data) {
-            let nameData = NSData(data: (name.rawValue).data(using: String.Encoding.utf16)!) as Data
+            let nameData = (name.rawValue).data(using: String.Encoding.utf16) ?? Data()
             self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.count), reserved: 0, dataOffset: UInt16(nameData.count), dataLength: UInt32(data.count))
             self.buffer = data
         }
@@ -234,8 +234,8 @@ extension SMB2 {
         init(name: UUID, data: Data) {
             var uuid = uuid_t(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
             (name as NSUUID).getBytes(&uuid.0)
-            let nameData = NSMutableData(bytes: &uuid, length: 16)
-            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.length), reserved: 0, dataOffset: UInt16(nameData.length), dataLength: UInt32(data.count))
+            var nameData = Data(bytes: &uuid.0, count: 16)
+            self.header = CreateContext.Header(next: 0, nameOffset: 32, nameLength: UInt16(nameData.count), reserved: 0, dataOffset: UInt16(nameData.count), dataLength: UInt32(data.count))
             self.buffer = data
         }
         
@@ -245,11 +245,11 @@ extension SMB2 {
                 return nil
             }
             self.header = decode(data)
-            self.buffer = data.subdata(in: NSRange(location: headersize, length: data.count - headersize))
+            self.buffer = data.subdata(in: headersize..<data.count)
         }
         
         func data() -> Data {
-            var result = NSData(data: encode(header)) as Data
+            var result = encode(header)
             result.append(buffer)
             return result
         }

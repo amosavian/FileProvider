@@ -34,7 +34,7 @@ extension SMB2 {
             var header = self.header
             header.pathOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<TreeConnectRequest.Header>.size)
             header.pathLength = UInt16(buffer?.count ?? 0)
-            var result = NSData(data: encode(&header)) as Data
+            var result = encode(&header)
             if let buffer = self.buffer {
                 result.append(buffer)
             }

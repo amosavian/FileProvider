@@ -10,15 +10,13 @@ import Foundation
 
 internal func encode<T>(_ value: inout T) -> Data {
     return withUnsafePointer(to: &value) { p in
-        NSData(bytes: p, length: MemoryLayout.size(ofValue: value)) as Data
+        Data(bytes: p, count: MemoryLayout.size(ofValue: value))
     }
 }
 
 internal func encode<T>(_ value: T) -> Data {
     var value = value
-    return withUnsafePointer(to: &value) { p in
-        NSData(bytes: p, length: MemoryLayout.size(ofValue: value)) as Data
-    }
+    return encode(&value)
 }
 
 internal func decode<T>(_ data: Data) -> T {
@@ -155,10 +153,5 @@ struct SMB2 {
     
     // MARK: SMB2 Oplock Break
     
-}
-
-extension Data {
-    func subdata(in range: NSRange) -> Data {
-        return (self as NSData).subdata(with: range)
-    }
+    
 }
