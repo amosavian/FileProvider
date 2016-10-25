@@ -1,4 +1,4 @@
-# FileProvider (experimental)
+# FileProvider
 
 >This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
@@ -27,7 +27,7 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like searching and reading a portion of file.
 - [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API. For now it has limitation in uploading files up to 150MB.
-- [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!*. SMB1/CIFS is depericated and very tricky to be implemented
+- [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!* SMB1/CIFS is depericated and very tricky to be implemented
 - [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
 - [ ] **AmazonS3FileProvider** 
 
@@ -85,8 +85,8 @@ You can't change the base url later. and all paths are related to this base url 
 
 For remote file providers authentication may be necessary:
 
-	let credential = URLCredential(user: "user", password: "pass", persistence: URLCredentialPersistence.Permanent)
-	let webdavProvider = WebDAVFileProvider(baseURL: NSURL(string: "http://www.example.com/dav")!, credential: credential)
+	let credential = URLCredential(user: "user", password: "pass", persistence: .permanent)
+	let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example.com/dav")!, credential: credential)
 
 * In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
@@ -94,13 +94,13 @@ For remote file providers authentication may be necessary:
 	
 For interaction with UI, set delegate variable of `FileProvider` object
 
-You can use `absoluteURL()` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply)
+You can use `absoluteURL()` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply wrapped in URL)
 
 ### Delegates
 
 For updating User interface please consider using delegate method instead of completion handlers. Delegate methods are guaranteed to run in main thread to avoid bugs.
 
-It's simply tree method which indicated whether the operation failed, succeed and how much of operation has been done (suitable for uploading and downloading operations).
+It's simply three method which indicated whether the operation failed, succeed and how much of operation has been done (suitable for uploading and downloading operations).
 
 Your class should conforms `FileProviderDelegate` class:
 
@@ -139,7 +139,7 @@ Your class should conforms `FileProviderDelegate` class:
 		}
 	}
 
-**Note:** `fileproviderProgress()` delegate method is not called by `LocalFileProvider`. 
+**Note:** `fileproviderProgress()` delegate method is not called by `LocalFileProvider` currently. 
 
 It's recommended to use completion handlers for error handling or result processing.
 
@@ -147,9 +147,9 @@ It's recommended to use completion handlers for error handling or result process
 
 You can also implement `FileOperationDelegate` protocol to control behaviour of file operation (copy, move/rename, remove and linking), and decide which files should be removed for example and which won't. 
 
-`fileProvider:shouldDoOperation:` method is called before doing a operation. You sould return `true` if you want to do operation or `false` if you want to stop that operation.
+`fileProvider(shouldDoOperation:)` method is called before doing a operation. You sould return `true` if you want to do operation or `false` if you want to stop that operation.
 
-`fileProvider:shouldProceedAfterError:operation:` will be called if an error occured during file operations. Return `true` if you want to continue operation on next files or `false` if you want stop operation further. Default value is false if you don't implement delegate.
+`fileProvider(shouldProceedAfterError:, operation:)` will be called if an error occured during file operations. Return `true` if you want to continue operation on next files or `false` if you want stop operation further. Default value is false if you don't implement delegate.
 
 **Note: these methods will be called for files in a directory and its subfolders recursively.**
 
@@ -164,8 +164,8 @@ For a single file:
 		if let attributes = attributes {
 			print("File Size: \(attributes.size)")
 			print("Creation Date: \(attributes.createdDate)")
-			print("Modification Date: \(modifiedDate)")
-			print("Is Read Only: \(isReadOnly)")
+			print("Modification Date: \(attributes.modifiedDate)")
+			print("Is Read Only: \(attributes.isReadOnly)")
 		}
 	})
 
@@ -177,7 +177,7 @@ To get list of files in a directory:
 			print("Name: \(attributes.name)")
 			print("Size: \(attributes.size)")
 			print("Creation Date: \(attributes.createdDate)")
-			print("Modification Date: \(modifiedDate)")
+			print("Modification Date: \(attributes.modifiedDate)")
 		}
 	})
 
@@ -186,17 +186,17 @@ To get size of strage and used/free space:
 	func storageProperties(completionHandler: {(total: Int64, used: Int64) -> Void in
 	    print("Total Storage Space: \(total)")
 	    print("Used Space: \(used)")
-	    print("Free Space: \(total - frees)")
+	    print("Free Space: \(total - used)")
 	})
 	
-* if this function is unavailable on provider or an error has been occurred, total space will be reported "-1" and used space "0"
+* if this function is unavailable on provider or an error has been occurred, total space will be reported `-1` and used space `0`
 
 ### Change current directory
 
 	documentsProvider.currentPath = "/New Folder"
 	// now path is ~/Documents/New Folder
 	
-You can then pass "" (empty string) to contentsOfDirectoryAtPath method to list files in current directory.
+You can then pass "" (empty string) to `contentsOfDirectory` method to list files in current directory.
 
 ### Creating File and Folders
 
@@ -220,6 +220,8 @@ Move file old.txt to new.txt in current path:
 
 	documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
 
+**Note:** To have a consistent behaviour, create intermediate directories first if necessary.
+
 ### Delete Files
 
 	documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
@@ -237,7 +239,7 @@ There is two method for this purpose, one of them loads entire file into NSData 
 		}
 	})
 	
-If you want to retrieve a portion of file you should can `contentsAtPath` method with offset and length arguments. Please note first byte of file has offset: 0.
+If you want to retrieve a portion of file you can use `contents` method with offset and length arguments. Please note first byte of file has offset: 0.
 
 	documentsProvider.contents(path: "old.txt", offset: 2, length: 5, completionHandler: {
 		(contents: Data?, error: ErrorType?) -> Void
