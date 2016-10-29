@@ -45,42 +45,52 @@ open class SMBFileProvider: FileProvider, FileProviderMonitor {
     
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
+        return nil
     }
     
     open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) {

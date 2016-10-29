@@ -246,7 +246,7 @@ extension FileProviderBasic {
         return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
-    internal func NotImplemented() -> Never {
+    internal func NotImplemented() {
         assert(false, "method not implemented")
     }
     
