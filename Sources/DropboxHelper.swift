@@ -80,7 +80,7 @@ internal extension DropboxFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperation, completionHandler: SimpleCompletionHandler) {
+    func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         assert(data.count < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
         var requestDictionary = [String: AnyObject]()
         let url: URL
@@ -123,6 +123,7 @@ internal extension DropboxFileProvider {
         }
         task.taskDescription = dictionaryToJSON(dic)
         task.resume()
+        return RemoteOperationHandle(tasks: [task])
     }
     
     func search(_ startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, foundItem:@escaping ((_ file: DropboxFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
@@ -185,7 +186,7 @@ internal extension DropboxFileProvider {
         return DropboxFileObject(name: name, path: path, size: size, serverTime: serverTime, modifiedDate: modifiedDate, fileType: isDirectory ? .directory : .regular, isReadOnly: isReadonly, id: id, rev: rev)
     }
     
-    func delegateNotify(_ operation: FileOperation, error: Error?) {
+    func delegateNotify(_ operation: FileOperationType, error: Error?) {
         DispatchQueue.main.async(execute: {
             if error == nil {
                 self.delegate?.fileproviderSucceed(self, operation: operation)

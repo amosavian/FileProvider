@@ -31,9 +31,6 @@ open class SMBFileProvider: FileProvider, FileProviderMonitor {
         
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObjectClass], _ error: Error?) -> Void)) {
         NotImplemented()
-        dispatch_queue.async { 
-            
-        }
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObjectClass?, _ error: Error?) -> Void)) {
@@ -46,43 +43,43 @@ open class SMBFileProvider: FileProvider, FileProviderMonitor {
     
     open weak var fileOperationDelegate: FileOperationDelegate?
     
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
+    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) {
+    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
+    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         NotImplemented()
     }
     
-    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
     }
     

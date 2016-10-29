@@ -102,7 +102,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open weak var fileOperationDelegate : FileOperationDelegate?
     
-    @objc(createWithFolder:at:completionHandler:) open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
+    @objc(createWithFolder:at:completionHandler:)
+    @discardableResult
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             do {
                 try self.opFileManager.createDirectory(at: self.absoluteURL(atPath).appendingPathComponent(folderName), withIntermediateDirectories: true, attributes: [:])
@@ -117,9 +119,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             let fileURL = self.absoluteURL(atPath).appendingPathComponent(fileAttribs.name)
             var attributes = [String : Any]()
@@ -148,9 +152,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // FIXME: progress
         operation_queue.async {
             if !overwrite && self.fileManager.fileExists(atPath: self.absoluteURL(toPath).path) {
@@ -170,9 +176,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // FIXME: progress, for files > 100mb, monitor file by another thread, for dirs check copied items count
         operation_queue.async {
             if !overwrite && self.fileManager.fileExists(atPath: self.absoluteURL(toPath).path) {
@@ -192,9 +200,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             do {
                 try self.opFileManager.removeItem(at: self.absoluteURL(path))
@@ -209,9 +219,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             do {
                 try self.opFileManager.copyItem(at: localFile, to: self.absoluteURL(toPath))
@@ -226,9 +238,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             do {
                 try self.opFileManager.copyItem(at: self.absoluteURL(path), to: toLocalURL)
@@ -243,16 +257,20 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
+        return nil
     }
     
-    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
+    @discardableResult
+    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         dispatch_queue.async {
             let data = self.fileManager.contents(atPath: self.absoluteURL(path).path)
             completionHandler(data, nil)
         }
+        return nil
     }
     
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
+    @discardableResult
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         // Unfortunatlely there is no method provided in NSFileManager to read a segment of file.
         // So we have to fallback to POSIX provided methods
         dispatch_queue.async {
@@ -279,15 +297,18 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 completionHandler(data, nil)
             }
         }
+        return nil
     }
     
-    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) {
+    @discardableResult
+    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
             try? data.write(to: self.absoluteURL(path), options: atomically ? [.atomic] : [])
             DispatchQueue.main.async(execute: {
                 self.delegate?.fileproviderSucceed(self, operation: .modify(path: path))
             })
         }
+        return nil
     }
     
     open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {

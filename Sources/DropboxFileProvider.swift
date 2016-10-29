@@ -66,7 +66,7 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             if let response = response as? HTTPURLResponse {
                 defer {
-                    self.delegateNotify(FileOperation.create(path: path), error: error)
+                    self.delegateNotify(.create(path: path), error: error)
                 }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: String.Encoding.utf8)) : nil
@@ -104,31 +104,31 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
 
 extension DropboxFileProvider: FileProviderOperations {
     
-
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) {
+    
+    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
-        doOperation(.create(path: path), completionHandler: completionHandler)
+        return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) {
-        self.writeContents(path: path, contents: data ?? Data(), completionHandler: completionHandler)
+    public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.writeContents(path: path, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
-    public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
+    public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) {
-        doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
+    public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) {
-        doOperation(.remove(path: path), completionHandler: completionHandler)
+    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
-    fileprivate func doOperation(_ operation: FileOperation, completionHandler: SimpleCompletionHandler) {
+    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
-            return
+            return nil
         }
         let url: String
         var path: String?, fromPath: String?, toPath: String?
@@ -145,12 +145,12 @@ extension DropboxFileProvider: FileProviderOperations {
             fromPath = fp
             toPath = tp
         case .modify(path: let p):
-            return
+            return nil
         case .remove(path: let p):
             url = "https://api.dropboxapi.com/2/files/delete"
             path = p
         case .link(link: _, target: _):
-            return
+            return nil
         }
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "POST"
@@ -177,23 +177,24 @@ extension DropboxFileProvider: FileProviderOperations {
             completionHandler?(error)
         }) 
         task.resume()
+        return RemoteOperationHandle(tasks: [task])
     }
     
-    public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) {
+    public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: localFile.absoluteString, destination: toPath)) ?? true == true else {
-            return
+            return nil
         }
         guard let data = try? Data(contentsOf: localFile) else {
             let error = throwError(localFile.absoluteString, code: URLError.fileDoesNotExist as FoundationErrorEnum)
             completionHandler?(error)
-            return
+            return nil
         }
-        upload_simple(toPath, data: data, overwrite: true, operation: .copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
+        return upload_simple(toPath, data: data, overwrite: true, operation: .copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) {
+    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: destURL.absoluteString)) ?? true == true else {
-            return
+            return nil
         }
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
         var request = URLRequest(url: url)
@@ -218,15 +219,16 @@ extension DropboxFileProvider: FileProviderOperations {
         })
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": destURL.absoluteString as NSString])
         task.resume()
+        return RemoteOperationHandle(tasks: [task])
     }
 }
 
 extension DropboxFileProvider: FileProviderReadWrite {
-    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
-        self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
+    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
     }
     
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) {
+    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -248,14 +250,15 @@ extension DropboxFileProvider: FileProviderReadWrite {
             completionHandler(data, error)
         })
         task.resume()
+        return RemoteOperationHandle(tasks: [task])
     }
     
-    public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) {
+    public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .modify(path: path)) ?? true == true else {
-            return
+            return nil
         }
         // FIXME: remove 150MB restriction
-        upload_simple(path, data: data, overwrite: true, operation: .modify(path: path), completionHandler: completionHandler)
+        return upload_simple(path, data: data, overwrite: true, operation: .modify(path: path), completionHandler: completionHandler)
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {

@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7902C0861D61B56D00564440 /* SessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* SessionDelegate.swift */; };
-		7902C0871D61B67100564440 /* SessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* SessionDelegate.swift */; };
-		7902C0881D61B67100564440 /* SessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* SessionDelegate.swift */; };
+		7902C0861D61B56D00564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
+		7902C0871D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
+		7902C0881D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
 		7924B1931D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
 		7924B1941D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
 		7924B1951D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
@@ -97,7 +97,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		7902C0851D61B56D00564440 /* SessionDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionDelegate.swift; sourceTree = "<group>"; };
+		7902C0851D61B56D00564440 /* RemoteSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RemoteSession.swift; sourceTree = "<group>"; };
 		7924B18C1D89DAE000589DB7 /* AEXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AEXML.h; sourceTree = "<group>"; };
 		7924B18D1D89DAE000589DB7 /* Document.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
 		7924B18E1D89DAE000589DB7 /* Element.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Element.swift; sourceTree = "<group>"; };
@@ -213,7 +213,7 @@
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
-				7902C0851D61B56D00564440 /* SessionDelegate.swift */,
+				7902C0851D61B56D00564440 /* RemoteSession.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
 				799396981D48C02300086753 /* SMBFileProvider.swift */,
@@ -413,7 +413,7 @@
 				794C220A1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D11D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1961D89DAE000589DB7 /* Document.swift in Sources */,
-				7902C0861D61B56D00564440 /* SessionDelegate.swift in Sources */,
+				7902C0861D61B56D00564440 /* RemoteSession.swift in Sources */,
 				799396CE1D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DA1D48C02300086753 /* SMBErrorType.swift in Sources */,
@@ -447,7 +447,7 @@
 				794C220B1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D21D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1971D89DAE000589DB7 /* Document.swift in Sources */,
-				7902C0871D61B67100564440 /* SessionDelegate.swift in Sources */,
+				7902C0871D61B67100564440 /* RemoteSession.swift in Sources */,
 				799396CF1D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DB1D48C02300086753 /* SMBErrorType.swift in Sources */,
@@ -481,7 +481,7 @@
 				794C220C1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D31D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1981D89DAE000589DB7 /* Document.swift in Sources */,
-				7902C0881D61B67100564440 /* SessionDelegate.swift in Sources */,
+				7902C0881D61B67100564440 /* RemoteSession.swift in Sources */,
 				799396D01D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DC1D48C02300086753 /* SMBErrorType.swift in Sources */,
@@ -568,7 +568,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -628,7 +627,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -681,7 +679,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -742,7 +739,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -795,7 +791,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -830,7 +825,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				TARGETED_DEVICE_FAMILY = 3;
-				TVOS_DEPLOYMENT_TARGET = 9.0;
+				TVOS_DEPLOYMENT_TARGET = 10.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -855,7 +850,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -882,7 +876,7 @@
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 3;
-				TVOS_DEPLOYMENT_TARGET = 9.0;
+				TVOS_DEPLOYMENT_TARGET = 10.0;
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";

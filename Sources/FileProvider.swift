@@ -117,20 +117,30 @@ public protocol FileProviderBasic: class {
 public protocol FileProviderOperations: FileProviderBasic {
     var fileOperationDelegate : FileOperationDelegate? { get set }
     
-    func create(folder: String, at: String, completionHandler: SimpleCompletionHandler)
-    func create(file: FileObject, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler)
-    func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
-    func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler)
-    func removeItem(path: String, completionHandler: SimpleCompletionHandler)
+    @discardableResult
+    func create(folder: String, at: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func create(file: FileObject, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
-    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler)
-    func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler)
+    @discardableResult
+    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
 
 public protocol FileProviderReadWrite: FileProviderBasic {
-    func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void))
-    func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void))
-    func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler)
+    @discardableResult
+    func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
+    @discardableResult
+    func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
+    @discardableResult
+    func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
     func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
 }
@@ -236,7 +246,7 @@ extension FileProviderBasic {
         return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
-    internal func NotImplemented() {
+    internal func NotImplemented() -> Never {
         assert(false, "method not implemented")
     }
     
@@ -272,7 +282,7 @@ public protocol ExtendedFileProvider: FileProvider {
     func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
 }
 
-public enum FileOperation: CustomStringConvertible {
+public enum FileOperationType: CustomStringConvertible {
     case create (path: String)
     case copy   (source: String, destination: String)
     case move   (source: String, destination: String)
@@ -301,22 +311,37 @@ public enum FileOperation: CustomStringConvertible {
         case .link(link: _, target: _): return "Linking"
         }
     }
-    
+}
+
+@objc
+public protocol OperationHandle {
+    var progress: Float { get }
+    var bytesSoFar: Int64 { get }
+    var totalBytes: Int64 { get }
+    var inProgress: Bool { get }
+    func cancel()
+}
+
+internal class Weak<T: AnyObject> {
+    weak var value : T?
+    init (_ value: T) {
+        self.value = value
+    }
 }
 
 public protocol FileProviderDelegate: class {
-    func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation)
-    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation)
-    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float)
+    func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
+    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
+    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperationType, progress: Float)
 }
 
 public protocol FileOperationDelegate: class {
     
     /// fileProvider(_:shouldOperate:) gives the delegate an opportunity to filter the file operation. Returning true from this method will allow the copy to happen. Returning false from this method causes the item in question to be skipped. If the item skipped was a directory, no children of that directory will be subject of the operation, nor will the delegate be notified of those children.
-    func fileProvider(_ fileProvider: FileProviderOperations, shouldDoOperation operation: FileOperation) -> Bool
+    func fileProvider(_ fileProvider: FileProviderOperations, shouldDoOperation operation: FileOperationType) -> Bool
     
     /// fileProvider(_:shouldProceedAfterError:copyingItemAtPath:toPath:) gives the delegate an opportunity to recover from or continue copying after an error. If an error occurs, the error object will contain an ErrorType indicating the problem. The source path and destination paths are also provided. If this method returns true, the FileProvider instance will continue as if the error had not occurred. If this method returns false, the NSFileManager instance will stop copying, return false from copyItemAtPath:toPath:error: and the error will be provied there.
-    func fileProvider(_ fileProvider: FileProviderOperations, shouldProceedAfterError error: Error, operation: FileOperation) -> Bool
+    func fileProvider(_ fileProvider: FileProviderOperations, shouldProceedAfterError error: Error, operation: FileOperationType) -> Bool
 }
 
 // THESE ARE METHODS TO PROVIDE COMPATIBILITY WITH SWIFT 2.3 SIMOULTANIOUSLY!

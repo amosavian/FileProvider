@@ -8,6 +8,62 @@
 
 import Foundation
 
+open class RemoteOperationHandle: OperationHandle {
+    
+    internal var tasks: [Weak<URLSessionTask>]
+    
+    private var _inProgress = false
+    open var inProgress: Bool {
+        return _inProgress
+    }
+    
+    init(tasks: [URLSessionTask]) {
+        self.tasks = tasks.map { Weak<URLSessionTask>($0) }
+        _inProgress = true
+    }
+    
+    internal func add(task: URLSessionTask) {
+        tasks.append(Weak<URLSessionTask>(task))
+    }
+    
+    private func reape() {
+        self.tasks = tasks.filter { $0.value != nil }
+    }
+    
+    open var progress: Float {
+        let bytesSoFar = self.bytesSoFar
+        let totalBytes = self.totalBytes
+        return totalBytes > 0 ? Float(Double(bytesSoFar) / Double(totalBytes)) : Float.nan
+    }
+    
+    open var bytesSoFar: Int64 {
+        return tasks.reduce(0) {
+            if let task = $1.value as? URLSessionUploadTask {
+                return $0 + task.countOfBytesSent
+            } else {
+                return $0 + ($1.value?.countOfBytesReceived ?? 0)
+            }
+        }
+    }
+    
+    open var totalBytes: Int64 {
+        return tasks.reduce(0) {
+            if let task = $1.value as? URLSessionUploadTask {
+                return $0 + task.countOfBytesExpectedToSend
+            } else {
+                return $0 + ($1.value?.countOfBytesExpectedToSend ?? 0)
+            }
+        }
+    }
+    
+    open func cancel() {
+        for taskbox in tasks {
+            taskbox.value?.cancel()
+        }
+        _inProgress = false
+    }
+}
+
 class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate {
     
     weak var fileProvider: FileProvider?
@@ -38,7 +94,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
             return
         }
         let dest = json["dest"] as? String
-        let op : FileOperation
+        let op : FileOperationType
         switch type {
         case "Create":
             op = .create(path: source)
