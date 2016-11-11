@@ -62,15 +62,15 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let requestDictionary = ["path": correctPath(path)! as NSString]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: String.Encoding.utf8)
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             if let response = response as? HTTPURLResponse {
                 defer {
                     self.delegateNotify(.create(path: path), error: error)
                 }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: String.Encoding.utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: String.Encoding.utf8), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
                     completionHandler(file, dbError)
                     return
                 }
@@ -88,7 +88,7 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            if let data = data, let jsonStr = String(data: data, encoding: String.Encoding.utf8), let json = jsonToDictionary(jsonStr) {
+            if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
                 let totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
                 let usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
                 completionHandler(totalSize, usedSize)
@@ -160,11 +160,11 @@ extension DropboxFileProvider: FileProviderOperations {
         requestDictionary["path"] = correctPath(path) as NSString?
         requestDictionary["from_path"] = correctPath(fromPath) as NSString?
         requestDictionary["to_path"] = correctPath(toPath) as NSString?
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: String.Encoding.utf8)
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? Data(), encoding: String.Encoding.utf8)) : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
                 defer {
                     self.delegateNotify(operation, error: error ?? dbError)
                 }
@@ -243,7 +243,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         let task = session.dataTask(with: request, completionHandler: { (datam, response, error) in
             guard let data = datam, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: datam ?? Data(), encoding: String.Encoding.utf8)) : nil
+                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: datam ?? Data(), encoding: .utf8)) : nil
                 completionHandler(nil, dbError ?? error)
                 return
             }

@@ -69,7 +69,7 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: String.Encoding.utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
@@ -99,7 +99,7 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: String.Encoding.utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
@@ -129,7 +129,7 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: String.Encoding.utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             if let data = data {
@@ -386,7 +386,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         request.httpMethod = "PROPFIND"
         //request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: String.Encoding.utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             // FIXME: paginating results

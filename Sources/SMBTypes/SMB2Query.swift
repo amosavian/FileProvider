@@ -22,14 +22,14 @@ extension SMB2 {
             assert(FileInformationEnum.queryDirectory.contains(infoClass), "Invalid FileInformationClass used for QueryDirectoryRequest")
             let searchPatternOffset = searchPattern != nil ? MemoryLayout<SMB2.Header>.size + MemoryLayout<QueryDirectoryRequest.Header>.size : 0
             let nflags = flags.intersection(fileIndex > 0 ? [.INDEX_SPECIFIED] : [])
-            let searchPatternLength = searchPattern?.data(using: String.Encoding.utf16)?.count ?? 0
+            let searchPatternLength = searchPattern?.data(using: .utf16)?.count ?? 0
             self.header = Header(size: 53, infoClass: infoClass, flags: nflags, fileIndex: fileIndex, fileId: fileId, searchPatternOffset: UInt8(searchPatternOffset), searchPatternLength: UInt8(searchPatternLength), bufferLength: bufferLength)
             self.searchPattern = searchPattern
         }
         
         func data() -> Data {
             var result = encode(header)
-            if let patternData = searchPattern?.data(using: String.Encoding.utf16) {
+            if let patternData = searchPattern?.data(using: .utf16) {
                 result.append(patternData)
             }
             return result
@@ -104,7 +104,7 @@ extension SMB2 {
                     return []
                 }
                 let fnData = buffer.subdata(in: (offset + headersize)..<(offset + headersize + Int(header.fileNameLength)))
-                let fileName = String(data: fnData, encoding: String.Encoding.utf16) ?? ""
+                let fileName = String(data: fnData, encoding: .utf16) ?? ""
                 result.append((header: header, fileName: fileName))
                 if header.nextEntryOffset == 0 {
                     break
@@ -138,7 +138,7 @@ extension SMB2 {
         init(fileId: FileId, extendedAttributes: [String], flags: Flags = [], outputBufferLength: UInt32 = 65535) {
             var buffer = Data()
             for ea in extendedAttributes {
-                guard let strData = ea.data(using: String.Encoding.ascii) else {
+                guard let strData = ea.data(using: .ascii) else {
                     continue
                 }
                 let strLength = UInt8(strData.count)
@@ -239,13 +239,13 @@ extension SMB2 {
             let header: FileAllInformationHeader = decode(buffer)
             let headersize = MemoryLayout<FileAllInformationHeader>.size
             let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.nameLength)))
-            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
+            let name = String(data: nameData, encoding: .utf16) ?? ""
             return (header, name)
         }
         
         var asAlternateNameInformation: String {
             let b = (buffer as NSData).bytes.bindMemory(to: CChar.self, capacity: buffer.count)
-            return String(cString: b, encoding: String.Encoding.utf16) ?? ""
+            return String(cString: b, encoding: .utf16) ?? ""
         }
         
         var asAttributeTagInformation: FileAttributeTagInformation {
@@ -305,7 +305,7 @@ extension SMB2 {
             let header: FileStreamInformationHeader = decode(buffer)
             let headersize = MemoryLayout<FileStreamInformationHeader>.size
             let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.streamNameLength)))
-            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
+            let name = String(data: nameData, encoding: .utf16) ?? ""
             return (header, name)
         }
         
@@ -313,7 +313,7 @@ extension SMB2 {
             let header: FileFsVolumeInformationHeader = decode(buffer)
             let headersize = MemoryLayout<FileFsVolumeInformationHeader>.size
             let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.labelLength)))
-            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
+            let name = String(data: nameData, encoding: .utf16) ?? ""
             return (header, name)
         }
         
@@ -329,7 +329,7 @@ extension SMB2 {
             let header: FileFsAttributeInformationHeader = decode(buffer)
             let headersize = MemoryLayout<FileFsAttributeInformationHeader>.size
             let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.nameLength)))
-            let name = String(data: nameData, encoding: String.Encoding.utf16) ?? ""
+            let name = String(data: nameData, encoding: .utf16) ?? ""
             return (header, name)
         }
         

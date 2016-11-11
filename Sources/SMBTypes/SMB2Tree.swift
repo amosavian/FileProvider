@@ -27,7 +27,7 @@ extension SMB2 {
             }
             self.header = header
             let path = "\\\\\(host)\\\(share)"
-            self.buffer = path.data(using: String.Encoding.utf16)
+            self.buffer = path.data(using: .utf16)
         }
         
         func data() -> Data {

@@ -221,7 +221,7 @@ extension FileProviderBasic {
             let similiar = contents.map {
                 $0.absoluteURL?.lastPathComponent ?? $0.name
             }.filter {
-                $0.hasPrefix(result) && (!fileExt.isEmpty && $0.hasSuffix("." + fileExt))
+                $0.hasPrefix(result)
             }
             while similiar.contains(result + (!fileExt.isEmpty ? "." + fileExt : "")) {
                 result = "\(bareFileName) \(i)"
@@ -353,7 +353,7 @@ internal extension URL {
 }
 
 internal func jsonToDictionary(_ jsonString: String) -> [String: AnyObject]? {
-    guard let data = jsonString.data(using: String.Encoding.utf8) else {
+    guard let data = jsonString.data(using: .utf8) else {
         return nil
     }
     if let dic = try? JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions()) as? [String: AnyObject] {
@@ -364,7 +364,7 @@ internal func jsonToDictionary(_ jsonString: String) -> [String: AnyObject]? {
 
 internal func dictionaryToJSON(_ dictionary: [String: AnyObject]) -> String? {
     if let data = try? JSONSerialization.data(withJSONObject: dictionary, options: JSONSerialization.WritingOptions()) {
-        return String(data: data, encoding: String.Encoding.utf8)
+        return String(data: data, encoding: .utf8)
     }
     return nil
 }

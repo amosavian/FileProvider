@@ -190,7 +190,7 @@ extension SMB2 {
             let s = encode(_shortName)
             var d = s
             d.count = Int(shortNameLen)
-            return String(data: d, encoding: String.Encoding.utf16)
+            return String(data: d, encoding: .utf16)
         }
         
         init?(data: Data) {
@@ -217,7 +217,7 @@ extension SMB2 {
             let s = encode(_shortName)
             var d = s
             d.count = Int(shortNameLen)
-            return String(data: d, encoding: String.Encoding.utf16)
+            return String(data: d, encoding: .utf16)
         }
         fileprivate let reserved2: UInt16
         let fileId : FileId
