@@ -253,6 +253,12 @@ If you want to retrieve a portion of file you can use `contents` method with off
 	let data = "What's up Newyork!".data(encoding: String.encoding.utf8)
 	documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
 
+### Operation Handle
+
+Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides progress and a `.cancel()` method which allows you to cancel operation in midst.
+
+It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
+
 ### Monitoring FIle Changes
 
 You can monitor updates in some file system (Local and SMB2), there is three methods in supporting provider you can use to register a handler, to unregister and to check whether it's being monitored or not. It's useful to find out when new files added or removed from directory and update user interface. The handler will be dispatched to main threads to avoid UI bugs with a 0.25 sec delay.
