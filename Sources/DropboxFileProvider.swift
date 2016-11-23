@@ -177,7 +177,7 @@ extension DropboxFileProvider: FileProviderOperations {
             completionHandler?(error)
         }) 
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: operation.baseType)
     }
     
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -219,7 +219,7 @@ extension DropboxFileProvider: FileProviderOperations {
         })
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": destURL.absoluteString as NSString])
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .copy)
     }
 }
 
@@ -250,7 +250,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
             completionHandler(data, error)
         })
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .contents)
     }
     
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {

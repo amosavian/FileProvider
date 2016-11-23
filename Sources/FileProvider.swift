@@ -282,6 +282,11 @@ public protocol ExtendedFileProvider: FileProvider {
     func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
 }
 
+@objc
+public enum OperationType: Int {
+    case contents, create, copy, move, modify, remove, link
+}
+
 public enum FileOperationType: CustomStringConvertible {
     case create (path: String)
     case copy   (source: String, destination: String)
@@ -289,6 +294,23 @@ public enum FileOperationType: CustomStringConvertible {
     case modify (path: String)
     case remove (path: String)
     case link   (link: String, target: String)
+
+    public var baseType: OperationType {
+        switch self {
+        case .create:
+            return .create
+        case .copy:
+            return .copy
+        case .move:
+            return .move
+        case .modify:
+            return .modify
+        case .remove:
+            return .remove
+        case .link:
+            return .link
+        }
+    }
     
     public var description: String {
         switch self {
@@ -315,6 +337,7 @@ public enum FileOperationType: CustomStringConvertible {
 
 @objc
 public protocol OperationHandle {
+    var type: OperationType { get }
     var progress: Float { get }
     var bytesSoFar: Int64 { get }
     var totalBytes: Int64 { get }
