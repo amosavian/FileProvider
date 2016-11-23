@@ -13,15 +13,12 @@ open class RemoteOperationHandle: OperationHandle {
 
     internal var tasks: [Weak<URLSessionTask>]
     
-    private var _inProgress = false
-    open var inProgress: Bool {
-        return _inProgress
-    }
+    open private(set) var inProgress = false
     
     init(tasks: [URLSessionTask], operation type: OperationType) {
         self.tasks = tasks.map { Weak<URLSessionTask>($0) }
         self.type = type
-        _inProgress = true
+        inProgress = true
     }
     
     internal func add(task: URLSessionTask) {
@@ -62,7 +59,7 @@ open class RemoteOperationHandle: OperationHandle {
         for taskbox in tasks {
             taskbox.value?.cancel()
         }
-        _inProgress = false
+        inProgress = false
     }
 }
 
