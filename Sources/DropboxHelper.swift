@@ -53,13 +53,13 @@ internal extension DropboxFileProvider {
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
+            var files = prevContents
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderDropboxError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             if let data = data, let jsonStr = String(data: data, encoding: .utf8) {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["entries"] as? [AnyObject] , entries.count > 0 {
-                    var files = prevContents
                     for entry in entries {
                         if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
                             files.append(file)
@@ -69,13 +69,11 @@ internal extension DropboxFileProvider {
                     let hasmore = (json?["has_more"] as? NSNumber)?.boolValue ?? false
                     if hasmore {
                         self.list(path, cursor: ncursor, prevContents: files, completionHandler: completionHandler)
-                    } else {
-                        completionHandler(files, ncursor, responseError ?? error)
+                        return
                     }
-                    return
                 }
             }
-            completionHandler([], nil, responseError ?? error)
+            completionHandler(files, nil, responseError ?? error)
         }) 
         task.resume()
     }
@@ -101,10 +99,8 @@ internal extension DropboxFileProvider {
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            defer {
-                self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
-            }
             completionHandler?(responseError ?? error)
+            self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
         }) 
         var dic: [String: AnyObject] = ["type": operation.description as NSString]
         switch operation {

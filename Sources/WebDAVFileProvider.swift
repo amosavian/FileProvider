@@ -76,19 +76,17 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
+            var fileObjects = [WebDavFileObject]()
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
-                var fileObjects = [WebDavFileObject]()
                 for attr in xresponse {
                     if attr.href.path == url.path {
                         continue
                     }
                     fileObjects.append(self.mapToFileObject(attr))
                 }
-                completionHandler(fileObjects, responseError ?? error)
-                return
             }
-            completionHandler([], responseError ?? error)
+            completionHandler(fileObjects, responseError ?? error)
         }) 
         task.resume()
     }
@@ -132,16 +130,16 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var totalSize: Int64 = -1
+            var usedSize: Int64 = 0
             if let data = data {
                 let xresponse = self.parseXMLResponse(data)
                 if let attr = xresponse.first {
-                    let totalSize = Int64(attr.prop["quota-available-bytes"] ?? "")
-                    let usedSize = Int64(attr.prop["quota-used-bytes"] ?? "")
-                    completionHandler(totalSize ?? -1, usedSize ?? 0)
-                    return
+                    totalSize = Int64(attr.prop["quota-available-bytes"] ?? "") ?? -1
+                    usedSize = Int64(attr.prop["quota-used-bytes"] ?? "") ?? 0
                 }
             }
-            completionHandler(-1, 0)
+            completionHandler(totalSize, usedSize)
         }) 
         task.resume()
     }
@@ -163,13 +161,9 @@ extension WebDAVFileProvider: FileProviderOperations {
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
-            if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) , code != .ok {
-                completionHandler?(FileProviderWebDavError(code: code, url: url))
-                return
-            }
             completionHandler?(responseError ?? error)
             self.delegateNotify(.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/"), error: responseError ?? error)
-        }) 
+        })
         task.resume()
         return RemoteOperationHandle(tasks: [task])
     }
@@ -189,7 +183,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             }
             completionHandler?(responseError ?? error)
             self.delegateNotify(.create(path: (path as NSString).appendingPathComponent(fileAttribs.name)), error: responseError ?? error)
-        }) 
+        })
         task.taskDescription = dictionaryToJSON(["type": "Create" as NSString, "source": (path as NSString).appendingPathComponent(fileAttribs.name) as NSString])
         task.resume()
         return RemoteOperationHandle(tasks: [task])
@@ -224,23 +218,24 @@ extension WebDAVFileProvider: FileProviderOperations {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
             if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                defer {
-                    let op = move ? FileOperationType.move(source: path, destination: toPath) : .copy(source: path, destination: toPath)
-                    self.delegateNotify(op, error: error)
+                if response.statusCode >= 300  {
+                    responseError = FileProviderWebDavError(code: code, url: url)
                 }
                 if code == .multiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         completionHandler?(FileProviderWebDavError(code: code, url: url))
                     }
-                } else {
-                    completionHandler?(FileProviderWebDavError(code: code, url: url))
                 }
-                return
             }
-            completionHandler?(error)
-        }) 
+            if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
+                completionHandler?(responseError ?? error)
+            }
+            let op = move ? FileOperationType.move(source: path, destination: toPath) : .copy(source: path, destination: toPath)
+            self.delegateNotify(op, error: responseError ?? error)
+        })
         task.resume()
         return RemoteOperationHandle(tasks: [task])
     }
@@ -254,22 +249,23 @@ extension WebDAVFileProvider: FileProviderOperations {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
             if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                defer {
-                    self.delegateNotify(.remove(path: path), error: error)
+                if response.statusCode >= 300  {
+                    responseError = FileProviderWebDavError(code: code, url: url)
                 }
                 if code == .multiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         completionHandler?(FileProviderWebDavError(code: code, url: url))
                     }
-                } else {
-                    completionHandler?(FileProviderWebDavError(code: code, url: url))
                 }
-                return
             }
-            completionHandler?(error)
-        }) 
+            if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
+                completionHandler?(responseError ?? error)
+            }
+            self.delegateNotify(.remove(path: path), error: responseError ?? error)
+        })
         task.resume()
         return RemoteOperationHandle(tasks: [task])
     }
@@ -288,7 +284,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.move(source: localFile.absoluteString, destination: toPath), error: responseError ?? error)
+            self.delegateNotify(.copy(source: localFile.absoluteString, destination: toPath), error: responseError ?? error)
         }) 
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": localFile.absoluteString as NSString, "dest": toPath as NSString])
         task.resume()
@@ -316,6 +312,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                 }
             }
             completionHandler?(responseError ?? error)
+            self.delegateNotify(.copy(source: path, destination: toLocalURL.absoluteString), error: responseError ?? error)
         }) 
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": toLocalURL.absoluteString as NSString])
         task.resume()

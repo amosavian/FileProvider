@@ -64,20 +64,16 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
         let requestDictionary = ["path": correctPath(path)! as NSString]
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var dbError: FileProviderDropboxError?
+            var fileObject: DropboxFileObject?
             if let response = response as? HTTPURLResponse {
-                defer {
-                    self.delegateNotify(.create(path: path), error: error)
-                }
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
-                    completionHandler(file, dbError)
-                    return
+                    fileObject = file
                 }
-                completionHandler(nil, dbError)
-                return
             }
-            completionHandler(nil, error)
+            completionHandler(fileObject, dbError ?? error)
         }) 
         task.resume()
     }
@@ -88,13 +84,13 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var totalSize: Int64 = -1
+            var usedSize: Int64 = 0
             if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
-                let totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
-                let usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
-                completionHandler(totalSize, usedSize)
-                return
+                totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
+                usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
             }
-            completionHandler(-1, 0)
+            completionHandler(totalSize, usedSize)
         }) 
         task.resume()
     }
@@ -144,11 +140,11 @@ extension DropboxFileProvider: FileProviderOperations {
             url = "https://api.dropboxapi.com/2/files/move"
             fromPath = fp
             toPath = tp
-        case .modify(path: let p):
-            return nil
         case .remove(path: let p):
             url = "https://api.dropboxapi.com/2/files/delete"
             path = p
+        case .modify(path: _):
+            return nil
         case .link(link: _, target: _):
             return nil
         }
@@ -162,19 +158,12 @@ extension DropboxFileProvider: FileProviderOperations {
         requestDictionary["to_path"] = correctPath(toPath) as NSString?
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            if let response = response as? HTTPURLResponse {
-                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                defer {
-                    self.delegateNotify(operation, error: error ?? dbError)
-                }
-                /*if let data = data, let jsonStr = String(data: data, encoding: NSUTF8StringEncoding) {
-                 let json = self.jsonToDictionary(jsonStr)
-                 }*/
-                completionHandler?(dbError)
-                return
+            var dbError: FileProviderDropboxError?
+            if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
+                 dbError = FileProviderDropboxError(code: code, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            completionHandler?(error)
+            completionHandler?(dbError ?? error)
+            self.delegateNotify(operation, error: dbError ?? error)
         }) 
         task.resume()
         return RemoteOperationHandle(tasks: [task])
@@ -240,14 +229,13 @@ extension DropboxFileProvider: FileProviderReadWrite {
         }
         let requestDictionary = ["path": path]
         request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
-        let task = session.dataTask(with: request, completionHandler: { (datam, response, error) in
-            guard let data = datam, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: datam ?? Data(), encoding: .utf8)) : nil
-                completionHandler(nil, dbError ?? error)
-                return
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var dbError: FileProviderDropboxError?
+            if let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: httpResponse.statusCode) {
+                dbError = FileProviderDropboxError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            completionHandler(data, error)
+            let filedata = dbError ?? error == nil ? data : nil
+            completionHandler(filedata, dbError ?? error)
         })
         task.resume()
         return RemoteOperationHandle(tasks: [task])

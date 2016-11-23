@@ -16,8 +16,8 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FileProvider"
-  s.version      = "0.6.0"
-  s.summary      = "FileManager replacement for Local and Remote (WebDAV/Dropbox/SMB2) files on iOS and MacOS."
+  s.version      = "0.6.1"
+  s.summary      = "FileManager replacement for Local and Remote (WebDAV/Dropbox/SMB2) files on iOS and macOS."
 
   # This description is used to generate tags and improve search results.
   #   * Think: What does it do? Why did you write it? What is the focus?
@@ -26,8 +26,8 @@ Pod::Spec.new do |s|
   #   * Finally, don't worry about the indent, CocoaPods strips it!
   s.description  = <<-DESC
   					This Swift library provide a swifty way to deal with local and remote files 
-  					and directories in same way. For now Local and WebDAV providers are ready to use
-  					and SMB2, Dropbox, FTP and AmazonS3 is planned for future.
+  					and directories in same way. For now Local, WebDAV and Dropbox providers are ready to use.
+  				    SMB2, FTP and AmazonS3 is planned for future.
                    DESC
 
   s.homepage     = "https://github.com/amosavian/FileProvider"
