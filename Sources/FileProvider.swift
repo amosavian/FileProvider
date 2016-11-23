@@ -301,7 +301,7 @@ public enum FileOperationType: CustomStringConvertible {
         }
     }
     
-    internal var actionDescription: String {
+    public var actionDescription: String {
         switch self {
         case .create(path: _): return "Creating"
         case .copy(source: _, destination: _): return "Copying"
