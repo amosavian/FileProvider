@@ -9,15 +9,15 @@
 import Foundation
 
 open class RemoteOperationHandle: OperationHandle {
-    public var type: OperationType
+    open private(set) var operationType: OperationType
 
     internal var tasks: [Weak<URLSessionTask>]
     
     open private(set) var inProgress = false
     
-    init(tasks: [URLSessionTask], operation type: OperationType) {
+    init(tasks: [URLSessionTask], operation operationType: OperationType) {
         self.tasks = tasks.map { Weak<URLSessionTask>($0) }
-        self.type = type
+        self.operationType = operationType
         inProgress = true
     }
     

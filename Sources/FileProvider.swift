@@ -337,7 +337,7 @@ public enum FileOperationType: CustomStringConvertible {
 
 @objc
 public protocol OperationHandle {
-    var type: OperationType { get }
+    var operationType: OperationType { get }
     var progress: Float { get }
     var bytesSoFar: Int64 { get }
     var totalBytes: Int64 { get }
