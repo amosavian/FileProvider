@@ -9,17 +9,16 @@
 import Foundation
 
 open class RemoteOperationHandle: OperationHandle {
-    
+    open private(set) var operationType: OperationType
+
     internal var tasks: [Weak<URLSessionTask>]
     
-    private var _inProgress = false
-    open var inProgress: Bool {
-        return _inProgress
-    }
+    open private(set) var inProgress = false
     
-    init(tasks: [URLSessionTask]) {
+    init(tasks: [URLSessionTask], operation operationType: OperationType) {
         self.tasks = tasks.map { Weak<URLSessionTask>($0) }
-        _inProgress = true
+        self.operationType = operationType
+        inProgress = true
     }
     
     internal func add(task: URLSessionTask) {
@@ -60,7 +59,7 @@ open class RemoteOperationHandle: OperationHandle {
         for taskbox in tasks {
             taskbox.value?.cancel()
         }
-        _inProgress = false
+        inProgress = false
     }
 }
 

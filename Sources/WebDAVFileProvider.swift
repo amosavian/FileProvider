@@ -165,7 +165,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             self.delegateNotify(.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/"), error: responseError ?? error)
         })
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .create)
     }
     
     @discardableResult
@@ -186,7 +186,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         })
         task.taskDescription = dictionaryToJSON(["type": "Create" as NSString, "source": (path as NSString).appendingPathComponent(fileAttribs.name) as NSString])
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .create)
     }
     
     @discardableResult
@@ -237,7 +237,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             self.delegateNotify(op, error: responseError ?? error)
         })
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: move ? .move : .copy)
     }
     
     @discardableResult
@@ -267,7 +267,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             self.delegateNotify(.remove(path: path), error: responseError ?? error)
         })
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .remove)
     }
     
     @discardableResult
@@ -288,7 +288,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         }) 
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": localFile.absoluteString as NSString, "dest": toPath as NSString])
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .copy)
     }
     
     @discardableResult
@@ -316,7 +316,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         }) 
         task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": toLocalURL.absoluteString as NSString])
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .copy)
     }
 }
 
@@ -344,7 +344,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             completionHandler(data, responseError ?? error)
         }) 
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .contents)
     }
     
     @discardableResult
@@ -374,7 +374,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         }) 
         task.taskDescription = dictionaryToJSON(["type": "Modify" as NSString, "source": path as NSString])
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: .create)
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {

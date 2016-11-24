@@ -119,7 +119,7 @@ internal extension DropboxFileProvider {
         }
         task.taskDescription = dictionaryToJSON(dic)
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(tasks: [task], operation: operation.baseType)
     }
     
     func search(_ startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, foundItem:@escaping ((_ file: DropboxFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
