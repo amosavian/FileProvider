@@ -28,8 +28,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential? = nil
         
-    open let fileManager = FileManager()
-    open let opFileManager = FileManager()
+    open private(set) var fileManager = FileManager()
+    open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
     public init () {
@@ -102,7 +102,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open weak var fileOperationDelegate : FileOperationDelegate?
     
-    @objc(createWithFolder:at:completionHandler:)
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         operation_queue.async {
@@ -119,7 +118,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .create(path: (atPath as NSString).appendingPathComponent(folderName)), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -152,7 +151,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .create(path: (atPath as NSString).appendingPathComponent(fileAttribs.name)), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -176,7 +175,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .move(source: path, destination: toPath), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -200,7 +199,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .copy(source: path, destination: toPath), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -219,7 +218,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .remove(path: path), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -238,7 +237,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .move(source: localFile.absoluteString, destination: toPath), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -257,7 +256,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 })
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .move(source: path, destination: toLocalURL.absoluteString), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -297,7 +296,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 completionHandler(data, nil)
             }
         }
-        return nil
+        return LocalOperationHandle(operationType: .fetch(path: path), baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -308,7 +307,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 self.delegate?.fileproviderSucceed(self, operation: .modify(path: path))
             })
         }
-        return nil
+        return LocalOperationHandle(operationType: .modify(path: path), baseURL: self.baseURL)
     }
     
     open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
@@ -513,5 +512,135 @@ internal class LocalFolderMonitor {
     
     deinit {
         source.cancel()
+    }
+}
+
+open class LocalOperationHandle: OperationHandle {
+    public let baseURL: URL
+    public let operationType: FileOperationType
+    
+    init (operationType: FileOperationType, baseURL: URL?) {
+        self.baseURL = baseURL ?? LocalFileProvider.defaultBaseURL()
+        self.operationType = operationType
+    }
+    
+    private var sourceURL: URL? {
+        guard let source = operationType.source else { return nil }
+        return source.hasPrefix("file://") ? URL(fileURLWithPath: source) : baseURL.appendingPathComponent(source)
+    }
+    
+    private var destURL: URL? {
+        guard let dest = operationType.destination else { return nil }
+        return dest.hasPrefix("file://") ? URL(fileURLWithPath: dest) : baseURL.appendingPathComponent(dest)
+    }
+
+    /// Caution: may put pressure on CPU, may have latency
+    open var bytesSoFar: Int64 {
+        assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
+        switch operationType {
+        case .modify:
+            guard let url = sourceURL, url.isFileURL else { return 0 }
+            if url.fileIsDirectory {
+                return iterateDirectory(url, deep: true).totalsize
+            } else {
+                return url.fileSize
+            }
+        case .copy, .move:
+            guard let url = destURL, url.isFileURL else { return 0 }
+            if url.fileIsDirectory {
+                return iterateDirectory(url, deep: true).totalsize
+            } else {
+                return url.fileSize
+            }
+        default:
+            return 0
+        }
+
+    }
+    
+    /// Caution: may put pressure on CPU, may have latency
+    open var totalBytes: Int64 {
+        assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
+        switch operationType {
+        case .copy, .move:
+            guard let url = sourceURL, url.isFileURL else { return 0 }
+            if url.fileIsDirectory {
+                return iterateDirectory(url, deep: true).totalsize
+            } else {
+                return url.fileSize
+            }
+        default:
+            return 0
+        }
+    }
+    
+    /// Not usable in local provider
+    open var inProgress: Bool {
+        return false
+    }
+    
+    /// Not usable in local provider
+    open func cancel() -> Bool{
+        return false
+    }
+    
+    func iterateDirectory(_ pathURL: URL, deep: Bool) -> (folders: Int, files: Int, totalsize: Int64) {
+        var folders = 0
+        var files = 0
+        var totalsize: Int64 = 0
+        let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey]
+        let enumOpt: FileManager.DirectoryEnumerationOptions = !deep ? [.skipsSubdirectoryDescendants, .skipsPackageDescendants] : []
+
+        let fp = FileManager()
+        let filesList = fp.enumerator(at: pathURL, includingPropertiesForKeys: keys, options: enumOpt, errorHandler: nil)
+        while let fileURL = filesList?.nextObject() as? URL {
+            var isdirv, sizev: AnyObject?
+            do {
+                try (fileURL as NSURL).getResourceValue(&isdirv, forKey: URLResourceKey.isDirectoryKey)
+            } catch _ {
+            }
+            do {
+                try (fileURL as NSURL).getResourceValue(&sizev, forKey: URLResourceKey.fileSizeKey)
+            } catch _ {
+            }
+            let isdir = isdirv?.boolValue ?? false
+            let size = sizev?.int64Value ?? 0
+            if isdir {
+                folders += 1
+            } else {
+                files += 1
+            }
+            totalsize += size
+        }
+        
+        return (folders, files, totalsize)
+
+    }
+}
+
+internal extension URL {
+    var fileIsDirectory: Bool {
+        var isdirv: AnyObject?
+        do {
+            try (self as NSURL).getResourceValue(&isdirv, forKey: URLResourceKey.isDirectoryKey)
+        } catch _ {
+        }
+        return isdirv?.boolValue ?? false
+    }
+    
+    var fileSize: Int64 {
+        var sizev: AnyObject?
+        do {
+            try (self as NSURL).getResourceValue(&sizev, forKey: URLResourceKey.fileSizeKey)
+        } catch _ {
+        }
+        return sizev?.int64Value ?? -1
+    }
+    
+    var fileExists: Bool {
+        if self.isFileURL {
+            return FileManager.default.fileExists(atPath: self.path)
+        }
+        return false
     }
 }

@@ -115,7 +115,7 @@ Your class should conforms `FileProviderDelegate` class:
 		case .remove(path: let path):
 			print("\(path) has been deleted.")
 		default:
-			break
+			print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) succeed")
 		}
 	}
 	
@@ -126,7 +126,7 @@ Your class should conforms `FileProviderDelegate` class:
 		case .remove(path: let path):
 			print("\(path) can't be deleted.")
 		default:
-			break
+			print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) failed")
 		}
     }
 	
@@ -255,7 +255,7 @@ If you want to retrieve a portion of file you can use `contents` method with off
 
 ### Operation Handle
 
-Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides progress and a `.cancel()` method which allows you to cancel operation in midst.
+Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst.
 
 It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
 

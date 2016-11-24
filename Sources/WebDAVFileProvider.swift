@@ -64,6 +64,7 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+        let opType = FileOperationType.fetch(path: path)
         let url = absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -87,7 +88,8 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
                 }
             }
             completionHandler(fileObjects, responseError ?? error)
-        }) 
+        })
+        task.taskDescription = opType.json
         task.resume()
     }
     
@@ -150,7 +152,8 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasic {
 extension WebDAVFileProvider: FileProviderOperations {
     @discardableResult
     public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")) ?? true == true else {
+        let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = absoluteURL((atPath as NSString).appendingPathComponent(folderName) + "/")
@@ -162,15 +165,17 @@ extension WebDAVFileProvider: FileProviderOperations {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/"), error: responseError ?? error)
+            self.delegateNotify(opType, error: responseError ?? error)
         })
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .create(path: path)) ?? true == true else {
+        let opType = FileOperationType.create(path: (path as NSString).appendingPathComponent(fileAttribs.name))
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = absoluteURL(path)
@@ -182,38 +187,38 @@ extension WebDAVFileProvider: FileProviderOperations {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.create(path: (path as NSString).appendingPathComponent(fileAttribs.name)), error: responseError ?? error)
+            self.delegateNotify(opType, error: responseError ?? error)
         })
-        task.taskDescription = dictionaryToJSON(["type": "Create" as NSString, "source": (path as NSString).appendingPathComponent(fileAttribs.name) as NSString])
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .move(source: path, destination: toPath)) ?? true == true else {
+        let opType = FileOperationType.move(source: path, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        return self.copyMoveItem(move: true, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
+        return self.copyMoveItem(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
     public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: toPath)) ?? true == true else {
+        let opType = FileOperationType.copy(source: path, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        return self.copyMoveItem(move: false, path: path, toPath: toPath, overwrite: overwrite, completionHandler: completionHandler)
+        return self.copyMoveItem(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
     }
     
-    fileprivate func copyMoveItem(move:Bool, path: String, toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let url = absoluteURL(path)
-        var request = URLRequest(url: url)
-        if move {
-            request.httpMethod = "MOVE"
-        } else {
-            request.httpMethod = "COPY"
-        }
-        request.setValue(absoluteURL(path).absoluteString, forHTTPHeaderField: "Destination")
+    fileprivate func copyMoveItem(operation opType: FileOperationType, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        guard let source = opType.source, let dest = opType.destination else { return nil }
+        // Using switch is more readable than using reflect. Maybe some
+        let sourceURL = absoluteURL(source)
+        var request = URLRequest(url: sourceURL)
+        request.httpMethod = opType.description.uppercased() // "COPY" or "MOVE"
+        request.setValue(absoluteURL(dest).absoluteString, forHTTPHeaderField: "Destination")
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
@@ -221,28 +226,30 @@ extension WebDAVFileProvider: FileProviderOperations {
             var responseError: FileProviderWebDavError?
             if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
                 if response.statusCode >= 300  {
-                    responseError = FileProviderWebDavError(code: code, url: url)
+                    responseError = FileProviderWebDavError(code: code, url: sourceURL)
                 }
                 if code == .multiStatus, let data = data {
                     let xresponses = self.parseXMLResponse(data)
                     for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
-                        completionHandler?(FileProviderWebDavError(code: code, url: url))
+                        completionHandler?(FileProviderWebDavError(code: code, url: sourceURL))
                     }
                 }
             }
             if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
                 completionHandler?(responseError ?? error)
             }
-            let op = move ? FileOperationType.move(source: path, destination: toPath) : .copy(source: path, destination: toPath)
-            self.delegateNotify(op, error: responseError ?? error)
+            
+            self.delegateNotify(opType, error: responseError ?? error)
         })
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .remove(path: path)) ?? true == true else {
+        let opType = FileOperationType.remove(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = absoluteURL(path)
@@ -264,15 +271,17 @@ extension WebDAVFileProvider: FileProviderOperations {
             if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
                 completionHandler?(responseError ?? error)
             }
-            self.delegateNotify(.remove(path: path), error: responseError ?? error)
+            self.delegateNotify(opType, error: responseError ?? error)
         })
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: localFile.absoluteString, destination: toPath)) ?? true == true else {
+        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = absoluteURL(toPath)
@@ -284,16 +293,17 @@ extension WebDAVFileProvider: FileProviderOperations {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.copy(source: localFile.absoluteString, destination: toPath), error: responseError ?? error)
+            self.delegateNotify(opType, error: responseError ?? error)
         }) 
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": localFile.absoluteString as NSString, "dest": toPath as NSString])
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: toLocalURL.absoluteString)) ?? true == true else {
+        let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = absoluteURL(path)
@@ -312,11 +322,11 @@ extension WebDAVFileProvider: FileProviderOperations {
                 }
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.copy(source: path, destination: toLocalURL.absoluteString), error: responseError ?? error)
+            self.delegateNotify(opType, error: responseError ?? error)
         }) 
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": toLocalURL.absoluteString as NSString])
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
 }
 
@@ -328,6 +338,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     
     @discardableResult
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        let opType = FileOperationType.fetch(path: path)
         let url = absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -342,14 +353,16 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             completionHandler(data, responseError ?? error)
-        }) 
+        })
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     @discardableResult
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .modify(path: path)) ?? true == true else {
+        let opType = FileOperationType.modify(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         // FIXME: lock destination before writing process
@@ -362,7 +375,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 responseError = FileProviderWebDavError(code: rCode, url: self.absoluteURL(path))
             }
             defer {
-                self.delegateNotify(.modify(path: path), error: responseError ?? error)
+                self.delegateNotify(opType, error: responseError ?? error)
             }
             if let error = error {
                 completionHandler?(error)
@@ -372,9 +385,9 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 self.moveItem(path: (path as NSString).appendingPathExtension("tmp")!, to: path, completionHandler: completionHandler)
             }
         }) 
-        task.taskDescription = dictionaryToJSON(["type": "Modify" as NSString, "source": path as NSString])
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {

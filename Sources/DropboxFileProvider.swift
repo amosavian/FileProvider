@@ -127,25 +127,18 @@ extension DropboxFileProvider: FileProviderOperations {
             return nil
         }
         let url: String
-        var path: String?, fromPath: String?, toPath: String?
+        guard let sourcePath = operation.source else { return nil }
+        let destPath = operation.destination
         switch operation {
-        case .create(path: let p):
+        case .create:
             url = "https://api.dropboxapi.com/2/files/create_folder"
-            path = p
-        case .copy(source: let fp, destination: let tp):
+        case .copy:
             url = "https://api.dropboxapi.com/2/files/copy"
-            fromPath = fp
-            toPath = tp
-        case .move(source: let fp, destination: let tp):
+        case .move:
             url = "https://api.dropboxapi.com/2/files/move"
-            fromPath = fp
-            toPath = tp
-        case .remove(path: let p):
+        case .remove:
             url = "https://api.dropboxapi.com/2/files/delete"
-            path = p
-        case .modify(path: _):
-            return nil
-        case .link(link: _, target: _):
+        default: // modify, link, fetch
             return nil
         }
         var request = URLRequest(url: URL(string: url)!)
@@ -153,24 +146,29 @@ extension DropboxFileProvider: FileProviderOperations {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var requestDictionary = [String: AnyObject]()
-        requestDictionary["path"] = correctPath(path) as NSString?
-        requestDictionary["from_path"] = correctPath(fromPath) as NSString?
-        requestDictionary["to_path"] = correctPath(toPath) as NSString?
+        if let dest = correctPath(destPath) as NSString? {
+            requestDictionary["from_path"] = correctPath(sourcePath) as NSString?
+            requestDictionary["to_path"] = dest
+        } else {
+            requestDictionary["path"] = correctPath(sourcePath) as NSString?
+        }
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var dbError: FileProviderDropboxError?
             if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                 dbError = FileProviderDropboxError(code: code, path: path ?? fromPath ?? "", errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                 dbError = FileProviderDropboxError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             completionHandler?(dbError ?? error)
             self.delegateNotify(operation, error: dbError ?? error)
-        }) 
+        })
+        task.taskDescription = operation.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: operation, tasks: [task])
     }
     
     public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: localFile.absoluteString, destination: toPath)) ?? true == true else {
+        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         guard let data = try? Data(contentsOf: localFile) else {
@@ -178,11 +176,12 @@ extension DropboxFileProvider: FileProviderOperations {
             completionHandler?(error)
             return nil
         }
-        return upload_simple(toPath, data: data, overwrite: true, operation: .copy(source: localFile.absoluteString, destination: toPath), completionHandler: completionHandler)
+        return upload_simple(toPath, data: data, overwrite: true, operation: opType, completionHandler: completionHandler)
     }
     
     public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .copy(source: path, destination: destURL.absoluteString)) ?? true == true else {
+        let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
@@ -206,9 +205,9 @@ extension DropboxFileProvider: FileProviderOperations {
                 completionHandler?(e)
             }
         })
-        task.taskDescription = dictionaryToJSON(["type": "Copy" as NSString, "source": path as NSString, "dest": destURL.absoluteString as NSString])
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
 }
 
@@ -218,6 +217,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        let opType = FileOperationType.fetch(path: path)
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -237,16 +237,18 @@ extension DropboxFileProvider: FileProviderReadWrite {
             let filedata = dbError ?? error == nil ? data : nil
             completionHandler(filedata, dbError ?? error)
         })
+        task.taskDescription = opType.json
         task.resume()
-        return RemoteOperationHandle(tasks: [task])
+        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
     public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: .modify(path: path)) ?? true == true else {
+        let opType = FileOperationType.modify(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         // FIXME: remove 150MB restriction
-        return upload_simple(path, data: data, overwrite: true, operation: .modify(path: path), completionHandler: completionHandler)
+        return upload_simple(path, data: data, overwrite: true, operation: opType, completionHandler: completionHandler)
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
@@ -315,7 +317,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         requestDictionary["format"] = "jpeg" as NSString
         requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))" as NSString
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
-        self.session.dataTask(with: request, completionHandler: { (data, response, error) in
+        let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
             if let r = response as? HTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = jsonToDictionary(result) {
                 if jsonResult["error"] != nil {
@@ -326,7 +328,8 @@ extension DropboxFileProvider: ExtendedFileProvider {
                 image = ImageClass(data: data)
             }
             completionHandler(image, error)
-        }) 
+        })
+        task.resume()
     }
     
     public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {

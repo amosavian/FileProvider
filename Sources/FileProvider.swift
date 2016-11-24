@@ -289,37 +289,58 @@ public enum FileOperationType: CustomStringConvertible {
     case modify (path: String)
     case remove (path: String)
     case link   (link: String, target: String)
+    case fetch  (path: String)
     
     public var description: String {
         switch self {
-        case .create(path: _): return "Create"
-        case .copy(source: _, destination: _): return "Copy"
-        case .move(source: _, destination: _): return "Move"
-        case .modify(path: _): return "Modify"
-        case .remove(path: _): return "Remove"
-        case .link(link: _, target: _): return "Link"
+        case .create: return "Create"
+        case .copy: return "Copy"
+        case .move: return "Move"
+        case .modify: return "Modify"
+        case .remove: return "Remove"
+        case .link: return "Link"
+        case .fetch: return "Fetch"
         }
     }
     
     public var actionDescription: String {
-        switch self {
-        case .create(path: _): return "Creating"
-        case .copy(source: _, destination: _): return "Copying"
-        case .move(source: _, destination: _): return "Moving"
-        case .modify(path: _): return "Modifying"
-        case .remove(path: _): return "Removing"
-        case .link(link: _, target: _): return "Linking"
-        }
+        return description.trimmingCharacters(in: CharacterSet(charactersIn: "e")) + "ing"
+    }
+    
+    public var source: String? {
+        guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
+        let mirror = Mirror(reflecting: reflect)
+        return reflect as? String ?? mirror.children.first?.value as? String
+    }
+    
+    public var destination: String? {
+        guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
+        let mirror = Mirror(reflecting: reflect)
+        return mirror.children.dropFirst().first?.value as? String
+    }
+    
+    internal var json: String? {
+        var dictionary: [String: AnyObject] = ["type": self.description as NSString]
+        dictionary["source"] = source as NSString?
+        dictionary["dest"] = destination as NSString?
+        return dictionaryToJSON(dictionary)
     }
 }
 
-@objc
 public protocol OperationHandle {
-    var progress: Float { get }
+    var operationType: FileOperationType { get }
     var bytesSoFar: Int64 { get }
     var totalBytes: Int64 { get }
     var inProgress: Bool { get }
-    func cancel()
+    func cancel() -> Bool
+}
+
+public extension OperationHandle {
+    public var progress: Float {
+        let bytesSoFar = self.bytesSoFar
+        let totalBytes = self.totalBytes
+        return totalBytes > 0 ? Float(Double(bytesSoFar) / Double(totalBytes)) : Float.nan
+    }
 }
 
 internal class Weak<T: AnyObject> {

@@ -12,14 +12,11 @@ open class RemoteOperationHandle: OperationHandle {
     
     internal var tasks: [Weak<URLSessionTask>]
     
-    private var _inProgress = false
-    open var inProgress: Bool {
-        return _inProgress
-    }
+    open private(set) var operationType: FileOperationType
     
-    init(tasks: [URLSessionTask]) {
+    init(operationType: FileOperationType, tasks: [URLSessionTask]) {
+        self.operationType = operationType
         self.tasks = tasks.map { Weak<URLSessionTask>($0) }
-        _inProgress = true
     }
     
     internal func add(task: URLSessionTask) {
@@ -28,12 +25,6 @@ open class RemoteOperationHandle: OperationHandle {
     
     private func reape() {
         self.tasks = tasks.filter { $0.value != nil }
-    }
-    
-    open var progress: Float {
-        let bytesSoFar = self.bytesSoFar
-        let totalBytes = self.totalBytes
-        return totalBytes > 0 ? Float(Double(bytesSoFar) / Double(totalBytes)) : Float.nan
     }
     
     open var bytesSoFar: Int64 {
@@ -56,11 +47,17 @@ open class RemoteOperationHandle: OperationHandle {
         }
     }
     
-    open func cancel() {
+    open func cancel() -> Bool {
+        var canceled = false
         for taskbox in tasks {
             taskbox.value?.cancel()
+            canceled = true
         }
-        _inProgress = false
+        return canceled
+    }
+    
+    open var inProgress: Bool {
+        return tasks.reduce(false) { $0 || $1.value?.state ?? .canceling == .running }
     }
 }
 
