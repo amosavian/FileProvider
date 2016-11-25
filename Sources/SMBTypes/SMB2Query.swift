@@ -28,7 +28,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = encode(header)
+            var result = Data(value: header)
             if let patternData = searchPattern?.data(using: .utf16) {
                 result.append(patternData)
             }
@@ -68,43 +68,24 @@ extension SMB2 {
             var result = [(header: SMB2FilesInformationHeader, fileName: String)]()
             while true {
                 let header: SMB2FilesInformationHeader
-                let headersize: Int
                 switch type {
                 case .fileDirectoryInformation:
-                    headersize = MemoryLayout<FileDirectoryInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileDirectoryInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileDirectoryInformationHeader!
                 case .fileFullDirectoryInformation:
-                    headersize = MemoryLayout<FileFullDirectoryInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileFullDirectoryInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileFullDirectoryInformationHeader!
                 case .fileIdFullDirectoryInformation:
-                    headersize = MemoryLayout<FileIdFullDirectoryInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileIdFullDirectoryInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileIdFullDirectoryInformationHeader!
                 case .fileBothDirectoryInformation:
-                    headersize = MemoryLayout<FileBothDirectoryInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileBothDirectoryInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileBothDirectoryInformationHeader!
                 case .fileIdBothDirectoryInformation:
-                    headersize = MemoryLayout<FileIdBothDirectoryInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileIdBothDirectoryInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileIdBothDirectoryInformationHeader!
                 case .fileNamesInformation:
-                    headersize = MemoryLayout<FileNamesInformationHeader>.size
-                    let headerData = buffer.subdata(in: offset..<(offset + headersize))
-                    let h: FileNamesInformationHeader = decode(headerData)
-                    header = h
+                    header = buffer.scanValue(start: offset) as FileNamesInformationHeader!
                 default:
                     return []
                 }
-                let fnData = buffer.subdata(in: (offset + headersize)..<(offset + headersize + Int(header.fileNameLength)))
-                let fileName = String(data: fnData, encoding: .utf16) ?? ""
+                let headersize = MemoryLayout.size(ofValue: header)
+                let fileName = buffer.scanString(start: headersize, length: Int(header.fileNameLength), encoding: .utf16) ?? ""
                 result.append((header: header, fileName: fileName))
                 if header.nextEntryOffset == 0 {
                     break
@@ -115,8 +96,8 @@ extension SMB2 {
         }
         
         init? (data: Data) {
-            let offset = Int(decode(data.subdata(in: 2..<4)) as UInt16)
-            let length = Int(decode(data.subdata(in: 4..<8)) as UInt32)
+            let offset = Int(data.scanValue(start: 2) as UInt16!)
+            let length = Int(data.scanValue(start: 4) as UInt32!)
             guard data.count > offset + length else {
                 return nil
             }
@@ -143,8 +124,8 @@ extension SMB2 {
                 }
                 let strLength = UInt8(strData.count)
                 let nextOffset = UInt32(4 + 1 + strData.count)
-                var data = encode(nextOffset)
-                data.append(encode(strLength))
+                var data = Data(value: nextOffset)
+                data.append(Data(value: strLength))
                 data.append(strData)
                 data.count += 1
                 let padSize = (data.count) % 4
@@ -170,8 +151,7 @@ extension SMB2 {
         // TODO: Implement QUOTA_INFO init
         
         func data() -> Data {
-            let headerData = encode(header)
-            var result = headerData
+            var result = Data(value: header)
             if let buffer = buffer {
                 result.append(buffer)
             }
@@ -208,8 +188,7 @@ extension SMB2 {
         let buffer: Data
         
         init?(data: Data) {
-            let structSizeData = data.subdata(in: 0..<2)
-            let structSize: UInt16 = decode(structSizeData)
+            let structSize: UInt16 = data.scanValue()!
             guard structSize == 9 else {
                 return nil
             }
@@ -217,10 +196,9 @@ extension SMB2 {
             /*let offsetData = data.subdataWithRange(NSRange(location: 2, length: 2))
             let offset: UInt16 = decode(offsetData)*/
             
-            let lengthData = data.subdata(in: 4..<8)
-            let length = Int(decode(lengthData) as UInt32)
+            let length = Int(data.scanValue(start: 4) as UInt32!)
             
-            guard data.count >= 8 + Int(length) else {
+            guard data.count >= 8 + length else {
                 return nil
             }
             
@@ -228,40 +206,38 @@ extension SMB2 {
         }
         
         var asAccessInformation: FileAccessInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asAlignmentInformation: FileAlignmentInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asAllInformation: (header: FileAllInformationHeader, name: String) {
-            let header: FileAllInformationHeader = decode(buffer)
+            let header: FileAllInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileAllInformationHeader>.size
-            let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.nameLength)))
-            let name = String(data: nameData, encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), encoding: .utf16) ?? ""
             return (header, name)
         }
         
         var asAlternateNameInformation: String {
-            let b = (buffer as NSData).bytes.bindMemory(to: CChar.self, capacity: buffer.count)
-            return String(cString: b, encoding: .utf16) ?? ""
+            return buffer.scanString(start: 0, length: buffer.count, encoding: .utf16) ?? ""
         }
         
         var asAttributeTagInformation: FileAttributeTagInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asBasicInformation: FileBasicInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asCompressionInformation: FileCompressionInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asEaInformation: FileEaInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFullEaInformation: FileFullEaInformation {
@@ -270,83 +246,80 @@ extension SMB2 {
         }
         
         var asInternalInformation: FileInternalInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asModeInformation: FileModeInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asNetworkOpenInformation: FileNetworkOpenInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asPipeInformation: FilePipeInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asPipeLocalInformation: FilePipeLocalInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asPipeRemoteInformation: FilePipeRemoteInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asPositionInformation: FilePositionInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asStandardInformation: FileStandardInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asStreamInformation: (header: FileStreamInformationHeader, name: String) {
-            let header: FileStreamInformationHeader = decode(buffer)
+            let header: FileStreamInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileStreamInformationHeader>.size
-            let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.streamNameLength)))
-            let name = String(data: nameData, encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.streamNameLength), encoding: .utf16) ?? ""
             return (header, name)
         }
         
         var asFsVolumeInformation: (header: FileFsVolumeInformationHeader, name: String) {
-            let header: FileFsVolumeInformationHeader = decode(buffer)
+            let header: FileFsVolumeInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileFsVolumeInformationHeader>.size
-            let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.labelLength)))
-            let name = String(data: nameData, encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.labelLength), encoding: .utf16) ?? ""
             return (header, name)
         }
         
         var asFsSizeInformation: FileFsSizeInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFsDeviceInformation: FileFsDeviceInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFsAttributeInformation: (header: FileFsAttributeInformationHeader, name: String) {
-            let header: FileFsAttributeInformationHeader = decode(buffer)
+            let header: FileFsAttributeInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileFsAttributeInformationHeader>.size
-            let nameData = buffer.subdata(in: headersize..<(headersize + Int(header.nameLength)))
-            let name = String(data: nameData, encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), encoding: .utf16) ?? ""
             return (header, name)
         }
         
         var asFsControlInformation: FileFsControlInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFsFullSizeInformation: FileFsFullSizeInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFsObjectIdInformation: FileFsObjectIdInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
         
         var asFsSectorSizeInformation: FileFsSectorSizeInformation {
-            return decode(buffer)
+            return buffer.scanValue()!
         }
     }
 }

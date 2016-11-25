@@ -8,7 +8,7 @@
 
 import Foundation
 
-open class SMBFileProvider: FileProvider, FileProviderMonitor {
+class SMBFileProvider: FileProvider, FileProviderMonitor {
     open static var type: String = "Samba"
     open var isPathRelative: Bool = true
     open var baseURL: URL?

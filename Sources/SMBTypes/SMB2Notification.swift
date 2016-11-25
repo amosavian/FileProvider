@@ -28,10 +28,6 @@ extension SMB2 {
             self.reserved = 0
         }
         
-        func data() -> Data {
-            return encode(self)
-        }
-        
         struct Flags: OptionSet {
             let rawValue: UInt16
             
@@ -89,19 +85,14 @@ extension SMB2 {
             
             var offset = 0
             while i < maxLoop {
-                let nextOffsetData = data.subdata(in: offset..<(offset + 4))
-                let nextOffset: UInt32 = decode(nextOffsetData)
-                
-                let actionData = data.subdata(in: (offset + 4)..<(offset + 8))
-                let actionValue: UInt32 = decode(actionData)
+                let nextOffset: UInt32 = data.scanValue(start: offset) ?? 0
+                let actionValue: UInt32 = data.scanValue(start: offset + 4) ?? 0
                 guard let action = FileNotifyAction(rawValue: actionValue) else {
                     continue
                 }
                 
-                let fileLenData = data.subdata(in: (offset + 8)..<(offset + 12))
-                let fileNameLen = Int(decode(fileLenData) as UInt32)
-                let fileNameData = data.subdata(in: (offset + 12)..<(offset + 12 + fileNameLen))
-                let fileName = String(data: fileNameData, encoding: .utf16) ?? ""
+                let fileNameLen = Int(data.scanValue(start: offset + 8) as UInt32? ?? 0)
+                let fileName = data.scanString(start: offset + 12, length: fileNameLen, encoding: .utf16) ?? ""
                 result.append((action: action, fileName: fileName))
                 
                 offset += Int(nextOffset)

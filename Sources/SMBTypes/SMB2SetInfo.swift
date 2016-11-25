@@ -14,10 +14,10 @@ extension SMB2 {
         let header: Header
         let buffer: Data?
         
-        
-        
         func data() -> Data {
-            return Data()
+            var result = Data(value: header)
+            result.append(buffer ?? Data())
+            return result 
         }
         
         struct Header {
@@ -37,10 +37,6 @@ extension SMB2 {
         
         init() {
             self.size = 2
-        }
-        
-        init? (data: Data) {
-            self = decode(data)
         }
     }
 }

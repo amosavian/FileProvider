@@ -40,7 +40,7 @@ extension SMB2 {
                 header.contextLength = 0
                 //result.appendData(nameData)
             }
-            var result = encode(&header)
+            var result = Data(value: header)
             result.append(body)
             return result
         }
@@ -186,7 +186,7 @@ extension SMB2 {
             guard data.count >= MemoryLayout<CreateResponse.Header>.size else {
                 return nil
             }
-            self.header = decode(data)
+            self.header = data.scanValue()!
             if self.header.contextsOffset > 0 {
                 var contexts = [CreateContext]()
                 var contextOffset = Int(self.header.contextsOffset) - MemoryLayout<SMB2.Header>.size
@@ -195,14 +195,9 @@ extension SMB2 {
                         self.contexts = contexts
                         return
                     }
-                    let contextDataHeader = data.subdata(in: contextOffset..<(contextOffset + MemoryLayout<CreateContext.Header>.size))
-                    if let lastContextHeader = CreateContext(data: contextDataHeader) {
-                        let lastContextLen = Int(lastContextHeader.header.dataOffset) + Int(lastContextHeader.header.dataLength) - contextOffset
-                        let lastContextData = data.subdata(in: contextOffset..<(contextOffset + lastContextLen))
-                        if let newContext = CreateContext(data: lastContextData) {
-                            contexts.append(newContext)
-                        }
-                        contextOffset = Int(lastContextHeader.header.next) - MemoryLayout<SMB2.Header>.size
+                    while contextOffset > 0, let context: CreateContext = data.scanValue(start: contextOffset) {
+                        contexts.append(context)
+                        contextOffset = Int(context.header.next) - MemoryLayout<SMB2.Header>.size
                     }
                 }
                 self.contexts = contexts
@@ -244,12 +239,12 @@ extension SMB2 {
             guard data.count > headersize else {
                 return nil
             }
-            self.header = decode(data)
+            self.header = data.scanValue()!
             self.buffer = data.subdata(in: headersize..<data.count)
         }
         
         func data() -> Data {
-            var result = encode(header)
+            var result = Data(value: header)
             result.append(buffer)
             return result
         }
@@ -377,10 +372,6 @@ extension SMB2 {
             self.flags = []
             self.reserved2 = 0
         }
-        
-        func data() -> Data {
-            return encode(self)
-        }
     }
     
     struct CloseResponse: SMBResponse {
@@ -394,10 +385,6 @@ extension SMB2 {
         let allocationSize: UInt64
         let endOfFile: UInt64
         let fileAttributes: FileAttributes
-        
-        init? (data: Data) {
-            self = decode(data)
-        }
     }
     
     struct CloseFlags: OptionSet {
@@ -426,10 +413,6 @@ extension SMB2 {
             self.reserved = 0
             self.reserved2 = 0
         }
-        
-        func data() -> Data {
-            return encode(self)
-        }
     }
     
     struct FlushResponse: SMBResponse {
@@ -439,10 +422,6 @@ extension SMB2 {
         init() {
             self.size = 4
             self.reserved = 0
-        }
-        
-        init? (data: Data) {
-            self = decode(data)
         }
     }
 }

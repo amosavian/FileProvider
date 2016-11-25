@@ -127,10 +127,6 @@ extension SMB2 {
         let allocationSize: UInt64
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     struct FileFullDirectoryInformationHeader: SMB2FilesInformationHeader {
@@ -145,10 +141,6 @@ extension SMB2 {
         let fileAttributes: FileAttributes
         let fileNameLength : UInt32
         let extendedAttributesSize: UInt32
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     struct FileIdFullDirectoryInformationHeader: SMB2FilesInformationHeader {
@@ -165,10 +157,6 @@ extension SMB2 {
         let extendedAttributesSize: UInt32
         fileprivate let reserved: UInt32
         let fileId: FileId
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     struct FileBothDirectoryInformationHeader: SMB2FilesInformationHeader {
@@ -187,14 +175,9 @@ extension SMB2 {
         fileprivate let reserved: UInt8
         fileprivate let _shortName: FileShortNameType
         var shortName: String? {
-            let s = encode(_shortName)
-            var d = s
-            d.count = Int(shortNameLen)
-            return String(data: d, encoding: .utf16)
-        }
-        
-        init?(data: Data) {
-            self = decode(data)
+            var data = Data(value: _shortName)
+            data.count = Int(shortNameLen)
+            return String(data: data, encoding: .utf16)
         }
     }
     
@@ -214,27 +197,18 @@ extension SMB2 {
         fileprivate let reserved: UInt8
         fileprivate let _shortName: FileShortNameType
         var shortName: String? {
-            let s = encode(_shortName)
-            var d = s
-            d.count = Int(shortNameLen)
-            return String(data: d, encoding: .utf16)
+            var data = Data(value: _shortName)
+            data.count = Int(shortNameLen)
+            return String(data: data, encoding: .utf16)
         }
         fileprivate let reserved2: UInt16
         let fileId : FileId
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     struct FileNamesInformationHeader: SMB2FilesInformationHeader {
         let nextEntryOffset: UInt32
         let fileIndex: UInt32
         let fileNameLength : UInt32
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     typealias FileShortNameType = (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,

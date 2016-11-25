@@ -43,13 +43,11 @@ extension SMB2 {
             
             var contextData = Data()
             for context in contexts {
-                var contextType = context.type.rawValue
-                contextData.append(UnsafeBufferPointer(start: &contextType, count: 2))
-                var dataLen = UInt16(context.data.count)
+                contextData.append(Data(value: context.type.rawValue))
                 contextData.count += 4
-                contextData.append(UnsafeBufferPointer(start: &dataLen, count: 2))
+                contextData.append(Data(value: UInt16(context.data.count)))
             }
-            var result = encode(&header)
+            var result = Data(value: header)
             result.append(dialectData as Data)
             result.append(contextData as Data)
             return result
@@ -97,10 +95,10 @@ extension SMB2 {
         let contexts: [(type: NegotiateContextType, data: Data)]
         
         init? (data: Data) {
-            if data.count < 64 {
+            guard data.count >= 64 else {
                 return nil
             }
-            self.header = decode(data)
+            self.header = data.scanValue()!
             if Int(header.size) != 65 {
                 return nil
             }
@@ -194,7 +192,7 @@ extension SMB2 {
             var header = self.header
             header.bufferOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<SessionSetupRequest.Header>.size)
             header.bufferLength = UInt16(buffer?.count ?? 0)
-            var result = encode(&header)
+            var result = Data(value: header)
             if let buffer = self.buffer {
                 result.append(buffer)
             }
@@ -240,10 +238,10 @@ extension SMB2 {
         let buffer: Data?
         
         init? (data: Data) {
-            if data.count < 64 {
+            guard data.count >= 64 else {
                 return nil
             }
-            self.header = decode(data)
+            self.header = data.scanValue()!
             if Int(header.size) != 9 {
                 return nil
             }
@@ -297,14 +295,6 @@ extension SMB2 {
             self.size = 4
             self.reserved = 0
         }
-        
-        init? (data: Data) {
-            self = decode(data)
-        }
-        
-        func data() -> Data {
-            return encode(self)
-        }
     }
     
     // MARK: SMB2 Echo
@@ -316,14 +306,6 @@ extension SMB2 {
         init() {
             self.size = 4
             self.reserved = 0
-        }
-        
-        init? (data: Data) {
-            self = decode(data)
-        }
-        
-        func data() -> Data {
-            return encode(self)
         }
     }
 }

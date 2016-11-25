@@ -34,7 +34,7 @@ extension SMB2 {
             var header = self.header
             header.pathOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<TreeConnectRequest.Header>.size)
             header.pathLength = UInt16(buffer?.count ?? 0)
-            var result = encode(&header)
+            var result = Data(value: header)
             if let buffer = self.buffer {
                 result.append(buffer)
             }
@@ -76,13 +76,6 @@ extension SMB2 {
         let flags: TreeConnectResponse.ShareFlags
         let capabilities: TreeConnectResponse.Capabilities
         let maximalAccess: FileAccessMask
-        
-        init? (data: Data) {
-            if data.count != 16 {
-                return nil
-            }
-            self = decode(data)
-        }
         
         enum ShareType: UInt8 {
             case UNKNOWN  = 0x00
@@ -138,14 +131,6 @@ extension SMB2 {
         init() {
             self.size = 4
             self.reserved = 0
-        }
-        
-        init? (data: Data) {
-            self = decode(data)
-        }
-        
-        func data() -> Data {
-            return encode(self)
         }
     }
 }

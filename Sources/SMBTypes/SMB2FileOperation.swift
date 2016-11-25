@@ -43,10 +43,6 @@ extension SMB2 {
             self.channelBuffer = 0
         }
         
-        func data() -> Data {
-            return encode(read)
-        }
-        
         struct Flags: OptionSet {
             let rawValue: UInt8
             
@@ -75,7 +71,7 @@ extension SMB2 {
             guard data.count > 16 else {
                 return nil
             }
-            self.header = decode(data)
+            self.header = data.scanValue()!
             let headersize = MemoryLayout<Header>.size
             self.buffer = data.subdata(in: headersize..<data.count)
         }
@@ -124,7 +120,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = encode(self.header)
+            var result = Data(value: self.header)
             if let channelInfo = channelInfo {
                 result.append(channelInfo.data())
             }
@@ -151,20 +147,12 @@ extension SMB2 {
         fileprivate let remaining: UInt32
         fileprivate let channelInfoOffset: UInt16
         fileprivate let channelInfoLength: UInt16
-        
-        init?(data: Data) {
-            self = decode(data)
-        }
     }
     
     struct ChannelInfo: SMBRequest {
         let offset: UInt64
         let token: UInt32
         let length: UInt32
-        
-        func data() -> Data {
-            return encode(data)
-        }
     }
     
     // MARK: SMB2 Lock
@@ -174,10 +162,6 @@ extension SMB2 {
         let length: UInt64
         let flags: LockElement.Flags
         fileprivate let reserved: UInt32
-        
-        func data() -> Data {
-            return encode(self)
-        }
         
         struct Flags: OptionSet {
             let rawValue: UInt32
@@ -203,9 +187,9 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = encode(header)
+            var result = Data(value: header)
             for lock in locks {
-                result.append(encode(lock))
+                result.append(Data(value: lock))
             }
             return result
         }
@@ -226,10 +210,6 @@ extension SMB2 {
             self.size = 4
             self.reserved = 0
         }
-        
-        init? (data: Data) {
-            self = decode(data)
-        }
     }
     
     // MARK: SMB2 Cancel
@@ -241,10 +221,6 @@ extension SMB2 {
         init() {
             self.size = 4
             self.reserved = 0
-        }
-        
-        func data() -> Data {
-            return encode(self)
         }
     }
 }

@@ -26,7 +26,7 @@ extension SMB2 {
         }
         
         func data() -> Data {
-            var result = encode(self.header)
+            var result = Data(value: self.header)
             if let reqData = requestData?.data() {
                 result.append(reqData)
             }
@@ -68,7 +68,7 @@ extension SMB2 {
         let responseData:  IOCtlResponseProtocol?
         
         init?(data: Data) {
-            self.header = decode(data)
+            self.header = data.scanValue()!
             let endRange = Int(self.header.outputOffset - 64) + Int(self.header.outputCount)
             let response = data.subdata(in: Int(self.header.outputOffset - 64)..<endRange)
             switch self.header.ctlCode {
@@ -140,10 +140,10 @@ extension SMB2 {
             let chunks: [Chunk]
             
             func data() -> Data {
-                var result = encode(sourceKey)
-                result.append(encode(chunkCount))
-                var reserved: UInt32 = 0
-                result.append(encode(&reserved))
+                var result = Data(value: sourceKey)
+                result.append(Data(value: chunkCount))
+                let reserved: UInt32 = 0
+                result.append(Data(value: reserved))
                 return Data()
             }
             
@@ -152,10 +152,6 @@ extension SMB2 {
                 let targetOffset: UInt64
                 let length: UInt32
                 fileprivate let reserved: UInt32
-                
-                func data() -> Data {
-                    return encode(self)
-                }
             }
         }
         
@@ -182,10 +178,6 @@ extension SMB2 {
                 self.length = length
                 self.offset = offset
             }
-            
-            func data() -> Data {
-                return encode(self)
-            }
         }
         
         struct ResilencyRequest: IOCtlRequestProtocol {
@@ -196,10 +188,6 @@ extension SMB2 {
             init(timeout: UInt32) {
                 self.timeout = timeout
                 self.reserved = 0
-            }
-            
-            func data() -> Data {
-                return encode(self)
             }
         }
         
@@ -213,8 +201,8 @@ extension SMB2 {
             }
             
             func data() -> Data {
-                var result = encode(self.header)
-                dialects.forEach { result.append(encode($0)) }
+                var result = Data(value: self.header)
+                dialects.forEach { result.append(Data(value: $0)) }
                 return result
             }
             
@@ -234,10 +222,6 @@ extension SMB2 {
             let chunksCount: UInt32
             let chunksBytesWritten: UInt32
             let totalBytesWriiten: UInt32
-            
-            init?(data: Data) {
-                self = decode(data)
-            }
         }
         
         // SRV_ENUMERATE_SNAPSHOTS
@@ -247,8 +231,9 @@ extension SMB2 {
             let snapshots: [SMBTime]
             
             init?(data: Data) {
-                self.count = decode(data)
-                self.returnedCount = decode(data.subdata(in: 4..<8))
+                guard data.count > 8 else { return nil }
+                self.count = data.scanValue()!
+                self.returnedCount = data.scanValue(start: 4)!
                 //let size: UInt32 = decode(data.subdataWithRange(NSRange(location: 8, length: 4)))
                 var snapshots = [SMBTime]()
                 let dateFormatter = DateFormatter()
@@ -258,7 +243,7 @@ extension SMB2 {
                     if data.count < offset + 48 {
                         return nil
                     }
-                    let datestring = String(data: data.subdata(in: offset..<(offset + 48)), encoding: .utf16)
+                    let datestring = data.scanString(start: offset, length: 48, encoding: .utf16)
                     if let datestring = datestring, let date = dateFormatter.date(from: datestring) {
                         snapshots.append(SMBTime(date: date))
                     }
@@ -271,32 +256,21 @@ extension SMB2 {
             let key: (UInt64, UInt64, UInt64)
             fileprivate let contextLength: UInt32
             fileprivate let context: UInt32
-            
-            init?(data: Data) {
-                self = decode(data)
-            }
         }
         
         struct ReadHash: IOCtlResponseProtocol {
             // TODO: Implement IOCTL READ_HASH
-            
-            init?(data: Data) {
-                self = decode(data)
-            }
         }
         
         struct NetworkInterfaceInfo: IOCtlResponseProtocol {
             let items: [NetworkInterfaceInfo.Item]
             
             init?(data: Data) {
-                let count = data.count / MemoryLayout<Item>.size
-                guard count > 0 else {
-                    return nil
-                }
                 var items = [Item]()
-                for i in 0..<count {
-                    let itemdata = data.subdata(in: (i * MemoryLayout<Item>.size)..<((i + 1) * MemoryLayout<Item>.size))
-                    items.append(decode(itemdata))
+                var offset = 0
+                while let item: Item = data.scanValue(start: offset) {
+                    items.append(item)
+                    offset += MemoryLayout<Item>.size
                 }
                 self.items = items
             }
@@ -335,15 +309,11 @@ extension SMB2 {
                 static let ipv6: sa_family_t = 0x17
                 
                 var sockaddr: sockaddr_in {
-                    var sockaddrStorage = self.sockaddrStorage
-                    let data = Data(bytes: &sockaddrStorage, count: 16)
-                    return decode(data)
+                    return Data.mapMemory(from: self.sockaddrStorage)!
                 }
                 
                 var sockaddr6: sockaddr_in6 {
-                    var sockaddrStorage = self.sockaddrStorage
-                    let data = Data(bytes: &sockaddrStorage, count: 28)
-                    return decode(data)
+                     return Data.mapMemory(from: self.sockaddrStorage)!
                 }
             }
         }
@@ -355,10 +325,6 @@ extension SMB2 {
             fileprivate let _dialect: UInt16
             var dialect: (major: Int, minor: Int) {
                 return (major: Int(_dialect & 0xFF), minor: Int(_dialect >> 8))
-            }
-            
-            init?(data: Data) {
-                self = decode(data)
             }
         }
     }

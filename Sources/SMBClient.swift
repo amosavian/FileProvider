@@ -70,6 +70,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         })
         return mId
     }
+    
     func sendTreeDisconnect(id treeId: UInt32, completionHandler: SimpleCompletionHandler) -> UInt64 {
         let mId = messageId()
         let smbHeader = SMB2.Header(command: .TREE_DISCONNECT, creditRequestResponse: 111, messageId: mId, treeId: treeId, sessionId: sessionId)
@@ -98,9 +99,10 @@ class SMB2ProtocolClient: FPSStreamTask {
         }
         return currentMessageID
     }
-    
-    // MARK: create and analyse messages
-    
+}
+
+// MARK: create and analyse messages
+extension SMB2ProtocolClient {
     func determineSMBVersion(_ data: Data) -> Float {
         let smbverChar: Int8 = Int8(bitPattern: data.first ?? 0)
         let version = 0 - smbverChar
@@ -116,7 +118,7 @@ class SMB2ProtocolClient: FPSStreamTask {
             throw SMBFileProviderError.incompatibleHeader
         }
         let headersize = MemoryLayout<SMB1.Header>.size
-        let header: SMB1.Header = decode(data)
+        let header: SMB1.Header = data.scanValue()!
         var blocks = [(params: [UInt16], message: Data?)]()
         var offset = headersize
         while offset < data.count {
@@ -128,7 +130,7 @@ class SMB2ProtocolClient: FPSStreamTask {
             offset += MemoryLayout<UInt8>.size
             var rawParamWords = [UInt8](buffer[offset..<(offset + paramWordsCount * 2)])
             let paramData = Data(bytesNoCopy: UnsafeMutablePointer<UInt8>(&rawParamWords), count: rawParamWords.count, deallocator: .free)
-            paramWords = decode(paramData)
+            paramWords = paramData.scanValue()!
             offset += paramWordsCount * 2
             let messageBytesCount = Int(UInt16(buffer[0]) + UInt16(buffer[1]) << 8)
             offset += MemoryLayout<UInt16>.size
@@ -154,7 +156,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let headerData = data.subdata(in: 0..<headersize)
         let messageSize = data.count - headersize
         let messageData = data.subdata(in: headersize..<(headersize + messageSize))
-        let header: SMB2.Header = decode(headerData)
+        let header: SMB2.Header = headerData.scanValue()!
         switch header.command {
         case .NEGOTIATE:
             return (header, SMB2.NegotiateResponse(data: messageData))
@@ -200,8 +202,7 @@ class SMB2ProtocolClient: FPSStreamTask {
     }
     
     func createSMBMessage(header: SMB1.Header, blocks: [(params: Data?, message: Data?)]) -> Data {
-        var headerv = header
-        var result = encode(&headerv)
+        var result = Data(value: header)
         for block in blocks {
             var paramWordsCount = UInt8(block.params?.count ?? 0)
             result.append(&paramWordsCount, count: MemoryLayout.size(ofValue: paramWordsCount))
@@ -219,8 +220,7 @@ class SMB2ProtocolClient: FPSStreamTask {
     }
     
     func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> Data {
-        var headerv = header
-        var result = encode(&headerv)
+        var result = Data(value: header)
         result.append(message.data())
         return result
     }

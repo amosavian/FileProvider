@@ -12,8 +12,24 @@ protocol SMBRequest {
     func data() -> Data
 }
 
+extension SMBRequest {
+    func data() -> Data {
+        return Data(value: self)
+    }
+}
+
 protocol SMBResponse {
     init? (data: Data)
+}
+
+extension SMBResponse {
+    init? (data: Data) {
+        if let v: Self = data.scanValue() {
+            self = v
+        } else {
+            return nil
+        }
+    }
 }
 
 
