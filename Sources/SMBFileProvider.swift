@@ -108,6 +108,14 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     open func isRegisteredForNotification(path: String) -> Bool {
         return false
     }
+    
+    open func copy(with zone: NSZone? = nil) -> Any {
+        let copy = SMBFileProvider(baseURL: self.baseURL!, credential: self.credential!, afterInitialized: { _ in })!
+        copy.currentPath = self.currentPath
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
+        return copy
+    }
 }
 
 // MARK: basic CIFS interactivity

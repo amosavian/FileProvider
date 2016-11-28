@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Change Notify
     
-    struct ChangeNotifyRequest: SMBRequest {
+    struct ChangeNotifyRequest: SMBRequestBody {
         let size: UInt16
         let flags: ChangeNotifyRequest.Flags
         let outputBufferLength: UInt32
@@ -75,7 +75,7 @@ extension SMB2 {
         }
     }
     
-    struct ChangeNotifyResponse: SMBResponse {
+    struct ChangeNotifyResponse: SMBResponseBody {
         let notifications: [(action: FileNotifyAction, fileName: String)]
         
         init?(data: Data) {

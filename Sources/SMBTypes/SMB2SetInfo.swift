@@ -10,7 +10,7 @@ import Foundation
 
 extension SMB2 {
     // MARK: SMB2 Set Info
-    struct SetInfoRequest: SMBRequest {
+    struct SetInfoRequest: SMBRequestBody {
         let header: Header
         let buffer: Data?
         
@@ -32,7 +32,7 @@ extension SMB2 {
         }
     }
     
-    struct SetInfoResponse: SMBResponse {
+    struct SetInfoResponse: SMBResponseBody {
         let size: UInt16
         
         init() {

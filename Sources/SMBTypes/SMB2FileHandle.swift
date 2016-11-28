@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Create
     
-    struct CreateRequest: SMBRequest {
+    struct CreateRequest: SMBRequestBody {
         let header: CreateRequest.Header
         let name: String?
         let contexts: [CreateContext]
@@ -158,7 +158,7 @@ extension SMB2 {
         }
     }
     
-    struct CreateResponse: SMBResponse {
+    struct CreateResponse: SMBResponseBody {
         struct Header {
             let size: UInt16
             fileprivate let _oplockLevel: UInt8
@@ -358,7 +358,7 @@ extension SMB2 {
     
     // MARK: SMB2 Close
     
-    struct CloseRequest: SMBRequest {
+    struct CloseRequest: SMBRequestBody {
         let size: UInt16
         let flags: CloseFlags
         fileprivate let reserved2: UInt32
@@ -374,7 +374,7 @@ extension SMB2 {
         }
     }
     
-    struct CloseResponse: SMBResponse {
+    struct CloseResponse: SMBResponseBody {
         let size: UInt16
         let flags: CloseFlags
         fileprivate let reserved: UInt32
@@ -399,7 +399,7 @@ extension SMB2 {
     
     // MARK: SMB2 Flush
     
-    struct FlushRequest: SMBRequest {
+    struct FlushRequest: SMBRequestBody {
         let size: UInt16
         fileprivate let reserved: UInt16
         fileprivate let reserved2: UInt32
@@ -415,7 +415,7 @@ extension SMB2 {
         }
     }
     
-    struct FlushResponse: SMBResponse {
+    struct FlushResponse: SMBResponseBody {
         let size: UInt16
         let reserved: UInt16
         

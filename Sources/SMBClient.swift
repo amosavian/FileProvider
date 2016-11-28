@@ -12,12 +12,24 @@ import Foundation
 // For big-endian platforms like PowerPC, there must be a huge overhaul
 
 protocol SMBProtocolClientDelegate: class {
-    func receivedSMB2Response(_ header: SMB2.Header, response: SMBResponse)
+    func receivedResponse(client: SMB2ProtocolClient, response: SMBResponse, for: SMBRequest)
 }
 
 class SMB2ProtocolClient: FPSStreamTask {
-    var currentMessageID: UInt64 = 0
-    var sessionId: UInt64 = 0
+    var timeout: TimeInterval = 30
+    
+    private(set) var lastMessageID: UInt64 = 0
+    private(set) var sessionId: UInt64 = 0
+    private func messageId() -> UInt64 {
+        defer {
+            lastMessageID += 1
+        }
+        return lastMessageID
+    }
+    
+    private(set) var establishedTrees = Array<SMB2.TreeConnectResponse>()
+    private(set) var requestStack = [Int: SMBRequest]()
+    private(set) var responseStack = [Int: SMBResponse]()
     
     weak var delegate: SMBProtocolClientDelegate?
     
@@ -40,7 +52,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let data = createSMB2Message(header: smbHeader, message: msg)
         self.writeData(data, timeout: 0, completionHandler: { (e) in
             if self.sessionId == 0 {
-                self.readData(OfMinLength: 64, maxLength: 65536, timeout: 30, completionHandler: { (data, eof, e2) in
+                self.readData(OfMinLength: 64, maxLength: 65536, timeout: self.timeout, completionHandler: { (data, eof, e2) in
                     // TODO: set session id
                     completionHandler?(e2 ?? e)
                 })
@@ -93,11 +105,8 @@ class SMB2ProtocolClient: FPSStreamTask {
         return mId
     }
     
-    func messageId() -> UInt64 {
-        defer {
-            currentMessageID += 1
-        }
-        return currentMessageID
+    func reset() {
+        
     }
 }
 
@@ -145,7 +154,7 @@ extension SMB2ProtocolClient {
         return (header, blocks)
     }
     
-    func digestSMB2Message(_ data: Data) throws -> (header: SMB2.Header, message: SMBResponse?)? {
+    func digestSMB2Message(_ data: Data) throws -> SMBResponse? {
         guard data.count > 65 else {
             throw URLError(.badServerResponse)
         }
@@ -219,7 +228,7 @@ extension SMB2ProtocolClient {
         return result
     }
     
-    func createSMB2Message(header: SMB2.Header, message: SMBRequest) -> Data {
+    func createSMB2Message(header: SMB2.Header, message: SMBRequestBody) -> Data {
         var result = Data(value: header)
         result.append(message.data())
         return result

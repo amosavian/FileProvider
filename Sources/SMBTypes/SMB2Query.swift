@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Query Directory
     
-    struct QueryDirectoryRequest: SMBRequest {
+    struct QueryDirectoryRequest: SMBRequestBody {
         let header: QueryDirectoryRequest.Header
         let searchPattern: String?
         
@@ -60,7 +60,7 @@ extension SMB2 {
         }
     }
     
-    struct QueryDirectoryResponse: SMBResponse {
+    struct QueryDirectoryResponse: SMBResponseBody {
         let buffer: Data
         
         func parseAs(type: FileInformationEnum) -> [(header: SMB2FilesInformationHeader, fileName: String)] {
@@ -107,7 +107,7 @@ extension SMB2 {
     
     // MARK: SMB2 Query Info
     
-    struct QueryInfoRequest: SMBRequest {
+    struct QueryInfoRequest: SMBRequestBody {
         let header: Header
         let buffer: Data?
         
@@ -184,7 +184,7 @@ extension SMB2 {
         }
     }
     
-    struct QueryInfoResponse: SMBResponse {
+    struct QueryInfoResponse: SMBResponseBody {
         let buffer: Data
         
         init?(data: Data) {

@@ -8,21 +8,21 @@
 
 import Foundation
 
-protocol SMBRequest {
+protocol SMBRequestBody {
     func data() -> Data
 }
 
-extension SMBRequest {
+extension SMBRequestBody {
     func data() -> Data {
         return Data(value: self)
     }
 }
 
-protocol SMBResponse {
+protocol SMBResponseBody {
     init? (data: Data)
 }
 
-extension SMBResponse {
+extension SMBResponseBody {
     init? (data: Data) {
         if let v: Self = data.scanValue() {
             self = v
@@ -32,9 +32,11 @@ extension SMBResponse {
     }
 }
 
+typealias SMBRequest = (header: SMB2.Header, body: SMBRequestBody?)
+typealias SMBResponse = (header: SMB2.Header, body: SMBResponseBody?)
 
-protocol IOCtlRequestProtocol: SMBRequest {}
-protocol IOCtlResponseProtocol: SMBResponse {}
+protocol IOCtlRequestProtocol: SMBRequestBody {}
+protocol IOCtlResponseProtocol: SMBResponseBody {}
 
 
 struct SMBTime {

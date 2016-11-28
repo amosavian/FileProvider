@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Negotiating
     
-    struct NegotiateRequest: SMBRequest {
+    struct NegotiateRequest: SMBRequestBody {
         let header: NegotiateRequest.Header
         let dialects: [UInt16]
         let contexts: [(type: NegotiateContextType, data: Data)]
@@ -89,7 +89,7 @@ extension SMB2 {
         }
     }
     
-    struct NegotiateResponse: SMBResponse {
+    struct NegotiateResponse: SMBResponseBody {
         let header: NegotiateResponse.Header
         let buffer: Data?
         let contexts: [(type: NegotiateContextType, data: Data)]
@@ -174,7 +174,7 @@ extension SMB2 {
     
     // MARK: SMB2 Session Setup
     
-    struct SessionSetupRequest: SMBRequest {
+    struct SessionSetupRequest: SMBRequestBody {
         let header: SessionSetupRequest.Header
         let buffer: Data?
         
@@ -233,7 +233,7 @@ extension SMB2 {
         }
     }
     
-    struct SessionSetupResponse: SMBResponse {
+    struct SessionSetupResponse: SMBResponseBody {
         let header: SessionSetupResponse.Header
         let buffer: Data?
         
@@ -287,7 +287,7 @@ extension SMB2 {
     
     // MARK: SMB2 Log off
     
-    struct LogOff: SMBRequest, SMBResponse {
+    struct LogOff: SMBRequestBody, SMBResponseBody {
         let size: UInt16
         let reserved: UInt16
         
@@ -299,7 +299,7 @@ extension SMB2 {
     
     // MARK: SMB2 Echo
     
-    struct Echo: SMBRequest, SMBResponse {
+    struct Echo: SMBRequestBody, SMBResponseBody {
         let size: UInt16
         let reserved: UInt16
         

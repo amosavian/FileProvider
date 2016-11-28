@@ -362,6 +362,15 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open func isRegisteredForNotification(path: String) -> Bool {
         return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path)
     }
+    
+    open func copy(with zone: NSZone? = nil) -> Any {
+        let copy = LocalFileProvider(baseURL: self.baseURL!)
+        copy.currentPath = self.currentPath
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
+        copy.isPathRelative = self.isPathRelative
+        return copy
+    }
 }
 
 public extension LocalFileProvider {

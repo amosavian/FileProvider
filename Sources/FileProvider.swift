@@ -114,6 +114,61 @@ public protocol FileProviderBasic: class {
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
 }
 
+public protocol FileProviderBasicRemote: FileProviderBasic {
+    var session: URLSession { get }
+    var cache: URLCache? { get }
+    var useCache: Bool { get set }
+    var validatingCache: Bool { get set }
+}
+
+internal extension FileProviderBasicRemote {
+    func returnCachedDate(with request: URLRequest, validatingCache: Bool, completionHandler: @escaping (Data?, URLResponse?, Error?) -> Swift.Void) -> Bool {
+        guard let cache = self.cache else { return false }
+        if let response = cache.cachedResponse(for: request) {
+            var validatedCache = !validatingCache
+            let lastModifiedDate = (response.response as? HTTPURLResponse)?.allHeaderFields["Last-Modified"] as? String
+            let eTag = (response.response as? HTTPURLResponse)?.allHeaderFields["ETag"] as? String
+            if lastModifiedDate == nil && eTag == nil, validatingCache {
+                var validateRequest = request
+                validateRequest.httpMethod = "HEAD"
+                let group = DispatchGroup()
+                group.enter()
+                self.session.dataTask(with: validateRequest, completionHandler: { (_, response, e) in
+                    if let httpResponse = response as? HTTPURLResponse {
+                        let currentETag = httpResponse.allHeaderFields["ETag"] as? String
+                        let currentLastModifiedDate = httpResponse.allHeaderFields["ETag"] as? String ?? "nonvalidetag"
+                        validatedCache = (eTag != nil && currentETag == eTag)
+                            || (lastModifiedDate != nil && currentLastModifiedDate == lastModifiedDate)
+                    }
+                    group.leave()
+                }).resume()
+                _ = group.wait(timeout: DispatchTime.now() + self.session.configuration.timeoutIntervalForRequest)
+            }
+            if validatedCache {
+                completionHandler(response.data, response.response, nil)
+                return true
+            }
+        }
+        return false
+    }
+    
+    func runDataTask(with request: URLRequest, operationHandle: RemoteOperationHandle? = nil, completionHandler: @escaping (Data?, URLResponse?, Error?) -> Swift.Void) {
+        let useCache = self.useCache
+        let validatingCache = self.validatingCache
+        dispatch_queue.async {
+            if useCache {
+                if self.returnCachedDate(with: request, validatingCache: validatingCache, completionHandler: completionHandler) {
+                    return
+                }
+            }
+            let task = self.session.dataTask(with: request, completionHandler: completionHandler)
+            task.taskDescription = operationHandle?.operationType.json
+            operationHandle?.add(task: task)
+            task.resume()
+        }
+    }
+}
+
 public protocol FileProviderOperations: FileProviderBasic {
     var fileOperationDelegate : FileOperationDelegate? { get set }
     
@@ -151,8 +206,7 @@ public protocol FileProviderMonitor: FileProviderBasic {
     func isRegisteredForNotification(path: String) -> Bool
 }
 
-public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite {
-    
+public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 
 extension FileProviderBasic {

@@ -8,7 +8,7 @@
 
 import Foundation
 
-protocol SMB2FilesInformationHeader: SMBResponse {
+protocol SMB2FilesInformationHeader: SMBResponseBody {
     var nextEntryOffset: UInt32 { get }
     var fileIndex: UInt32 { get }
     var fileNameLength : UInt32 { get }

@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Read
     
-    struct ReadRequest: SMBRequest {
+    struct ReadRequest: SMBRequestBody {
         let size: UInt16
         fileprivate let padding: UInt8
         let flags: ReadRequest.Flags
@@ -54,7 +54,7 @@ extension SMB2 {
         }
     }
     
-    struct ReadRespone: SMBResponse {
+    struct ReadRespone: SMBResponseBody {
         struct Header {
             let size: UInt16
             let offset: UInt8
@@ -85,7 +85,7 @@ extension SMB2 {
     
     // MARK: SMB2 Write
     
-    struct WriteRequest: SMBRequest {
+    struct WriteRequest: SMBRequestBody {
         let header: WriteRequest.Header
         let channelInfo: ChannelInfo?
         let fileData: Data
@@ -140,7 +140,7 @@ extension SMB2 {
         }
     }
     
-    struct WriteResponse: SMBResponse {
+    struct WriteResponse: SMBResponseBody {
         let size: UInt16
         fileprivate let reserved: UInt16
         let writtenBytes: UInt32
@@ -149,7 +149,7 @@ extension SMB2 {
         fileprivate let channelInfoLength: UInt16
     }
     
-    struct ChannelInfo: SMBRequest {
+    struct ChannelInfo: SMBRequestBody {
         let offset: UInt64
         let token: UInt32
         let length: UInt32
@@ -157,7 +157,7 @@ extension SMB2 {
     
     // MARK: SMB2 Lock
     
-    struct LockElement: SMBRequest {
+    struct LockElement: SMBRequestBody {
         let offset: UInt64
         let length: UInt64
         let flags: LockElement.Flags
@@ -177,7 +177,7 @@ extension SMB2 {
         }
     }
     
-    struct LockRequest: SMBRequest {
+    struct LockRequest: SMBRequestBody {
         let header: LockRequest.Header
         let locks: [LockElement]
         
@@ -202,7 +202,7 @@ extension SMB2 {
         }
     }
     
-    struct LockResponse: SMBResponse {
+    struct LockResponse: SMBResponseBody {
         let size: UInt16
         let reserved: UInt16
         
@@ -214,7 +214,7 @@ extension SMB2 {
     
     // MARK: SMB2 Cancel
     
-    struct CancelRequest: SMBRequest {
+    struct CancelRequest: SMBRequestBody {
         let size: UInt16
         let reserved: UInt16
         

@@ -13,7 +13,7 @@ import CoreGraphics
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-open class DropboxFileProvider: NSObject,  FileProviderBasic {
+open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     open static let type: String = "WebDAV"
     open let isPathRelative: Bool = true
     open let baseURL: URL?
@@ -25,24 +25,31 @@ open class DropboxFileProvider: NSObject,  FileProviderBasic {
     }
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
-    
+    open private(set) var cache: URLCache?
+    public var useCache: Bool = false
+    public var validatingCache: Bool = true
+   
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
-    internal var session: URLSession {
+    public var session: URLSession {
         if _session == nil {
             self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
             let queue = OperationQueue()
             //queue.underlyingQueue = dispatch_queue
-            _session = URLSession(configuration: URLSessionConfiguration.default, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: queue)
+            let config = URLSessionConfiguration.default
+            config.urlCache = cache
+            config.requestCachePolicy = .returnCacheDataElseLoad
+            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: queue)
         }
         return _session!
     }
     
-    public init? (credential: URLCredential?) {
+    public init? (credential: URLCredential?, cache: URLCache? = nil) {
         self.baseURL = nil
         dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
+        self.cache = cache
     }
     
     deinit {
@@ -337,4 +344,14 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
 }
 
-extension DropboxFileProvider: FileProvider {}
+extension DropboxFileProvider: FileProvider {
+    open func copy(with zone: NSZone? = nil) -> Any {
+        let copy = DropboxFileProvider(credential: self.credential, cache: self.cache)!
+        copy.currentPath = self.currentPath
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
+        copy.useCache = self.useCache
+        copy.validatingCache = self.validatingCache
+        return copy
+    }
+}

@@ -11,9 +11,6 @@
 		7902C0871D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
 		7902C0881D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
 		791950F51DE58A5400B4426E /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 791950F41DE58A5400B4426E /* libxml2.tbd */; };
-		7924B1931D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
-		7924B1941D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
-		7924B1951D89DAE000589DB7 /* AEXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 7924B18C1D89DAE000589DB7 /* AEXML.h */; };
 		7924B1961D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
 		7924B1971D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
 		7924B1981D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
@@ -23,9 +20,6 @@
 		7924B19C1D89DAE000589DB7 /* Error.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18F1D89DAE000589DB7 /* Error.swift */; };
 		7924B19D1D89DAE000589DB7 /* Error.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18F1D89DAE000589DB7 /* Error.swift */; };
 		7924B19E1D89DAE000589DB7 /* Error.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18F1D89DAE000589DB7 /* Error.swift */; };
-		7924B19F1D89DAE000589DB7 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7924B1901D89DAE000589DB7 /* Info.plist */; };
-		7924B1A01D89DAE000589DB7 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7924B1901D89DAE000589DB7 /* Info.plist */; };
-		7924B1A11D89DAE000589DB7 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7924B1901D89DAE000589DB7 /* Info.plist */; };
 		7924B1A21D89DAE000589DB7 /* Options.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B1911D89DAE000589DB7 /* Options.swift */; };
 		7924B1A31D89DAE000589DB7 /* Options.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B1911D89DAE000589DB7 /* Options.swift */; };
 		7924B1A41D89DAE000589DB7 /* Options.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B1911D89DAE000589DB7 /* Options.swift */; };
@@ -100,11 +94,9 @@
 /* Begin PBXFileReference section */
 		7902C0851D61B56D00564440 /* RemoteSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RemoteSession.swift; sourceTree = "<group>"; };
 		791950F41DE58A5400B4426E /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.1.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
-		7924B18C1D89DAE000589DB7 /* AEXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AEXML.h; sourceTree = "<group>"; };
 		7924B18D1D89DAE000589DB7 /* Document.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
 		7924B18E1D89DAE000589DB7 /* Element.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Element.swift; sourceTree = "<group>"; };
 		7924B18F1D89DAE000589DB7 /* Error.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Error.swift; sourceTree = "<group>"; };
-		7924B1901D89DAE000589DB7 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7924B1911D89DAE000589DB7 /* Options.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Options.swift; sourceTree = "<group>"; };
 		7924B1921D89DAE000589DB7 /* Parser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
 		7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FPSStreamTask.swift; sourceTree = "<group>"; };
@@ -174,11 +166,9 @@
 		7924B18B1D89DAE000589DB7 /* AEXML */ = {
 			isa = PBXGroup;
 			children = (
-				7924B18C1D89DAE000589DB7 /* AEXML.h */,
 				7924B18D1D89DAE000589DB7 /* Document.swift */,
 				7924B18E1D89DAE000589DB7 /* Element.swift */,
 				7924B18F1D89DAE000589DB7 /* Error.swift */,
-				7924B1901D89DAE000589DB7 /* Info.plist */,
 				7924B1911D89DAE000589DB7 /* Options.swift */,
 				7924B1921D89DAE000589DB7 /* Parser.swift */,
 			);
@@ -261,7 +251,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B1931D89DAE000589DB7 /* AEXML.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,7 +258,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B1941D89DAE000589DB7 /* AEXML.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,7 +265,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B1951D89DAE000589DB7 /* AEXML.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -382,7 +369,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B19F1D89DAE000589DB7 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -390,7 +376,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B1A01D89DAE000589DB7 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -398,7 +383,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7924B1A11D89DAE000589DB7 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -609,7 +593,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-iOS";
 				PRODUCT_NAME = FileProvider;
 				SDKROOT = iphoneos;
@@ -713,7 +696,6 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-OSX";
 				PRODUCT_NAME = FileProvider;
 				SDKROOT = macosx;
@@ -816,7 +798,6 @@
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-tvOS";
 				PRODUCT_NAME = FileProvider;
 				SDKROOT = appletvos;

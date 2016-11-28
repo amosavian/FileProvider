@@ -11,7 +11,7 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Tree Connect
     
-    struct TreeConnectRequest: SMBRequest {
+    struct TreeConnectRequest: SMBRequestBody {
         let header: TreeConnectRequest.Header
         let buffer: Data?
         var path: String {
@@ -66,7 +66,7 @@ extension SMB2 {
         }
     }
     
-    struct TreeConnectResponse: SMBResponse {
+    struct TreeConnectResponse: SMBResponseBody {
         let size: UInt16  // = 16
         fileprivate let _type: UInt8
         var type: ShareType {
@@ -124,7 +124,7 @@ extension SMB2 {
     
     // MARK: SMB2 Tree Disconnect
     
-    struct TreeDisconnect: SMBRequest, SMBResponse {
+    struct TreeDisconnect: SMBRequestBody, SMBResponseBody {
         let size: UInt16
         let reserved: UInt16
         

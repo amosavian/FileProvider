@@ -15,7 +15,7 @@ extension SMB2 {
      * IOCtl usage is usually limited in SMB to pipe requests and duplicating file inside server
      */
     
-    struct IOCtlRequest: SMBRequest {
+    struct IOCtlRequest: SMBRequestBody {
         let header: Header
         let requestData:  IOCtlRequestProtocol?
         
@@ -63,7 +63,7 @@ extension SMB2 {
         }
     }
     
-    struct IOCtlResponse: SMBResponse {
+    struct IOCtlResponse: SMBResponseBody {
         let header: Header
         let responseData:  IOCtlResponseProtocol?
         
