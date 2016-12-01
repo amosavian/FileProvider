@@ -176,8 +176,8 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.create(path: (path as NSString).appendingPathComponent(fileName))
+    public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let opType = FileOperationType.create(path: (path as NSString).appendingPathComponent(fileAttribs.name))
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }

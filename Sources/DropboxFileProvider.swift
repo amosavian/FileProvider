@@ -113,9 +113,8 @@ extension DropboxFileProvider: FileProviderOperations {
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    public func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let filePath = (path as NSString).appendingPathComponent(fileName)
-        return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
+    public func create(file fileAttribs: FileObject, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.writeContents(path: path, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
     public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {

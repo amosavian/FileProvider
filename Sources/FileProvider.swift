@@ -175,7 +175,7 @@ public protocol FileProviderOperations: FileProviderBasic {
     @discardableResult
     func create(folder: String, at: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
-    func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    func create(file: FileObject, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
