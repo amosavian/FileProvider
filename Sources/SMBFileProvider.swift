@@ -48,7 +48,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func create(file fileAttribs: FileObject, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
         return nil
     }
