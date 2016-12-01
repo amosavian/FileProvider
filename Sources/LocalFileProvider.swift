@@ -67,23 +67,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
     
     internal func attributesOfItem(url fileURL: URL) -> LocalFileObject {
-        var namev, sizev, allocated, filetypev, creationDatev, modifiedDatev, hiddenv, readonlyv: AnyObject?
-        _ = try? (fileURL as NSURL).getResourceValue(&namev, forKey: URLResourceKey.nameKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&sizev, forKey: URLResourceKey.fileSizeKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&allocated, forKey: URLResourceKey.fileAllocatedSizeKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&creationDatev, forKey: URLResourceKey.creationDateKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&modifiedDatev, forKey: URLResourceKey.contentModificationDateKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&filetypev, forKey: URLResourceKey.fileResourceTypeKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&hiddenv, forKey: URLResourceKey.isHiddenKey)
-        _ = try? (fileURL as NSURL).getResourceValue(&readonlyv, forKey: URLResourceKey.volumeIsReadOnlyKey)
+        let values = try? fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .volumeIsReadOnlyKey])
         let path: String
         if isPathRelative {
             path = self.relativePathOf(url: fileURL)
         } else {
             path = fileURL.path
         }
-        let filetype = URLFileResourceType(rawValue: filetypev as? String ?? "")
-        let fileAttr = LocalFileObject(absoluteURL: fileURL, name: namev as! String, path: path, size: sizev?.int64Value ?? -1, allocatedSize: allocated?.int64Value ?? -1, createdDate: creationDatev as? Date, modifiedDate: modifiedDatev as? Date, fileType: FileType(urlResourceTypeValue: filetype), isHidden: hiddenv?.boolValue ?? false, isReadOnly: readonlyv?.boolValue ?? false)
+        let fileAttr = LocalFileObject(absoluteURL: fileURL, name: values?.name ?? fileURL.lastPathComponent, path: path, size: Int64(values?.fileSize ?? -1), allocatedSize: Int64(values?.fileAllocatedSize ?? -1), createdDate: values?.creationDate, modifiedDate: values?.contentModificationDate, fileType: FileType(urlResourceTypeValue: values?.fileResourceType ?? .unknown), isHidden: values?.isHidden ?? false, isReadOnly: values?.isWritable ?? false)
         return fileAttr
     }
     
@@ -127,21 +118,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(fileName))
         operation_queue.async {
             let fileURL = self.absoluteURL(atPath).appendingPathComponent(fileName)
-            /*var attributes = [String : Any]()
-            if let createdDate = fileAttribs.createdDate {
-                attributes[FileAttributeKey.creationDate.rawValue] = createdDate as NSDate
-            }
-            if let modDate = fileAttribs.modifiedDate {
-                attributes[FileAttributeKey.modificationDate.rawValue] = modDate as NSDate
-            }
-            if fileAttribs.isReadOnly {
-                attributes[FileAttributeKey.posixPermissions.rawValue] = NSNumber(value: 365 as Int16)
-            }*/
-            let success = self.opFileManager.createFile(atPath: fileURL.path, contents: data, attributes: nil/*attributes*/)
+            let success = self.opFileManager.createFile(atPath: fileURL.path, contents: data, attributes: nil)
             if success {
-                /*do {
-                    try (fileURL as NSURL).setResourceValue(fileAttribs.isHidden, forKey: URLResourceKey.isHiddenKey)
-                } catch _ {}*/
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
@@ -332,12 +310,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let absurl = self.absoluteURL(path)
-        var isdirv: AnyObject?
-        do {
-            try (absurl as NSURL).getResourceValue(&isdirv, forKey: URLResourceKey.isDirectoryKey)
-        } catch _ {
-        }
-        if !(isdirv?.boolValue ?? false) {
+        let isdir = (try? absurl.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false) ?? false
+        if !isdir {
             return
         }
         let monitor = LocalFolderMonitor(url: absurl) {
@@ -602,23 +576,18 @@ open class LocalOperationHandle: OperationHandle {
         let fp = FileManager()
         let filesList = fp.enumerator(at: pathURL, includingPropertiesForKeys: keys, options: enumOpt, errorHandler: nil)
         while let fileURL = filesList?.nextObject() as? URL {
-            var isdirv, sizev: AnyObject?
             do {
-                try (fileURL as NSURL).getResourceValue(&isdirv, forKey: URLResourceKey.isDirectoryKey)
+                let values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+                let isdir = values.isDirectory ?? false
+                let size = Int64(values.fileSize ?? 0)
+                if isdir {
+                    folders += 1
+                } else {
+                    files += 1
+                }
+                totalsize += size
             } catch _ {
             }
-            do {
-                try (fileURL as NSURL).getResourceValue(&sizev, forKey: URLResourceKey.fileSizeKey)
-            } catch _ {
-            }
-            let isdir = isdirv?.boolValue ?? false
-            let size = sizev?.int64Value ?? 0
-            if isdir {
-                folders += 1
-            } else {
-                files += 1
-            }
-            totalsize += size
         }
         
         return (folders, files, totalsize)
@@ -628,27 +597,14 @@ open class LocalOperationHandle: OperationHandle {
 
 internal extension URL {
     var fileIsDirectory: Bool {
-        var isdirv: AnyObject?
-        do {
-            try (self as NSURL).getResourceValue(&isdirv, forKey: URLResourceKey.isDirectoryKey)
-        } catch _ {
-        }
-        return isdirv?.boolValue ?? false
+        return (try? self.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
     }
     
     var fileSize: Int64 {
-        var sizev: AnyObject?
-        do {
-            try (self as NSURL).getResourceValue(&sizev, forKey: URLResourceKey.fileSizeKey)
-        } catch _ {
-        }
-        return sizev?.int64Value ?? -1
+        return Int64((try? self.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1)
     }
     
     var fileExists: Bool {
-        if self.isFileURL {
-            return FileManager.default.fileExists(atPath: self.path)
-        }
-        return false
+        return self.isFileURL && FileManager.default.fileExists(atPath: self.path)
     }
 }

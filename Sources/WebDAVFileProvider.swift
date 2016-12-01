@@ -181,7 +181,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = absoluteURL(path)
+        let url = absoluteURL(path).appendingPathComponent(fileName)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
