@@ -197,7 +197,7 @@ extension DropboxFileProvider: FileProviderOperations {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": path as NSString]
+        let requestDictionary = ["path": correctPath(path)! as NSString]
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTask(with: request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
@@ -235,7 +235,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
-        let requestDictionary = ["path": path]
+        let requestDictionary = ["path": correctPath(path)! as NSString]
         request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var dbError: FileProviderDropboxError?
@@ -282,7 +282,65 @@ extension DropboxFileProvider: FileProviderReadWrite {
         NotImplemented()
     }
     
-    // TODO: Implement /copy_reference, /get_temporary_link, /save_url, /get_account & /get_current_account
+    // TODO: Implement /copy_reference, /get_account & /get_current_account
+}
+
+extension DropboxFileProvider {
+    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
+        let url = URL(string: "https://api.dropboxapi.com/2/files/get_metadata")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let requestDictionary = ["path": correctPath(path)! as NSString]
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var dbError: FileProviderDropboxError?
+            var link: URL?
+            var fileObject: DropboxFileObject?
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                    if let linkStr = json["link"] as? String {
+                        link = URL(string: linkStr)
+                    }
+                    if let attribDic = json["metadata"] as? [String: AnyObject] {
+                        fileObject = self.mapToFileObject(attribDic)
+                    }
+                }
+            }
+            completionHandler(link, fileObject, dbError ?? error)
+        })
+        task.resume()
+    }
+    
+    open func copyItem(path: String, toRemoteURL destURL: URL, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
+        let url = URL(string: "https://api.dropboxapi.com/2/files/save_url")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let requestDictionary = ["path": correctPath(path)! as NSString, "url" : destURL.absoluteString as NSString]
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var dbError: FileProviderDropboxError?
+            var jobId: String?
+            var fileObject: DropboxFileObject?
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                    jobId = json["async_job_id"] as? String
+                    if let attribDic = json["metadata"] as? [String: AnyObject] {
+                        fileObject = self.mapToFileObject(attribDic)
+                    }
+                }
+            }
+            completionHandler(jobId, fileObject, dbError ?? error)
+        })
+        task.resume()
+    }
 }
 
 extension DropboxFileProvider: ExtendedFileProvider {

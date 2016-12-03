@@ -51,7 +51,7 @@ public final class DropboxFileObject: FileObject {
     }
 }
 
-// codebeat:disable[ARITY]
+ // codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
     func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
         var requestDictionary = [String: AnyObject]()
