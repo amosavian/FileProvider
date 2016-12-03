@@ -15,178 +15,6 @@ import Cocoa
 public typealias ImageClass = NSImage
 #endif
 
-public enum FileType: String {
-    case directory
-    case regular
-    case symbolicLink
-    case socket
-    case characterSpecial
-    case blockSpecial
-    case namedPipe
-    case unknown
-    
-    public init(urlResourceTypeValue: URLFileResourceType) {
-        switch urlResourceTypeValue {
-        case URLFileResourceType.namedPipe: self = .namedPipe
-        case URLFileResourceType.characterSpecial: self = .characterSpecial
-        case URLFileResourceType.directory: self = .directory
-        case URLFileResourceType.blockSpecial: self = .blockSpecial
-        case URLFileResourceType.regular: self = .regular
-        case URLFileResourceType.symbolicLink: self = .symbolicLink
-        case URLFileResourceType.socket: self = .socket
-        case URLFileResourceType.unknown: self = .unknown
-        default: self = .unknown
-        }
-    }
-    
-    public init(fileTypeValue: FileAttributeType) {
-        switch fileTypeValue {
-        case FileAttributeType.typeCharacterSpecial: self = .characterSpecial
-        case FileAttributeType.typeDirectory: self = .directory
-        case FileAttributeType.typeBlockSpecial: self = .blockSpecial
-        case FileAttributeType.typeRegular: self = .regular
-        case FileAttributeType.typeSymbolicLink: self = .symbolicLink
-        case FileAttributeType.typeSocket: self = .socket
-        case FileAttributeType.typeUnknown: self = .unknown
-        default: self = .unknown
-        }
-    }
-    
-    var resourceType: URLFileResourceType {
-        switch self {
-        case .namedPipe: return .namedPipe
-        case .characterSpecial: return .characterSpecial
-        case .directory: return .directory
-        case .blockSpecial: return .blockSpecial
-        case .regular: return .regular
-        case .symbolicLink: return .symbolicLink
-        case .socket: return .socket
-        case .unknown: return .unknown
-        }
-    }
-}
-
-public protocol FoundationErrorEnum {
-    init? (rawValue: Int)
-    var rawValue: Int { get }
-}
-
-extension URLError.Code: FoundationErrorEnum {}
-extension CocoaError.Code: FoundationErrorEnum {}
-
-open class FileObject {
-    open internal(set) var allValues: [String: Any]
-    
-    internal init(allValues: [String: Any]) {
-        self.allValues = allValues
-    }
-    
-    internal init(absoluteURL: URL? = nil, name: String, path: String) {
-        self.allValues = [String: Any]()
-        self.absoluteURL = absoluteURL
-        self.name = name
-        self.path = path
-    }
-    
-    open internal(set) var absoluteURL: URL? {
-        get {
-            return allValues["NSURLAbsoluteURLKey"] as? URL
-        }
-        set {
-            allValues["NSURLAbsoluteURLKey"] = newValue
-        }
-    }
-    
-    open internal(set) var name: String {
-        get {
-            return allValues[URLResourceKey.nameKey.rawValue] as! String
-        }
-        set {
-            allValues[URLResourceKey.nameKey.rawValue] = newValue
-        }
-    }
-    
-    open internal(set) var path: String {
-        get {
-            return allValues[URLResourceKey.pathKey.rawValue] as! String
-        }
-        set {
-            allValues[URLResourceKey.pathKey.rawValue] = newValue
-        }
-    }
-    
-    open internal(set) var size: Int64 {
-        get {
-            return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
-        }
-        set {
-            allValues[URLResourceKey.fileSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
-        }
-    }
-    
-    open internal(set) var creationDate: Date? {
-        get {
-            return allValues[URLResourceKey.creationDateKey.rawValue] as? Date
-        }
-        set {
-            allValues[URLResourceKey.creationDateKey.rawValue] = newValue
-        }
-    }
-    
-    open internal(set) var modifiedDate: Date? {
-        get {
-            return allValues[URLResourceKey.contentModificationDateKey.rawValue] as? Date
-        }
-        set {
-            allValues[URLResourceKey.contentModificationDateKey.rawValue] = newValue
-        }
-    }
-    
-    open internal(set) var fileType: FileType? {
-        get {
-            guard let typeString = allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? String else {
-                return nil
-            }
-            let type = URLFileResourceType(rawValue: typeString)
-            return FileType(urlResourceTypeValue: type)
-        }
-        set {
-            allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue?.resourceType.rawValue ?? FileType.unknown.resourceType.rawValue
-        }
-    }
-    
-    open internal(set) var isHidden: Bool {
-        get {
-            return allValues[URLResourceKey.isHiddenKey.rawValue] as? Bool ?? false
-        }
-        set {
-            allValues[URLResourceKey.isHiddenKey.rawValue] = newValue
-        }
-    }
-    
-    open internal(set) var isReadOnly: Bool {
-        get {
-            return !(allValues[URLResourceKey.isWritableKey.rawValue] as? Bool ?? true)
-        }
-        set {
-            allValues[URLResourceKey.isWritableKey.rawValue] = !newValue
-        }
-    }
-    
-    open var isDirectory: Bool {
-        return self.fileType == .directory
-    }
-    
-    open var isRegularFile: Bool {
-        return self.fileType == .regular
-    }
-    
-    open var isSymLink: Bool {
-        return self.fileType == .symbolicLink
-    }
-}
-
-
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 public protocol FileProviderBasic: class {
@@ -472,6 +300,117 @@ public enum FileOperationType: CustomStringConvertible {
     }
 }
 
+open class FileObject {
+    open internal(set) var allValues: [String: Any]
+    
+    internal init(allValues: [String: Any]) {
+        self.allValues = allValues
+    }
+    
+    internal init(absoluteURL: URL? = nil, name: String, path: String) {
+        self.allValues = [String: Any]()
+        self.absoluteURL = absoluteURL
+        self.name = name
+        self.path = path
+    }
+    
+    open internal(set) var absoluteURL: URL? {
+        get {
+            return allValues["NSURLAbsoluteURLKey"] as? URL
+        }
+        set {
+            allValues["NSURLAbsoluteURLKey"] = newValue
+        }
+    }
+    
+    open internal(set) var name: String {
+        get {
+            return allValues[URLResourceKey.nameKey.rawValue] as! String
+        }
+        set {
+            allValues[URLResourceKey.nameKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var path: String {
+        get {
+            return allValues[URLResourceKey.pathKey.rawValue] as! String
+        }
+        set {
+            allValues[URLResourceKey.pathKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var size: Int64 {
+        get {
+            return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
+        }
+        set {
+            allValues[URLResourceKey.fileSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
+        }
+    }
+    
+    open internal(set) var creationDate: Date? {
+        get {
+            return allValues[URLResourceKey.creationDateKey.rawValue] as? Date
+        }
+        set {
+            allValues[URLResourceKey.creationDateKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var modifiedDate: Date? {
+        get {
+            return allValues[URLResourceKey.contentModificationDateKey.rawValue] as? Date
+        }
+        set {
+            allValues[URLResourceKey.contentModificationDateKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var fileType: URLFileResourceType? {
+        get {
+            guard let typeString = allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? String else {
+                return nil
+            }
+            return URLFileResourceType(rawValue: typeString)
+        }
+        set {
+            allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var isHidden: Bool {
+        get {
+            return allValues[URLResourceKey.isHiddenKey.rawValue] as? Bool ?? false
+        }
+        set {
+            allValues[URLResourceKey.isHiddenKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var isReadOnly: Bool {
+        get {
+            return !(allValues[URLResourceKey.isWritableKey.rawValue] as? Bool ?? true)
+        }
+        set {
+            allValues[URLResourceKey.isWritableKey.rawValue] = !newValue
+        }
+    }
+    
+    open var isDirectory: Bool {
+        return self.fileType == .directory
+    }
+    
+    open var isRegularFile: Bool {
+        return self.fileType == .regular
+    }
+    
+    open var isSymLink: Bool {
+        return self.fileType == .symbolicLink
+    }
+}
+
 public protocol OperationHandle {
     var operationType: FileOperationType { get }
     var bytesSoFar: Int64 { get }
@@ -486,13 +425,6 @@ public extension OperationHandle {
         let bytesSoFar = self.bytesSoFar
         let totalBytes = self.totalBytes
         return totalBytes > 0 ? Float(Double(bytesSoFar) / Double(totalBytes)) : Float.nan
-    }
-}
-
-internal class Weak<T: AnyObject> {
-    weak var value : T?
-    init (_ value: T) {
-        self.value = value
     }
 }
 
@@ -512,12 +444,41 @@ public protocol FileOperationDelegate: class {
 }
 
 // THESE ARE METHODS TO PROVIDE COMPATIBILITY WITH SWIFT 2.3 SIMOULTANIOUSLY!
-
 internal extension URL {
     var uw_scheme: String {
         return self.scheme ?? ""
     }
 }
+
+internal class Weak<T: AnyObject> {
+    weak var value : T?
+    init (_ value: T) {
+        self.value = value
+    }
+}
+
+extension URLFileResourceType {
+    public init(fileTypeValue: FileAttributeType) {
+        switch fileTypeValue {
+        case FileAttributeType.typeCharacterSpecial: self = .characterSpecial
+        case FileAttributeType.typeDirectory: self = .directory
+        case FileAttributeType.typeBlockSpecial: self = .blockSpecial
+        case FileAttributeType.typeRegular: self = .regular
+        case FileAttributeType.typeSymbolicLink: self = .symbolicLink
+        case FileAttributeType.typeSocket: self = .socket
+        case FileAttributeType.typeUnknown: self = .unknown
+        default: self = .unknown
+        }
+    }
+}
+
+public protocol FoundationErrorEnum {
+    init? (rawValue: Int)
+    var rawValue: Int { get }
+}
+
+extension URLError.Code: FoundationErrorEnum {}
+extension CocoaError.Code: FoundationErrorEnum {}
 
 internal func jsonToDictionary(_ jsonString: String) -> [String: AnyObject]? {
     guard let data = jsonString.data(using: .utf8) else {

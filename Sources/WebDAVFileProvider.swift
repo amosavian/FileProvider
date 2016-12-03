@@ -9,7 +9,7 @@
 import Foundation
 
 public final class WebDavFileObject: FileObject {
-    public init(absoluteURL: URL, name: String, path: String) {
+    internal init(absoluteURL: URL, name: String, path: String) {
         super.init(absoluteURL: absoluteURL, name: name, path: path)
     }
     

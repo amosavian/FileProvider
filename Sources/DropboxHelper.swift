@@ -19,7 +19,7 @@ public struct FileProviderDropboxError: Error, CustomStringConvertible {
 }
 
 public final class DropboxFileObject: FileObject {
-    public init(name: String, path: String) {
+    internal init(name: String, path: String) {
         super.init(absoluteURL: URL(string: path), name: name, path: path)
     }
     
