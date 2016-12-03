@@ -287,7 +287,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
 
 extension DropboxFileProvider {
     open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
-        let url = URL(string: "https://api.dropboxapi.com/2/files/get_metadata")!
+        let url = URL(string: "https://api.dropboxapi.com/2/files/get_temporary_link")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
