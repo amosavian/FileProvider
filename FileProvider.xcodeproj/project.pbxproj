@@ -32,6 +32,9 @@
 		7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */; };
 		7924B1B21D89FCDA00589DB7 /* FPSStreamTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */; };
 		7924B1B31D89FD6400589DB7 /* SMBClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396971D48C02300086753 /* SMBClient.swift */; };
+		792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
+		792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
+		792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
 		794C21FE1D58912A00EC49B8 /* DropboxHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */; };
 		794C21FF1D58912A00EC49B8 /* DropboxHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */; };
 		794C22001D58912A00EC49B8 /* DropboxHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */; };
@@ -100,6 +103,7 @@
 		7924B1911D89DAE000589DB7 /* Options.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Options.swift; sourceTree = "<group>"; };
 		7924B1921D89DAE000589DB7 /* Parser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
 		7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FPSStreamTask.swift; sourceTree = "<group>"; };
+		792572401DF23BDA006A1526 /* LocalHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalHelper.swift; sourceTree = "<group>"; };
 		794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DropboxHelper.swift; sourceTree = "<group>"; };
 		794C22091D5893F800EC49B8 /* SMB2Notification.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Notification.swift; sourceTree = "<group>"; };
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
@@ -215,6 +219,7 @@
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
+				792572401DF23BDA006A1526 /* LocalHelper.swift */,
 				7902C0851D61B56D00564440 /* RemoteSession.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
@@ -396,6 +401,7 @@
 				799396B31D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
+				792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7924B1991D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
@@ -430,6 +436,7 @@
 				799396B41D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
+				792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7924B1B01D89F7DE00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19A1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
@@ -464,6 +471,7 @@
 				799396B51D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
+				792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19B1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,
@@ -557,7 +565,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				BUNDLE_VERSION_STRING = 0.7.2;
+				BUNDLE_VERSION_STRING = 0.8.0;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -610,7 +618,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				BUNDLE_VERSION_STRING = 0.7.2;
+				BUNDLE_VERSION_STRING = 0.8.0;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;

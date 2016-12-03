@@ -9,16 +9,27 @@
 import Foundation
 
 public final class WebDavFileObject: FileObject {
-    public let contentType: String
-    public let entryTag: String?
-    
-    // codebeat:disable[ARITY]
-    public init(absoluteURL: URL, name: String, path: String, size: Int64 = -1, contentType: String = "", createdDate: Date? = nil, modifiedDate: Date? = nil, fileType: FileType = .regular, isHidden: Bool = false, isReadOnly: Bool = false, entryTag: String? = nil) {
-        self.contentType = contentType
-        self.entryTag = entryTag
-        super.init(absoluteURL: absoluteURL, name: name, path: path, size: size, createdDate: createdDate, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
+    public init(absoluteURL: URL, name: String, path: String) {
+        super.init(absoluteURL: absoluteURL, name: name, path: path)
     }
-    // codebeat:enable[ARITY]
+    
+    open internal(set) var contentType: String {
+        get {
+            return allValues["NSURLContentTypeKey"] as? String ?? ""
+        }
+        set {
+            allValues["NSURLContentTypeKey"] = newValue
+        }
+    }
+    
+    open internal(set) var entryTag: String? {
+        get {
+            return allValues["NSURLEntryTagKey"] as? String
+        }
+        set {
+            allValues["NSURLEntryTagKey"] = newValue
+        }
+    }
 }
 
 /// Because this class uses NSURLSession, it's necessary to disable App Transport Security
@@ -537,13 +548,14 @@ internal extension WebDAVFileProvider {
             href = absoluteURL(href.path)
         }
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.removingPercentEncoding! as NSString).lastPathComponent
-        let size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-        let createdDate = self.resolve(dateString: davResponse.prop["creationdate"] ?? "")
-        let modifiedDate = self.resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
-        let contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
-        let isDirectory = contentType == "httpd/unix-directory"
-        let entryTag = davResponse.prop["getetag"]
-        return WebDavFileObject(absoluteURL: href, name: name, path: href.path, size: size, contentType: contentType, createdDate: createdDate, modifiedDate: modifiedDate, fileType: isDirectory ? .directory : .regular, isHidden: false, isReadOnly: false, entryTag: entryTag)
+        let fileObject = WebDavFileObject(absoluteURL: href, name: name, path: href.path)
+        fileObject.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
+        fileObject.creationDate = self.resolve(dateString: davResponse.prop["creationdate"] ?? "")
+        fileObject.modifiedDate = self.resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
+        fileObject.contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
+        fileObject.fileType = fileObject.contentType == "httpd/unix-directory" ? .directory : .regular
+        fileObject.entryTag = davResponse.prop["getetag"]
+        return fileObject
     }
     
     fileprivate func delegateNotify(_ operation: FileOperationType, error: Error?) {

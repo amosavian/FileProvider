@@ -51,6 +51,19 @@ public enum FileType: String {
         default: self = .unknown
         }
     }
+    
+    var resourceType: URLFileResourceType {
+        switch self {
+        case .namedPipe: return .namedPipe
+        case .characterSpecial: return .characterSpecial
+        case .directory: return .directory
+        case .blockSpecial: return .blockSpecial
+        case .regular: return .regular
+        case .symbolicLink: return .symbolicLink
+        case .socket: return .socket
+        case .unknown: return .unknown
+        }
+    }
 }
 
 public protocol FoundationErrorEnum {
@@ -62,30 +75,110 @@ extension URLError.Code: FoundationErrorEnum {}
 extension CocoaError.Code: FoundationErrorEnum {}
 
 open class FileObject {
-    open let absoluteURL: URL?
-    open let name: String
-    open let path: String
-    open let size: Int64
-    open let createdDate: Date?
-    open let modifiedDate: Date?
-    open let fileType: FileType
-    open let isHidden: Bool
-    open let isReadOnly: Bool
+    open internal(set) var allValues: [String: Any]
     
-    public init(absoluteURL: URL? = nil, name: String, path: String, size: Int64 = -1, createdDate: Date? = nil, modifiedDate: Date? = nil, fileType: FileType = .regular, isHidden: Bool = false, isReadOnly: Bool = false) {
+    internal init(allValues: [String: Any]) {
+        self.allValues = allValues
+    }
+    
+    internal init(absoluteURL: URL? = nil, name: String, path: String) {
+        self.allValues = [String: Any]()
         self.absoluteURL = absoluteURL
         self.name = name
         self.path = path
-        self.size = size
-        self.createdDate = createdDate
-        self.modifiedDate = modifiedDate
-        self.fileType = fileType
-        self.isHidden = isHidden
-        self.isReadOnly = isReadOnly
+    }
+    
+    open internal(set) var absoluteURL: URL? {
+        get {
+            return allValues["NSURLAbsoluteURLKey"] as? URL
+        }
+        set {
+            allValues["NSURLAbsoluteURLKey"] = newValue
+        }
+    }
+    
+    open internal(set) var name: String {
+        get {
+            return allValues[URLResourceKey.nameKey.rawValue] as! String
+        }
+        set {
+            allValues[URLResourceKey.nameKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var path: String {
+        get {
+            return allValues[URLResourceKey.pathKey.rawValue] as! String
+        }
+        set {
+            allValues[URLResourceKey.pathKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var size: Int64 {
+        get {
+            return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
+        }
+        set {
+            allValues[URLResourceKey.fileSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
+        }
+    }
+    
+    open internal(set) var creationDate: Date? {
+        get {
+            return allValues[URLResourceKey.creationDateKey.rawValue] as? Date
+        }
+        set {
+            allValues[URLResourceKey.creationDateKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var modifiedDate: Date? {
+        get {
+            return allValues[URLResourceKey.contentModificationDateKey.rawValue] as? Date
+        }
+        set {
+            allValues[URLResourceKey.contentModificationDateKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var fileType: FileType? {
+        get {
+            guard let typeString = allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? String else {
+                return nil
+            }
+            let type = URLFileResourceType(rawValue: typeString)
+            return FileType(urlResourceTypeValue: type)
+        }
+        set {
+            allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue?.resourceType.rawValue ?? FileType.unknown.resourceType.rawValue
+        }
+    }
+    
+    open internal(set) var isHidden: Bool {
+        get {
+            return allValues[URLResourceKey.isHiddenKey.rawValue] as? Bool ?? false
+        }
+        set {
+            allValues[URLResourceKey.isHiddenKey.rawValue] = newValue
+        }
+    }
+    
+    open internal(set) var isReadOnly: Bool {
+        get {
+            return !(allValues[URLResourceKey.isWritableKey.rawValue] as? Bool ?? true)
+        }
+        set {
+            allValues[URLResourceKey.isWritableKey.rawValue] = !newValue
+        }
     }
     
     open var isDirectory: Bool {
         return self.fileType == .directory
+    }
+    
+    open var isRegularFile: Bool {
+        return self.fileType == .regular
     }
     
     open var isSymLink: Bool {
@@ -247,7 +340,7 @@ extension FileProviderBasic {
         guard let path = path else { return nil }
         var p = path.hasPrefix("/") ? path : "/" + path
         if p.hasSuffix("/") {
-            p.remove(at: p.characters.index(before: p.endIndex))
+            p.remove(at: p.endIndex)
         }
         return p
     }

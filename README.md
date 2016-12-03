@@ -47,23 +47,39 @@ FileProvider supports both CocoaPods.
 
 Add this line to your pods file:
 
-	pod "FileProvider"
+```ruby
+pod "FileProvider"
+```
+
+Or add this to cartfile:
+
+```
+github "amosavian/FileProvider"
+```
 
 ### Git
 To have latest updates with ease, use this command on terminal to get a clone:
 
-	git clone https://github.com/amosavian/FileProvider FileProvider
-	
+```bash
+git clone https://github.com/amosavian/FileProvider
+```
+
 You can update your library using this command in FileProvider folder:
 
-	git pull
+```bash
+git pull
+```
 
 if you have a git based project, use this command in your projects directory to add this project as a submodule to your project:
 
-	git submodule add https://github.com/amosavian/FileProvider FileProvider
+```bash
+git submodule add https://github.com/amosavian/FileProvider
+```
 
 ### Manually
-Copy Source folder to your project and Voila!
+**First way:** Copy Source folder to your project and Voila!
+
+**Second way:** Drop FileProvider.xcodeproj to you Xcode workspace and add the framework to your Embeded Binaries in target.
 
 ## Usage
 
@@ -73,20 +89,26 @@ Each provider has a specific class which conforms to FileProvider protocol and s
 
 For LocalFileProvider if you want to deal with `Documents` folder
 
-	let documentsProvider = LocalFileProvider()
+```	swift
+let documentsProvider = LocalFileProvider()
+```
 
 is equal to:
-	    
-	let documentPath = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true);
-	let documentsURL = URL(fileURLWithPath: documentPath);
-	let documentsProvider = LocalFileProvider(baseURL: documentsURL)
+
+```	swift
+let documentPath = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true);
+let documentsURL = URL(fileURLWithPath: documentPath);
+let documentsProvider = LocalFileProvider(baseURL: documentsURL)
+```
 
 You can't change the base url later. and all paths are related to this base url by default.
 
 For remote file providers authentication may be necessary:
 
-	let credential = URLCredential(user: "user", password: "pass", persistence: .permanent)
-	let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example.com/dav")!, credential: credential)
+```	swift
+let credential = URLCredential(user: "user", password: "pass", persistence: .permanent)
+let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example.com/dav")!, credential: credential)
+```
 
 * In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
@@ -104,40 +126,42 @@ It's simply three method which indicated whether the operation failed, succeed a
 
 Your class should conforms `FileProviderDelegate` class:
 
-	override func viewDidLoad() {
-		documentsProvider.delegate = self as FileProviderDelegate
-	}
+```swift
+override func viewDidLoad() {
+	documentsProvider.delegate = self as FileProviderDelegate
+}
 	
-	func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
-		switch operation {
-		case .copy(source: let source, destination: let dest):
-			print("\(source) copied to \(dest).")
-		case .remove(path: let path):
-			print("\(path) has been deleted.")
-		default:
-			print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) succeed")
-		}
+func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
+	switch operation {
+	case .copy(source: let source, destination: let dest):
+		print("\(source) copied to \(dest).")
+	case .remove(path: let path):
+		print("\(path) has been deleted.")
+	default:
+		print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) succeed")
 	}
-	
-    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
-    	switch operation {
-		case .copy(source: let source, destination: let dest):
-			print("copy of \(source) failed.")
-		case .remove(path: let path):
-			print("\(path) can't be deleted.")
-		default:
-			print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) failed")
-		}
-    }
-	
-    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
-		switch operation {
-		case .copy(source: let source, destination: let dest):
-			print("Copy\(source) to \(dest): \(progress * 100) completed.")
-		default:
-			break
-		}
+}
+
+func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
+    switch operation {
+	case .copy(source: let source, destination: let dest):
+		print("copy of \(source) failed.")
+	case .remove:
+		print("file can't be deleted.")
+	default:
+		print("\(operation.actionDescription) from \(operation.source ?? "") to \(operation.destination) failed")
 	}
+}
+	
+func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
+	switch operation {
+	case .copy(source: let source, destination: let dest):
+		print("Copy\(source) to \(dest): \(progress * 100) completed.")
+	default:
+		break
+	}
+}
+```
 
 **Note:** `fileproviderProgress()` delegate method is not called by `LocalFileProvider` currently. 
 
@@ -159,42 +183,50 @@ There is a `FileObject` class which holds file attributes like size and creation
 
 For a single file:
 
-	documentsProvider.attributesOfItem(path: "/file.txt", completionHandler: {
-	    (attributes: LocalFileObject?, error: ErrorType?) -> Void in
-		if let attributes = attributes {
-			print("File Size: \(attributes.size)")
-			print("Creation Date: \(attributes.createdDate)")
-			print("Modification Date: \(attributes.modifiedDate)")
-			print("Is Read Only: \(attributes.isReadOnly)")
-		}
-	})
+```swift
+documentsProvider.attributesOfItem(path: "/file.txt", completionHandler: {
+	attributes, error in
+	if let attributes = attributes {
+		print("File Size: \(attributes.size)")
+		print("Creation Date: \(attributes.creationDate)")
+		print("Modification Date: \(attributes.modifiedDate)")
+		print("Is Read Only: \(attributes.isReadOnly)")
+	}
+})
+```
 
 To get list of files in a directory:
 
-	documentsProvider.contentsOfDirectory(path: "/", 	completionHandler: {
-	    (contents: [LocalFileObject], error: ErrorType?) -> Void in
-		for file in contents {
-			print("Name: \(attributes.name)")
-			print("Size: \(attributes.size)")
-			print("Creation Date: \(attributes.createdDate)")
-			print("Modification Date: \(attributes.modifiedDate)")
-		}
-	})
+```swift
+documentsProvider.contentsOfDirectory(path: "/", completionHandler: {
+	contents, error in
+	for file in contents {
+		print("Name: \(attributes.name)")
+		print("Size: \(attributes.size)")
+		print("Creation Date: \(attributes.creationDate)")
+		print("Modification Date: \(attributes.modifiedDate)")
+	}
+})
+```
 
 To get size of strage and used/free space:
 
-	func storageProperties(completionHandler: {(total: Int64, used: Int64) -> Void in
-	    print("Total Storage Space: \(total)")
-	    print("Used Space: \(used)")
-	    print("Free Space: \(total - used)")
-	})
+```swift
+func storageProperties(completionHandler: { total, used in
+	print("Total Storage Space: \(total)")
+	print("Used Space: \(used)")
+	print("Free Space: \(total - used)")
+})
+```
 	
 * if this function is unavailable on provider or an error has been occurred, total space will be reported `-1` and used space `0`
 
 ### Change current directory
 
-	documentsProvider.currentPath = "/New Folder"
-	// now path is ~/Documents/New Folder
+```swift
+documentsProvider.currentPath = "/New Folder"
+// now path is ~/Documents/New Folder
+```
 	
 You can then pass "" (empty string) to `contentsOfDirectory` method to list files in current directory.
 
@@ -202,56 +234,71 @@ You can then pass "" (empty string) to `contentsOfDirectory` method to list file
 
 Creating new directory:
 
-	documentsProvider.create(folder: "new folder", at: "/", completionHandler: nil)
+```swift
+documentsProvider.create(folder: "new folder", at: "/", completionHandler: nil)
+```
 
-Creating new file from data stream:
+Creating new file from data:
 
-	let data = "hello world!".data(encoding: String.encoding.utf8)
-	let file = FileObject(name: "old.txt", createdDate: Date(), modifiedDate: Date(), isHidden: false, isReadOnly: true)
-	documentsProvider.create(file: file, at: "/", contents: data, completionHandler: nil)
+```swift
+let data = "hello world!".data(encoding: .utf8)
+documentsProvider.create(file: "newFile.txt", at: "/", contents: data, completionHandler: nil)
+```
 
 ### Copy and Move/Rename Files
 
 Copy file old.txt to new.txt in current path:
 
-	documentsProvider.copyItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
+```swift
+documentsProvider.copyItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
+```
 
 Move file old.txt to new.txt in current path:
 
-	documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
+```swift
+documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite: false, completionHandler: nil)
+```
 
-**Note:** To have a consistent behaviour, create intermediate directories first if necessary.
+**Note:** To have a consistent behavior, create intermediate directories first if necessary.
 
 ### Delete Files
 
-	documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
+```swift
+documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
+```
 
-***Caution:*** This method will delete directories with all it's content recursively.
+***Caution:*** This method will delete directories with all it's contents recursively.
 
-### Retrieve Content of File
+### Fetching Contents of File
 
 There is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
 
-	documentsProvider.contents(path: "old.txt", completionHandler: {
-		(contents: Data?, error: ErrorType?) -> Void
-		if let contents = contents {
-			print(String(data: contents, encoding: String.encoding.utf8)) // "hello world!"
-		}
-	})
+```swift
+documentsProvider.contents(path: "old.txt", completionHandler: {
+	contents, error in
+	if let contents = contents {
+		print(String(data: contents, encoding: .utf8)) // "hello world!"
+	}
+})
+```
 	
 If you want to retrieve a portion of file you can use `contents` method with offset and length arguments. Please note first byte of file has offset: 0.
 
-	documentsProvider.contents(path: "old.txt", offset: 2, length: 5, completionHandler: {
-		(contents: Data?, error: ErrorType?) -> Void
-		if let contents = contents {
-			print(String(data: contents, encoding: String.encoding.utf8)) // "llo w"
-		}
-	})
+```swift
+documentsProvider.contents(path: "old.txt", offset: 2, length: 5, completionHandler: {
+	contents, error in
+	if let contents = contents {
+		print(String(data: contents, encoding: .utf8)) // "llo w"
+	}
+})
+```
 
 ### Write Data To Files
 
-	let data = "What's up Newyork!".data(encoding: String.encoding.utf8)
-	documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
+```swift
+let data = "What's up Newyork!".data(encoding: .utf8)
+documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
+```
 
 ### Operation Handle
 
@@ -263,13 +310,16 @@ It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this 
 
 You can monitor updates in some file system (Local and SMB2), there is three methods in supporting provider you can use to register a handler, to unregister and to check whether it's being monitored or not. It's useful to find out when new files added or removed from directory and update user interface. The handler will be dispatched to main threads to avoid UI bugs with a 0.25 sec delay.
 
-	documentsProvider.registerNotifcation(path: provider.currentPath)
-	{
-		// calling functions to update UI 
-	}
+```swift
+// to register a new notification handler
+documentsProvider.registerNotifcation(path: provider.currentPath)
+{
+	// calling functions to update UI 
+}
 	
-	// To discontinue monitoring folders:
-	documentsProvider.unregisterNotifcation(path: provider.currentPath)
+// To discontinue monitoring folders:
+documentsProvider.unregisterNotifcation(path: provider.currentPath)
+```
 
 * **Please note** in LocalFileProvider it will also monitor changes in subfolders. This behaviour can varies according to file system specification.
 

@@ -19,18 +19,36 @@ public struct FileProviderDropboxError: Error, CustomStringConvertible {
 }
 
 public final class DropboxFileObject: FileObject {
-    public let serverTime: Date?
-    public let id: String?
-    public let rev: String?
-    
-    // codebeat:disable[ARITY]
-    public init(name: String, path: String, size: Int64 = -1, serverTime: Date? = nil, modifiedDate: Date? = nil, fileType: FileType = .regular, isHidden: Bool = false, isReadOnly: Bool = false, id: String? = nil, rev: String? = nil) {
-        self.serverTime = serverTime
-        self.id = id
-        self.rev = rev
-        super.init(absoluteURL: URL(string: path), name: name, path: path, size: size, createdDate: nil, modifiedDate: modifiedDate, fileType: fileType, isHidden: isHidden, isReadOnly: isReadOnly)
+    public init(name: String, path: String) {
+        super.init(absoluteURL: URL(string: path), name: name, path: path)
     }
-    // codebeat:enable[ARITY]
+    
+    open internal(set) var serverTime: Date? {
+        get {
+            return allValues["NSURLServerDateKey"] as? Date
+        }
+        set {
+            allValues["NSURLServerDateKey"] = newValue
+        }
+    }
+    
+    open internal(set) var id: String? {
+        get {
+            return allValues["NSURLDropboxDocumentIdentifyKey"] as? String
+        }
+        set {
+            allValues["NSURLDropboxDocumentIdentifyKey"] = newValue
+        }
+    }
+    
+    open internal(set) var rev: String? {
+        get {
+            return allValues[URLResourceKey.generationIdentifierKey.rawValue] as? String
+        }
+        set {
+            allValues[URLResourceKey.generationIdentifierKey.rawValue] = newValue
+        }
+    }
 }
 
 // codebeat:disable[ARITY]
@@ -158,14 +176,15 @@ internal extension DropboxFileProvider {
     func mapToFileObject(_ json: [String: AnyObject]) -> DropboxFileObject? {
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["path_display"] as? String else { return nil }
-        let size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        let serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
-        let modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
-        let isDirectory = (json[".tag"] as? String) == "folder"
-        let isReadonly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
-        let id = json["id"] as? String
-        let rev = json["id"] as? String
-        return DropboxFileObject(name: name, path: path, size: size, serverTime: serverTime, modifiedDate: modifiedDate, fileType: isDirectory ? .directory : .regular, isReadOnly: isReadonly, id: id, rev: rev)
+        let fileObject = DropboxFileObject(name: name, path: path)
+        fileObject.size = (json["size"] as? NSNumber)?.int64Value ?? -1
+        fileObject.serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
+        fileObject.modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
+        fileObject.fileType = (json[".tag"] as? String) == "folder" ? .directory : .regular
+        fileObject.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
+        fileObject.id = json["id"] as? String
+        fileObject.rev = json["id"] as? String
+        return fileObject
     }
     
     func delegateNotify(_ operation: FileOperationType, error: Error?) {
