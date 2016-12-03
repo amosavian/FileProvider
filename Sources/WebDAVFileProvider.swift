@@ -214,7 +214,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        return self.copyMoveItem(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
+        return self.doOperation(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
@@ -223,17 +223,36 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        return self.copyMoveItem(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
+        return self.doOperation(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
     }
     
-    fileprivate func copyMoveItem(operation opType: FileOperationType, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let source = opType.source, let dest = opType.destination else { return nil }
-        // Using switch is more readable than using reflect. Maybe some
-        let sourceURL = absoluteURL(source)
+    @discardableResult
+    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let opType = FileOperationType.remove(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+            return nil
+        }
+        return self.doOperation(operation: opType, completionHandler: completionHandler)
+    }
+    
+    func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
+        let sourceURL = absoluteURL(opType.source!)
         var request = URLRequest(url: sourceURL)
-        request.httpMethod = opType.description.uppercased() // "COPY" or "MOVE"
-        request.setValue(absoluteURL(dest).absoluteString, forHTTPHeaderField: "Destination")
-        if !overwrite {
+        if let dest = opType.destination {
+            request.setValue(absoluteURL(dest).absoluteString, forHTTPHeaderField: "Destination")
+        }
+        switch opType {
+        case .copy:
+            request.httpMethod = "COPY"
+        case .move:
+            request.httpMethod = "MOVE"
+        case .remove:
+            request.httpMethod = "DELETE"
+        default:
+            return nil
+        }
+        
+        if let overwrite = overwrite, !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -253,38 +272,6 @@ extension WebDAVFileProvider: FileProviderOperations {
                 completionHandler?(responseError ?? error)
             }
             
-            self.delegateNotify(opType, error: responseError ?? error)
-        })
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    @discardableResult
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.remove(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let url = absoluteURL(path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                if response.statusCode >= 300  {
-                    responseError = FileProviderWebDavError(code: code, url: url)
-                }
-                if code == .multiStatus, let data = data {
-                    let xresponses = self.parseXMLResponse(data)
-                    for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
-                        completionHandler?(FileProviderWebDavError(code: code, url: url))
-                    }
-                }
-            }
-            if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
-                completionHandler?(responseError ?? error)
-            }
             self.delegateNotify(opType, error: responseError ?? error)
         })
         task.taskDescription = opType.json

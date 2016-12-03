@@ -304,7 +304,7 @@ public protocol FileProvider: FileProviderBasic, FileProviderOperations, FilePro
 
 extension FileProviderBasic {
     public var type: String {
-        return type(of: self).type
+        return Self.type
     }
     
     public var bareCurrentPath: String {
@@ -416,11 +416,9 @@ extension FileProviderBasic {
         if let isotime = dateFor.date(from: dateString) {
             return isotime
         }
-        //self.init()
         return nil
     }
 }
-
 
 public protocol ExtendedFileProvider: FileProvider {
     func thumbnailOfFileSupported(path: String) -> Bool
@@ -479,6 +477,7 @@ public protocol OperationHandle {
     var bytesSoFar: Int64 { get }
     var totalBytes: Int64 { get }
     var inProgress: Bool { get }
+    var progress: Float { get }
     func cancel() -> Bool
 }
 
