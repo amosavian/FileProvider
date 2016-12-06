@@ -11,7 +11,7 @@ import Foundation
 extension Data {
     init<T>(value: T) {
         var value = value
-        self = Data(buffer: UnsafeBufferPointer(start: &value, count: MemoryLayout.size(ofValue: value)))
+        self = Data(buffer: UnsafeBufferPointer(start: &value, count: 1))
     }
     
     func scanValue<T>() -> T? {
