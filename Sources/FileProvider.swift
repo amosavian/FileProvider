@@ -370,10 +370,7 @@ open class FileObject {
     
     open internal(set) var fileType: URLFileResourceType? {
         get {
-            guard let typeString = allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? String else {
-                return nil
-            }
-            return URLFileResourceType(rawValue: typeString)
+            return allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? URLFileResourceType
         }
         set {
             allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue
