@@ -196,13 +196,14 @@ extension DropboxFileProvider: FileProviderOperations {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": correctPath(path)! as NSString]
-        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
+        let requestDictionary = ["path": path]
+        let requestJson = dictionaryToJSON(requestDictionary as [String : AnyObject]) ?? ""
+        request.setValue(requestJson, forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTask(with: request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
-                let dbError: FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: nil) : nil
+                let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
+                let dbError : FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
                 completionHandler?(dbError ?? error)
                 return
             }
