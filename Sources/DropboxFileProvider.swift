@@ -251,13 +251,13 @@ extension DropboxFileProvider: FileProviderReadWrite {
         return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
-    public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         // FIXME: remove 150MB restriction
-        return upload_simple(path, data: data, overwrite: true, operation: opType, completionHandler: completionHandler)
+        return upload_simple(path, data: data, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
