@@ -255,8 +255,15 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
     
     @discardableResult
-    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
+        var options: Data.WritingOptions = []
+        if atomically {
+            options.insert(.atomic)
+        }
+        if overwrite {
+            options.insert(.withoutOverwriting)
+        }
         operation_queue.async {
             try? data.write(to: self.absoluteURL(path), options: atomically ? [.atomic] : [])
             DispatchQueue.main.async(execute: {

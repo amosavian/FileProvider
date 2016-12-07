@@ -88,7 +88,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func writeContents(path: String, contents data: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
         return nil
     }

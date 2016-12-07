@@ -360,7 +360,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     @discardableResult
-    public func writeContents(path: String, contents data: Data, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -369,6 +369,9 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let url = atomically ? absoluteURL(path).appendingPathExtension("tmp") : absoluteURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        if !overwrite {
+            request.setValue("F", forHTTPHeaderField: "Overwrite")
+        }
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {

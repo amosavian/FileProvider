@@ -116,7 +116,7 @@ public protocol FileProviderReadWrite: FileProviderBasic {
     @discardableResult
     func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
     @discardableResult
-    func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    func writeContents(path: String, contents: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
     func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
 }
