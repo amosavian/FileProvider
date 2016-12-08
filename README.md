@@ -43,21 +43,26 @@ Legacy version is available in swift-2 branch
 
 ### Cocoapods / Carthage / Swift Package Manager
 
-FileProvider supports both CocoaPods. 
-
 Add this line to your pods file:
 
 ```ruby
 pod "FileProvider"
 ```
 
-Or add this to cartfile:
+Or add this to Cartfile:
 
 ```
 github "amosavian/FileProvider"
 ```
 
-### Git
+Or to use in Swift Package Manager add this line in `Dependencies`:
+
+```swift
+.Package(url: "https://github.com/amosavian/FileProvider.git", majorVersion: 0, minorVersion: 8)
+```
+
+### Manually
+
 To have latest updates with ease, use this command on terminal to get a clone:
 
 ```bash
@@ -75,11 +80,11 @@ if you have a git based project, use this command in your projects directory to 
 ```bash
 git submodule add https://github.com/amosavian/FileProvider
 ```
+Then you can do either:
 
-### Manually
-**First way:** Copy Source folder to your project and Voila!
+* Copy Source folder to your project and Voila!
 
-**Second way:** Drop FileProvider.xcodeproj to you Xcode workspace and add the framework to your Embeded Binaries in target.
+* Drop FileProvider.xcodeproj to you Xcode workspace and add the framework to your Embeded Binaries in target.
 
 ## Usage
 
