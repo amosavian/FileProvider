@@ -98,7 +98,11 @@ public protocol FileProviderOperations: FileProviderBasic {
     @discardableResult
     func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
+    func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
     func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func copyItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
@@ -110,15 +114,56 @@ public protocol FileProviderOperations: FileProviderBasic {
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
 
+extension FileProviderOperations {
+    @discardableResult
+    public func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.moveItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    public func copyItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.copyItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
+    }
+}
+
 public protocol FileProviderReadWrite: FileProviderBasic {
     @discardableResult
     func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
     @discardableResult
     func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
+    
+    @discardableResult
+    func writeContents(path: String, contents: Data, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func writeContents(path: String, contents: Data, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func writeContents(path: String, contents: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
     func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
+}
+
+extension FileProviderReadWrite {
+    @discardableResult
+    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?{
+        return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    public func writeContents(path: String, contents: Data, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.writeContents(path: path, contents: contents, atomically: false, overwrite: false, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    public func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.writeContents(path: path, contents: contents, atomically: atomically, overwrite: false, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    public func writeContents(path: String, contents: Data, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.writeContents(path: path, contents: contents, atomically: false, overwrite: overwrite, completionHandler: completionHandler)
+    }
 }
 
 public protocol FileProviderMonitor: FileProviderBasic {

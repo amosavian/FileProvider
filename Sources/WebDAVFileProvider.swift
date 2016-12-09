@@ -333,11 +333,6 @@ extension WebDAVFileProvider: FileProviderOperations {
 
 extension WebDAVFileProvider: FileProviderReadWrite {
     @discardableResult
-    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
-    }
-    
-    @discardableResult
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
         let url = absoluteURL(path)
@@ -360,7 +355,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     @discardableResult
-    public func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil

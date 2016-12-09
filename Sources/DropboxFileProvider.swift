@@ -118,11 +118,11 @@ extension DropboxFileProvider: FileProviderOperations {
         return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
-    public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
@@ -221,10 +221,6 @@ extension DropboxFileProvider: FileProviderOperations {
 }
 
 extension DropboxFileProvider: FileProviderReadWrite {
-    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
-    }
-    
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
         let url = URL(string: "https://content.dropboxapi.com/2/files/download")!
@@ -251,7 +247,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
-    public func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil

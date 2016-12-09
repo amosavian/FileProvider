@@ -232,6 +232,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     @discardableResult
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        if length < 0 {
+            return self.contents(path: path, completionHandler: completionHandler)
+        }
         let opType = FileOperationType.fetch(path: path)
         dispatch_queue.async {
             let aPath = self.absoluteURL(path).path
@@ -255,7 +258,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
     
     @discardableResult
-    open func writeContents(path: String, contents data: Data, atomically: Bool = false, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         var options: Data.WritingOptions = []
         if atomically {
