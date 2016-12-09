@@ -122,7 +122,7 @@ extension FileProviderOperations {
     }
     
     @discardableResult
-    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return self.copyItem(localFile: localFile, to: to, overwrite: false, completionHandler: completionHandler)
     }
     
@@ -428,13 +428,18 @@ open class FileObject {
         }
     }
     
-    open internal(set) var fileType: URLFileResourceType? {
+    open internal(set) var type: URLFileResourceType? {
         get {
             return allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? URLFileResourceType
         }
         set {
             allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue
         }
+    }
+    
+    @available(*, deprecated, message: "Use FileObject.type property instead.")
+    open var fileType: URLFileResourceType? {
+        return self.type
     }
     
     open internal(set) var isHidden: Bool {
@@ -456,15 +461,15 @@ open class FileObject {
     }
     
     open var isDirectory: Bool {
-        return self.fileType == .directory
+        return self.type == .directory
     }
     
     open var isRegularFile: Bool {
-        return self.fileType == .regular
+        return self.type == .regular
     }
     
     open var isSymLink: Bool {
-        return self.fileType == .symbolicLink
+        return self.type == .symbolicLink
     }
 }
 

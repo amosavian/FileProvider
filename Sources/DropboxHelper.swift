@@ -203,7 +203,7 @@ internal extension DropboxFileProvider {
         fileObject.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         fileObject.serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
         fileObject.modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
-        fileObject.fileType = (json[".tag"] as? String) == "folder" ? .directory : .regular
+        fileObject.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
         fileObject.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
         fileObject.id = json["id"] as? String
         fileObject.rev = json["id"] as? String

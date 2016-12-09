@@ -539,7 +539,7 @@ internal extension WebDAVFileProvider {
         fileObject.creationDate = self.resolve(dateString: davResponse.prop["creationdate"] ?? "")
         fileObject.modifiedDate = self.resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
         fileObject.contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
-        fileObject.fileType = fileObject.contentType == "httpd/unix-directory" ? .directory : .regular
+        fileObject.type = fileObject.contentType == "httpd/unix-directory" ? .directory : .regular
         fileObject.entryTag = davResponse.prop["getetag"]
         return fileObject
     }
