@@ -174,17 +174,12 @@ extension DropboxFileProvider: FileProviderOperations {
         return RemoteOperationHandle(operationType: operation, tasks: [task])
     }
     
-    public func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        guard let data = try? Data(contentsOf: localFile) else {
-            let error = throwError(localFile.absoluteString, code: URLError.fileDoesNotExist as FoundationErrorEnum)
-            completionHandler?(error)
-            return nil
-        }
-        return upload_simple(toPath, data: data, overwrite: true, operation: opType, completionHandler: completionHandler)
+        return upload_simple(toPath, localFile: localFile, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
     public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {

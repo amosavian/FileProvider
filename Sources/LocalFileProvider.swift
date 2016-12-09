@@ -182,7 +182,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
     
     @discardableResult
-    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         operation_queue.async {
             do {

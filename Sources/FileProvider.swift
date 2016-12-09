@@ -107,9 +107,10 @@ public protocol FileProviderOperations: FileProviderBasic {
     func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
-    
     @discardableResult
     func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    @discardableResult
+    func copyItem(localFile: URL, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
@@ -118,6 +119,11 @@ extension FileProviderOperations {
     @discardableResult
     public func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return self.moveItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.copyItem(localFile: localFile, to: to, overwrite: false, completionHandler: completionHandler)
     }
     
     @discardableResult
@@ -291,6 +297,15 @@ extension FileProviderBasic {
         }
         return nil
     }
+    
+    public func string(from date:Date) -> String {
+        let fm = DateFormatter()
+        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
+        fm.timeZone = TimeZone(identifier:"UTC")
+        fm.locale = Locale(identifier:"en_US_POSIX")
+        return fm.string(from:date)
+    }
+    
 }
 
 public protocol ExtendedFileProvider: FileProvider {
