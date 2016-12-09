@@ -280,7 +280,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {

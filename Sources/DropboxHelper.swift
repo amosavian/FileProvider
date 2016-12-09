@@ -97,15 +97,6 @@ internal extension DropboxFileProvider {
         task.resume()
     }
     
-    var uploadDateFormatter : DateFormatter
-    {
-        let fm = DateFormatter()
-        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
-        fm.timeZone = TimeZone(identifier:"UTC")
-        fm.locale = Locale(identifier:"en_US_POSIX")
-        return fm
-    }
-    
     func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         assert(data.count < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
         var requestDictionary = [String: Any]()
@@ -113,8 +104,7 @@ internal extension DropboxFileProvider {
         url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        let dateFormatter = uploadDateFormatter
-        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate)
+        requestDictionary["client_modified"] = string(from:modifiedDate)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -140,8 +130,7 @@ internal extension DropboxFileProvider {
         url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        let dateFormatter = uploadDateFormatter
-        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate)
+        requestDictionary["client_modified"] = string(from:modifiedDate)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")

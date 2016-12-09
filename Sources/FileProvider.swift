@@ -120,6 +120,11 @@ extension FileProviderOperations {
     }
     
     @discardableResult
+    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        return self.copyItem(localFile: localFile, to: to, overwrite: false, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
     public func copyItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return self.copyItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
     }
@@ -290,6 +295,15 @@ extension FileProviderBasic {
         }
         return nil
     }
+    
+    public func string(from date:Date) -> String {
+        let fm = DateFormatter()
+        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
+        fm.timeZone = TimeZone(identifier:"UTC")
+        fm.locale = Locale(identifier:"en_US_POSIX")
+        return fm.string(from:date)
+    }
+    
 }
 
 public protocol ExtendedFileProvider: FileProvider {
