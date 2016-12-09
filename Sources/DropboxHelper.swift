@@ -97,21 +97,29 @@ internal extension DropboxFileProvider {
         task.resume()
     }
     
+    var uploadDateFormatter : DateFormatter
+    {
+        let fm = DateFormatter()
+        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
+        fm.timeZone = TimeZone(identifier:"UTC")
+        fm.locale = Locale(identifier:"en_US_POSIX")
+        return fm
+    }
+    
     func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         assert(data.count < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
-        var requestDictionary = [String: AnyObject]()
+        var requestDictionary = [String: Any]()
         let url: URL
         url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
-        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate) as NSString
+        let dateFormatter = uploadDateFormatter
+        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
+        request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
         request.httpBody = data
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
@@ -120,7 +128,33 @@ internal extension DropboxFileProvider {
             }
             completionHandler?(responseError ?? error)
             self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
-        }) 
+        })
+        task.taskDescription = operation.json
+        task.resume()
+        return RemoteOperationHandle(operationType: operation, tasks: [task])
+    }
+    
+    func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        var requestDictionary = [String: Any]()
+        let url: URL
+        url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
+        requestDictionary["path"] = correctPath(targetPath) as NSString?
+        requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
+        let dateFormatter = uploadDateFormatter
+        requestDictionary["client_modified"] = dateFormatter.string(from: modifiedDate)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
+        let task = session.uploadTask(with: request, fromFile: localFile, completionHandler: { (data, response, error) in
+            var responseError: FileProviderDropboxError?
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+            }
+            completionHandler?(responseError ?? error)
+            self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
+        })
         task.taskDescription = operation.json
         task.resume()
         return RemoteOperationHandle(operationType: operation, tasks: [task])

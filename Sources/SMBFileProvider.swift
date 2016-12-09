@@ -68,7 +68,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func copyItem(localFile: URL, to toPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
         return nil
     }

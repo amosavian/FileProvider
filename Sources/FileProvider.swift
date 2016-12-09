@@ -107,9 +107,8 @@ public protocol FileProviderOperations: FileProviderBasic {
     func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
-    
     @discardableResult
-    func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    func copyItem(localFile: URL, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     @discardableResult
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
