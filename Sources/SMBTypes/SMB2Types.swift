@@ -8,35 +8,6 @@
 
 import Foundation
 
-extension Data {
-    init<T>(value: T) {
-        var value = value
-        self = Data(buffer: UnsafeBufferPointer(start: &value, count: 1))
-    }
-    
-    func scanValue<T>() -> T? {
-        guard MemoryLayout<T>.size <= self.count else { return nil }
-        return self.withUnsafeBytes { $0.pointee }
-    }
-    
-    func scanValue<T>(start: Int) -> T? {
-        let length = MemoryLayout<T>.size
-        guard self.count >= start + length else { return nil }
-        return self.subdata(in: start..<start+length).withUnsafeBytes { $0.pointee }
-    }
-    
-    func scanString(start: Int = 0, length: Int, encoding: String.Encoding) -> String? {
-        guard self.count >= start + length else { return nil }
-        return String(data: self.subdata(in: start..<start+length), encoding: encoding)
-    }
-    
-    static func mapMemory<T, U>(from: T) -> U? {
-        guard MemoryLayout<T>.size >= MemoryLayout<U>.size else { return nil }
-        let data = Data(value: from)
-        return data.scanValue()
-    }
-}
-
 protocol FileProviderSMBHeader {
     var protocolID: UInt32 { get }
     static var protocolConst: UInt32 { get }

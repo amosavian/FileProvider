@@ -92,6 +92,9 @@
 		799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
+		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
+		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
+		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -131,6 +134,7 @@
 		799396A31D48C02300086753 /* SMB2Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Types.swift; sourceTree = "<group>"; };
 		799396A41D48C02300086753 /* SMBErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMBErrorType.swift; sourceTree = "<group>"; };
 		799396A61D48C02300086753 /* WebDAVFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDAVFileProvider.swift; sourceTree = "<group>"; };
+		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -218,6 +222,7 @@
 				794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */,
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
+				79F5745A1DFDB10A00179ABF /* FileObject.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
 				792572401DF23BDA006A1526 /* LocalHelper.swift */,
 				7902C0851D61B56D00564440 /* RemoteSession.swift */,
@@ -402,6 +407,7 @@
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
 				792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				7924B1991D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
@@ -437,6 +443,7 @@
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
 				792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				7924B1B01D89F7DE00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19A1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
@@ -472,6 +479,7 @@
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
 				792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19B1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,
