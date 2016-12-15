@@ -56,7 +56,7 @@ open class FileObject {
     /// Size of file on disk, return -1 for directories.
     open internal(set) var size: Int64 {
         get {
-            return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
+            return (allValues[URLResourceKey.fileSizeKey.rawValue] as? NSNumber)?.int64Value ?? -1
         }
         set {
             allValues[URLResourceKey.fileSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
