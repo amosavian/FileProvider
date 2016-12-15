@@ -59,7 +59,7 @@ open class FileObject {
             return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
         }
         set {
-            allValues[URLResourceKey.fileSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
+            allValues[URLResourceKey.fileSizeKey.rawValue] = newValue
         }
     }
     
