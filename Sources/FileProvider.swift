@@ -219,7 +219,7 @@ extension FileProviderBasic {
         guard let path = path else { return nil }
         var p = path.hasPrefix("/") ? path : "/" + path
         if p.hasSuffix("/") {
-            p.remove(at: p.endIndex)
+            p.remove(at: p.index(before:p.endIndex))
         }
         return p
     }
