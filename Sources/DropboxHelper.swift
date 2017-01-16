@@ -210,6 +210,37 @@ internal extension DropboxFileProvider {
         return fileObject
     }
     
+    static let dateFormatter = DateFormatter()
+    static let decimalFormatter = NumberFormatter()
+    
+    func mapMediaInfo(_ json: [String: Any]) -> (dictionary: [String: Any], keys: [String]) {
+        var dic = [String: Any]()
+        var keys = [String]()
+        if let dimensions = json["dimensions"] as? [String: Any], let height = dimensions["height"] as? UInt64, let width = dimensions["width"] as? UInt64 {
+            keys.append("Dimensions")
+            dic["Dimensions"] = "\(width)x\(height)"
+        }
+        if let location = json["location"] as? [String: Any], let latitude = location["latitude"] as? Double, let longitude = location["longitude"] as? Double {
+            
+            DropboxFileProvider.decimalFormatter.numberStyle = .decimal
+            DropboxFileProvider.decimalFormatter.maximumFractionDigits = 5
+            keys.append("Location")
+            let latStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))
+            let longStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))
+            dic["Location"] = "\(latStr), \(longStr)"
+        }
+        if let timeTakenStr = json["time_taken"] as? String, let timeTaken = self.resolve(dateString: timeTakenStr) {
+            keys.append("Date taken")
+            DropboxFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            dic["Date taken"] = DropboxFileProvider.dateFormatter.string(from: timeTaken)
+        }
+        if let duration = json["duration"] as? UInt64 {
+            keys.append("Duration")
+            dic["Duration"] = DropboxFileProvider.formatshort(interval: TimeInterval(duration))
+        }
+        return (dic, keys)
+    }
+    
     func delegateNotify(_ operation: FileOperationType, error: Error?) {
         DispatchQueue.main.async(execute: {
             if error == nil {

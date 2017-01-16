@@ -92,6 +92,23 @@
 		799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
 		799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396A61D48C02300086753 /* WebDAVFileProvider.swift */; };
+		79BD638C1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */; };
+		79BD638D1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */; };
+		79BD638E1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */; };
+		79BD63A81E2CC2940035128C /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63A71E2CC2940035128C /* CoreGraphics.framework */; };
+		79BD63AA1E2CC2BB0035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63A91E2CC2BB0035128C /* AVFoundation.framework */; };
+		79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AB1E2CC2C20035128C /* ImageIO.framework */; };
+		79BD63AE1E2CC2EB0035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */; };
+		79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AF1E2CC3300035128C /* libxml2.tbd */; };
+		79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B11E2CC3350035128C /* ImageIO.framework */; };
+		79BD63B41E2CC33D0035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B31E2CC33D0035128C /* MediaPlayer.framework */; };
+		79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B51E2CC3860035128C /* CoreFoundation.framework */; };
+		79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B71E2CC38D0035128C /* AVFoundation.framework */; };
+		79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B91E2CC39B0035128C /* libxml2.tbd */; };
+		79BD63BC1E2CC3B90035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */; };
+		79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BD1E2CC3C20035128C /* ImageIO.framework */; };
+		79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */; };
+		79BD63C21E2CC3D30035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63C11E2CC3D30035128C /* AVFoundation.framework */; };
 		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
@@ -134,6 +151,21 @@
 		799396A31D48C02300086753 /* SMB2Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Types.swift; sourceTree = "<group>"; };
 		799396A41D48C02300086753 /* SMBErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMBErrorType.swift; sourceTree = "<group>"; };
 		799396A61D48C02300086753 /* WebDAVFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDAVFileProvider.swift; sourceTree = "<group>"; };
+		79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtendedLocalFileProvider.swift; sourceTree = "<group>"; };
+		79BD63A71E2CC2940035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63A91E2CC2BB0035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63AB1E2CC2C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/MediaPlayer.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63AF1E2CC3300035128C /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = usr/lib/libxml2.tbd; sourceTree = SDKROOT; };
+		79BD63B11E2CC3350035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
+		79BD63B31E2CC33D0035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		79BD63B51E2CC3860035128C /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		79BD63B71E2CC38D0035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		79BD63B91E2CC39B0035128C /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
+		79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/MediaPlayer.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63BD1E2CC3C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63C11E2CC3D30035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -142,6 +174,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				79BD63AA1E2CC2BB0035128C /* AVFoundation.framework in Frameworks */,
+				79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */,
+				79BD63A81E2CC2940035128C /* CoreGraphics.framework in Frameworks */,
+				79BD63AE1E2CC2EB0035128C /* MediaPlayer.framework in Frameworks */,
 				791950F51DE58A5400B4426E /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -150,6 +186,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */,
+				79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */,
+				79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */,
+				79BD63B41E2CC33D0035128C /* MediaPlayer.framework in Frameworks */,
+				79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +198,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				79BD63C21E2CC3D30035128C /* AVFoundation.framework in Frameworks */,
+				79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */,
+				79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */,
+				79BD63BC1E2CC3B90035128C /* MediaPlayer.framework in Frameworks */,
+				79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -166,6 +212,20 @@
 		791950F31DE58A5300B4426E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				79BD63C11E2CC3D30035128C /* AVFoundation.framework */,
+				79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */,
+				79BD63BD1E2CC3C20035128C /* ImageIO.framework */,
+				79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */,
+				79BD63B91E2CC39B0035128C /* libxml2.tbd */,
+				79BD63B71E2CC38D0035128C /* AVFoundation.framework */,
+				79BD63B51E2CC3860035128C /* CoreFoundation.framework */,
+				79BD63B31E2CC33D0035128C /* MediaPlayer.framework */,
+				79BD63B11E2CC3350035128C /* ImageIO.framework */,
+				79BD63AF1E2CC3300035128C /* libxml2.tbd */,
+				79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */,
+				79BD63AB1E2CC2C20035128C /* ImageIO.framework */,
+				79BD63A91E2CC2BB0035128C /* AVFoundation.framework */,
+				79BD63A71E2CC2940035128C /* CoreGraphics.framework */,
 				791950F41DE58A5400B4426E /* libxml2.tbd */,
 			);
 			name = Frameworks;
@@ -186,6 +246,7 @@
 		7993965B1D48B7BF00086753 = {
 			isa = PBXGroup;
 			children = (
+				79E34A101E2AC6C600E1293B /* Extra */,
 				799396911D48C02300086753 /* Sources */,
 				7993968A1D48B8C700086753 /* Pod */,
 				799396681D48B7F600086753 /* Products */,
@@ -225,6 +286,7 @@
 				79F5745A1DFDB10A00179ABF /* FileObject.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
 				792572401DF23BDA006A1526 /* LocalHelper.swift */,
+				79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */,
 				7902C0851D61B56D00564440 /* RemoteSession.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
@@ -252,6 +314,13 @@
 				799396A11D48C02300086753 /* SMB2SetInfo.swift */,
 			);
 			path = SMBTypes;
+			sourceTree = "<group>";
+		};
+		79E34A101E2AC6C600E1293B /* Extra */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Extra;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -428,6 +497,7 @@
 				799396C21D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CB1D48C02300086753 /* SMB2Query.swift in Sources */,
 				799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
+				79BD638C1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				7924B1B31D89FD6400589DB7 /* SMBClient.swift in Sources */,
 				7924B1A51D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B01D48C02300086753 /* FileProvider.swift in Sources */,
@@ -464,6 +534,7 @@
 				799396C31D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CC1D48C02300086753 /* SMB2Query.swift in Sources */,
 				7924B1AD1D89F7D800589DB7 /* SMBClient.swift in Sources */,
+				79BD638D1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				7924B1A61D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B11D48C02300086753 /* FileProvider.swift in Sources */,
@@ -500,6 +571,7 @@
 				799396C41D48C02300086753 /* SMB2FileHandle.swift in Sources */,
 				799396CD1D48C02300086753 /* SMB2Query.swift in Sources */,
 				7924B1AE1D89F7D900589DB7 /* SMBClient.swift in Sources */,
+				79BD638E1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				7924B1A71D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B21D48C02300086753 /* FileProvider.swift in Sources */,
@@ -694,6 +766,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_VERSION = A;
@@ -749,6 +822,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_VERSION = A;

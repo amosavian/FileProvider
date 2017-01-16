@@ -56,7 +56,7 @@ public final class LocalFileObject: FileObject {
 internal class LocalFolderMonitor {
     fileprivate let source: DispatchSourceFileSystemObject
     fileprivate let descriptor: CInt
-    fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: DispatchQoS.QoSClass.default)
+    fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: .default)
     fileprivate var state: Bool = false
     fileprivate var monitoredTime: TimeInterval = Date().timeIntervalSinceReferenceDate
     var url: URL

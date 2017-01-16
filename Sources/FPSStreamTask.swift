@@ -401,8 +401,8 @@ open class FPSStreamTask: URLSessionTask, StreamDelegate {
         if #available(iOS 9.0, OSX 10.11, *) {
             _underlyingTask!.startSecureConnection()
         } else {
-            inputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: Stream.PropertyKey.socketSecurityLevelKey)
-            outputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: Stream.PropertyKey.socketSecurityLevelKey)
+            inputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
+            outputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
         }
     }
     
@@ -414,8 +414,8 @@ open class FPSStreamTask: URLSessionTask, StreamDelegate {
         if #available(iOS 9.0, OSX 10.11, *) {
             _underlyingTask!.stopSecureConnection()
         } else {
-            inputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: Stream.PropertyKey.socketSecurityLevelKey)
-            outputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: Stream.PropertyKey.socketSecurityLevelKey)
+            inputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+            outputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
         }
     }
     

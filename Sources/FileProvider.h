@@ -5,6 +5,9 @@
 //  Created by Amir Abbas Mousavian on 5/6/95.
 //
 //
+
+#import <TargetConditionals.h>
+
 #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
 #import <UIKit/UIKit.h>
 //! Project version number for FileProvider iOS.

@@ -340,32 +340,43 @@ extension DropboxFileProvider: ExtendedFileProvider {
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             return true
-        /*case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
+        case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
             return true
         case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
             return true
         case "rtf":
-            return true*/
+            return true
         default:
             return false
         }
     }
     
     public func propertiesOfFileSupported(path: String) -> Bool {
-        return false
+        let fileExt = (path as NSString).pathExtension.lowercased()
+        switch fileExt {
+        case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
+            return true
+        /*case "mp3", "aac", "m4a":
+            return true*/
+        case "mp4", "mpg", "3gp", "mov", "avi":
+            return true
+        default:
+            return false
+        }
     }
-    
-    public func thumbnailOfFile(path: String, dimension: CGSize, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+        
+    /// Default value for dimension is 64x64, according to Dropbox documentation
+    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             url = URL(string: "https://content.dropboxapi.com/2/files/get_thumbnail")!
-        /*case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
+        case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
             fallthrough
         case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
             fallthrough
         case "rtf":
-            url = NSURL(string: "https://content.dropboxapi.com/2/files/get_preview")!*/
+            url = URL(string: "https://content.dropboxapi.com/2/files/get_preview")!
         default:
             return
         }
@@ -373,7 +384,9 @@ extension DropboxFileProvider: ExtendedFileProvider {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         var requestDictionary = ["path": path as NSString]
         requestDictionary["format"] = "jpeg" as NSString
-        requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))" as NSString
+        if let dimension = dimension {
+            requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))" as NSString
+        }
         request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
@@ -383,7 +396,13 @@ extension DropboxFileProvider: ExtendedFileProvider {
                 }
             }
             if let data = data {
-                image = ImageClass(data: data)
+                if DropboxFileProvider.dataIsPDF(data) {
+                    image = DropboxFileProvider.convertToImage(pdfData: data)
+                } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
+                     // TODO: Implement converting html returned type of get_preview to image
+                } else {
+                    image = ImageClass(data: data)
+                }
             }
             completionHandler(image, error)
         })
@@ -391,7 +410,27 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
     
     public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
-        NotImplemented()
+        let url = URL(string: "https://api.dropboxapi.com/2/files/get_metadata")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let requestDictionary = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var dbError: FileProviderDropboxError?
+            var dic = [String: Any]()
+            var keys = [String]()
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let properties = json["media_info"] as? [String: Any] {
+                    (dic, keys) = self.mapMediaInfo(properties)
+                }
+            }
+            completionHandler(dic, keys, dbError ?? error)
+        })
+        task.resume()
     }
 }
 

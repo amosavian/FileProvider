@@ -328,6 +328,41 @@ documentsProvider.unregisterNotifcation(path: provider.currentPath)
 
 * **Please note** in LocalFileProvider it will also monitor changes in subfolders. This behaviour can varies according to file system specification.
 
+### Thumbnail and meta-information
+
+Providers which conform `ExtendedFileProvider` are able to generate thumbnail or provide file meta-information for images, media and pdf files.
+
+Local and Dropbox providers support this functionality.
+
+##### Thumbnails
+To check either file thumbnail is supported or not and fetch thumbnail, use (and modify) these example code:
+
+```swift
+let path = "/newImage.jpg"
+let thumbSize = CGSize(width: 64, height: 64)
+if documentsProvider.thumbnailOfFileSupported(path: path {
+    documentsProvider..thumbnailOfFile(path: file.path, dimension: thumbSize, completionHandler: { (image, error) in
+        DispatchQueue.main.async {
+            self.previewImage.image = image
+        }
+    }
+}
+```
+
+##### Meta-informations
+
+To get meta-information like image/video taken date, dimension, etc., use (and modify) these example code:
+
+```swift
+if documentsProvider..propertiesOfFile(path: file.path, completionHandler: { (propertiesDictionary, keys, error) in
+    for key in keys {
+        print("\(key): \(propertiesDictionary[key])")
+    }
+}
+```
+
+* **Bonus:** You can modify/extend Local provider generator by setting `LocalFileInformationGenerator` static variables and methods
+
 ## Contribute
 
 We would love for you to contribute to **FileProvider**, check the `LICENSE` file for more info.

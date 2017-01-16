@@ -308,11 +308,135 @@ extension FileProviderBasic {
     
 }
 
-public protocol ExtendedFileProvider: FileProvider {
+public protocol ExtendedFileProvider: FileProviderBasic {
     func thumbnailOfFileSupported(path: String) -> Bool
     func propertiesOfFileSupported(path: String) -> Bool
-    func thumbnailOfFile(path: String, dimension: CGSize, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
+    func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
+    func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
     func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
+}
+
+extension ExtendedFileProvider {
+    public func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+        self.thumbnailOfFile(path: path, dimension: nil, completionHandler: completionHandler)
+    }
+    
+    internal static func formatshort(interval: TimeInterval) -> String {
+        var result = "0:00"
+        if interval < TimeInterval(Int32.max) {
+            result = ""
+            var time = DateComponents()
+            time.hour   = Int(interval / 3600)
+            time.minute = Int((interval.truncatingRemainder(dividingBy: 3600)) / 60)
+            time.second = Int(interval.truncatingRemainder(dividingBy: 60))
+            let formatter = NumberFormatter()
+            formatter.paddingCharacter = "0"
+            formatter.minimumIntegerDigits = 2
+            formatter.maximumFractionDigits = 0
+            let formatterFirst = NumberFormatter()
+            formatterFirst.maximumFractionDigits = 0
+            if time.hour! > 0 {
+                result = "\(formatterFirst.string(from: NSNumber(value: time.hour!))!):\(formatter.string(from: NSNumber(value: time.minute!))!):\(formatter.string(from: NSNumber(value: time.second!))!)"
+            } else {
+                result = "\(formatterFirst.string(from: NSNumber(value: time.minute!))!):\(formatter.string(from: NSNumber(value: time.second!))!)"
+            }
+        }
+        result = result.trimmingCharacters(in: CharacterSet(charactersIn: ": "))
+        return result
+    }
+    
+    internal static func dataIsPDF(_ data: Data) -> Bool {
+        return data.count > 4 && data.scanString(length: 4, encoding: .ascii) == "%PDF"
+    }
+    
+    internal static func convertToImage(pdfData: Data?) -> ImageClass? {
+        guard let pdfData = pdfData else { return nil }
+        
+        let cfPDFData: CFData = pdfData as CFData
+        if let provider = CGDataProvider(data: cfPDFData), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: 1) {
+            let frame = pageRef.getBoxRect(CGPDFBox.mediaBox)
+            var size = frame.size
+            let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+            
+            #if os(OSX)
+                let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+                
+                size.width  *= CGFloat(ppp)
+                size.height *= CGFloat(ppp)
+                
+                let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
+                    bytesPerRow: 0, bitsPerPixel: 0)
+                
+                guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
+                    return nil
+                }
+                
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.setCurrent(context)
+                
+                let transform = pageRef.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
+                context.cgContext.concatenate(transform)
+                
+                context.cgContext.translateBy(x: 0, y: size.height)
+                context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+                context.cgContext.drawPDFPage(pageRef)
+                
+                let resultingImage = NSImage(size: size)
+                resultingImage.addRepresentation(rep!)
+                return resultingImage
+            #else
+                let ppp = Int(UIScreen.main.scale) // fetch device is retina or not
+                guard let context = UIGraphicsGetCurrentContext() else {
+                    return nil
+                }
+                size.width  *= CGFloat(ppp)
+                size.height *= CGFloat(ppp)
+                UIGraphicsBeginImageContext(size)
+                
+                context.saveGState()
+                let transform = pageRef.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
+                context.concatenate(transform)
+                
+                context.translateBy(x: 0, y: size.height)
+                context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+                context.drawPDFPage(pageRef)
+                
+                context.restoreGState()
+                let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
+                return resultingImage
+            #endif
+        }
+        return nil
+    }
+    
+    internal static func scaleDown(image: ImageClass, toSize maxSize: CGSize) -> ImageClass {
+        let height, width: CGFloat
+        if image.size.width > image.size.height {
+            width = maxSize.width
+            height = (image.size.height / image.size.width) * width
+        } else {
+            height = maxSize.height
+            width = (image.size.width / image.size.height) * height
+        }
+        
+        let newSize = CGSize(width: width, height: height)
+        
+        #if os(OSX)
+            var imageRect = NSRect(origin: CGPoint.zero, size: image.size)
+            let imageRef = image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
+            
+            // Create NSImage from the CGImage using the new size
+            return NSImage(cgImage: imageRef!, size: newSize)
+        #else
+            UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+            image.draw(in: CGRect(origin: CGPoint.zero, size: newSize))
+            let newImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+            UIGraphicsEndImageContext()
+            return newImage
+        #endif
+    }
 }
 
 public enum FileOperationType: CustomStringConvertible {
