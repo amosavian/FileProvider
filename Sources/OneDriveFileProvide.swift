@@ -1,10 +1,10 @@
 
 //
-//  DropboxFileProvider.swift
+//  OneDriveFileProvider.swift
 //  FileProvider
 //
 //  Created by Amir Abbas Mousavian.
-//  Copyright © 2016 Mousavian. Distributed under MIT license.
+//  Copyright © 2017 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -13,14 +13,15 @@ import CoreGraphics
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
-    open static let type: String = "DropBox"
+open class OneDriveFileProvider: NSObject,  FileProviderBasicRemote {
+    open static let type: String = "OneDrive"
     open let isPathRelative: Bool = true
     open let baseURL: URL?
+    open var drive: String
+    open var driveURL: URL {
+        return URL(string: "/drive/root:/", relativeTo: baseURL)!
+    }
     open var currentPath: String = ""
-    
-    open let apiURL = URL(string: "https://api.dropboxapi.com/2/")!
-    open let contentURL = URL(string: "https://content.dropboxapi.com/2")!
     
     open var dispatch_queue: DispatchQueue {
         willSet {
@@ -48,9 +49,10 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
         return _session!
     }
     
-    public init? (credential: URLCredential?, cache: URLCache? = nil) {
-        self.baseURL = nil
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+    public init? (baseURL: URL?, drive: String = "root", credential: URLCredential?, cache: URLCache? = nil) {
+        self.baseURL = baseURL ?? URL(string: "https://api.onedrive.com")
+        self.drive = drive
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(OneDriveFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         //let url = baseURL.uw_absoluteString
         self.credential = credential
         self.cache = cache
@@ -67,19 +69,16 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
-        let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
+        let url = URL(string: escaped(path: path), relativeTo: driveURL)!
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": correctPath(path)! as NSString]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
-            var fileObject: DropboxFileObject?
+            var dbError: FileProviderOneDriveError?
+            var fileObject: OneDriveFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                dbError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
                     fileObject = file
                 }
@@ -90,15 +89,15 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     }
     
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        let url = URL(string: "users/get_space_usage", relativeTo: apiURL)!
+        let url = URL(string: "/drive/root", relativeTo: baseURL)!
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var totalSize: Int64 = -1
             var usedSize: Int64 = 0
             if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
-                totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
+                totalSize = (json["total"] as? NSNumber)?.int64Value ?? -1
                 usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
             }
             completionHandler(totalSize, usedSize)
@@ -109,7 +108,7 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     open weak var fileOperationDelegate: FileOperationDelegate?
 }
 
-extension DropboxFileProvider: FileProviderOperations {
+extension OneDriveFileProvider: FileProviderOperations {
     
     
     public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -138,37 +137,34 @@ extension DropboxFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
-        let url: String
         guard let sourcePath = operation.source else { return nil }
         let destPath = operation.destination
+        var request = URLRequest(url: URL(string: sourcePath, relativeTo: driveURL)!)
         switch operation {
         case .create:
-            url = "files/create_folder"
+            request.httpMethod = "CREATE"
         case .copy:
-            url = "files/copy"
+            request.httpMethod = "POST"
         case .move:
-            url = "files/move"
+            request.httpMethod = "PATCH"
         case .remove:
-            url = "files/delete"
+            request.httpMethod = "DELETE"
         default: // modify, link, fetch
             return nil
         }
-        var request = URLRequest(url: URL(string: url, relativeTo: apiURL)!)
-        request.httpMethod = "POST"
+        
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var requestDictionary = [String: AnyObject]()
         if let dest = correctPath(destPath) as NSString? {
-            requestDictionary["from_path"] = correctPath(sourcePath) as NSString?
-            requestDictionary["to_path"] = dest
-        } else {
-            requestDictionary["path"] = correctPath(sourcePath) as NSString?
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            requestDictionary["parentReference"] = ("/drive/\(drive):" + dest.deletingLastPathComponent) as NSString
+            requestDictionary["name"] = dest.lastPathComponent as NSString
+            request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         }
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
+            var dbError: FileProviderOneDriveError?
             if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                 dbError = FileProviderDropboxError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                 dbError = FileProviderOneDriveError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             completionHandler?(dbError ?? error)
             self.delegateNotify(operation, error: dbError ?? error)
@@ -191,18 +187,15 @@ extension DropboxFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = URL(string: "files/download", relativeTo: contentURL)!
+        let url = URL(string: escaped(path: path) + ":/content", relativeTo: driveURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        let requestDictionary = ["path": path]
-        let requestJson = dictionaryToJSON(requestDictionary as [String : AnyObject]) ?? ""
-        request.setValue(requestJson, forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTask(with: request, completionHandler: { (cacheURL, response, error) in
             guard let cacheURL = cacheURL, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
-                let dbError : FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                let dbError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
                 completionHandler?(dbError ?? error)
                 return
             }
@@ -219,10 +212,10 @@ extension DropboxFileProvider: FileProviderOperations {
     }
 }
 
-extension DropboxFileProvider: FileProviderReadWrite {
+extension OneDriveFileProvider: FileProviderReadWrite {
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
-        let url = URL(string: "files/download", relativeTo: contentURL)!
+        let url =  URL(string: escaped(path: path) + ":/content", relativeTo: driveURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -231,12 +224,10 @@ extension DropboxFileProvider: FileProviderReadWrite {
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
-        let requestDictionary = ["path": correctPath(path)! as NSString]
-        request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
+            var dbError: FileProviderOneDriveError?
             if let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: httpResponse.statusCode) {
-                dbError = FileProviderDropboxError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                dbError = FileProviderOneDriveError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             let filedata = dbError ?? error == nil ? data : nil
             completionHandler(filedata, dbError ?? error)
@@ -256,7 +247,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        var foundFiles = [DropboxFileObject]()
+        var foundFiles = [OneDriveFileObject]()
         search(path, query: query, foundItem: { (file) in
             foundFiles.append(file)
             foundItemHandler?(file)
@@ -266,7 +257,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
-        /* There is two ways to monitor folders changing in Dropbox. Either using webooks
+        /* There is two ways to monitor folders changing in OneDrive. Either using webooks
          * which means you have to implement a server to translate it to push notifications
          * or using apiv2 list_folder/longpoll method. The second one is implemeted here.
          * Tough webhooks are much more efficient, longpoll is much simpler to implement!
@@ -281,78 +272,10 @@ extension DropboxFileProvider: FileProviderReadWrite {
     // TODO: Implement /copy_reference, /get_account & /get_current_account
 }
 
-extension DropboxFileProvider {
-    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
-        let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": correctPath(path)! as NSString]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
-            var link: URL?
-            var fileObject: DropboxFileObject?
-            if let response = response as? HTTPURLResponse {
-                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
-                    if let linkStr = json["link"] as? String {
-                        link = URL(string: linkStr)
-                    }
-                    if let attribDic = json["metadata"] as? [String: AnyObject] {
-                        fileObject = self.mapToFileObject(attribDic)
-                    }
-                }
-            }
-            completionHandler(link, fileObject, dbError ?? error)
-        })
-        task.resume()
-    }
-    
-    open func copyItem(path: String, toRemoteURL destURL: URL, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
-        let url = URL(string: "files/save_url", relativeTo: apiURL)!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": correctPath(path)! as NSString, "url" : destURL.absoluteString as NSString]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
-            var jobId: String?
-            var fileObject: DropboxFileObject?
-            if let response = response as? HTTPURLResponse {
-                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
-                    jobId = json["async_job_id"] as? String
-                    if let attribDic = json["metadata"] as? [String: AnyObject] {
-                        fileObject = self.mapToFileObject(attribDic)
-                    }
-                }
-            }
-            completionHandler(jobId, fileObject, dbError ?? error)
-        })
-        task.resume()
-    }
-}
 
-extension DropboxFileProvider: ExtendedFileProvider {
+extension OneDriveFileProvider: ExtendedFileProvider {
     public func thumbnailOfFileSupported(path: String) -> Bool {
-        switch (path as NSString).pathExtension.lowercased() {
-        case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
-            return true
-        case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
-            return true
-        case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
-            return true
-        case "rtf":
-            return true
-        default:
-            return false
-        }
+        return true
     }
     
     public func propertiesOfFileSupported(path: String) -> Bool {
@@ -360,53 +283,34 @@ extension DropboxFileProvider: ExtendedFileProvider {
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
             return true
-        /*case "mp3", "aac", "m4a":
-            return true*/
-        case "mp4", "mpg", "3gp", "mov", "avi":
+        case "mp3", "aac", "m4a", "wma":
+            return true
+        case "mp4", "mpg", "3gp", "mov", "avi", "wmv":
             return true
         default:
             return false
         }
     }
-        
-    /// Default value for dimension is 64x64, according to Dropbox documentation
+    
     public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
-        switch (path as NSString).pathExtension.lowercased() {
-        case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
-            url = URL(string: "files/get_thumbnail", relativeTo: contentURL)!
-        case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
-            fallthrough
-        case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
-            fallthrough
-        case "rtf":
-            url = URL(string: "files/get_preview", relativeTo: contentURL)!
-        default:
-            return
+        if let dimension = dimension {
+            url = URL(string: escaped(path: path) + ":/thumbnails/0/=c\(dimension.width)x\(dimension.height)/content", relativeTo: driveURL)!
+        } else {
+            url = URL(string: escaped(path: path) + ":/thumbnails/0/small/content", relativeTo: driveURL)!
         }
+        
         var request = URLRequest(url: url)
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        var requestDictionary = ["path": path as NSString]
-        requestDictionary["format"] = "jpeg" as NSString
-        if let dimension = dimension {
-            requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))" as NSString
-        }
-        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
-            if let r = response as? HTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = jsonToDictionary(result) {
-                if jsonResult["error"] != nil {
-                    completionHandler(nil, self.throwError(path, code: URLError.cannotDecodeRawData as FoundationErrorEnum))
-                }
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                let responseError = FileProviderOneDriveError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                completionHandler(nil, responseError)
+                return
             }
             if let data = data {
-                if DropboxFileProvider.dataIsPDF(data) {
-                    image = DropboxFileProvider.convertToImage(pdfData: data)
-                } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
-                     // TODO: Implement converting html returned type of get_preview to image
-                } else {
-                    image = ImageClass(data: data)
-                }
+                image = ImageClass(data: data)
             }
             completionHandler(image, error)
         })
@@ -414,22 +318,19 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
     
     public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
-        let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
+        let url = URL(string: escaped(path: path), relativeTo: driveURL)!
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let requestDictionary = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderDropboxError?
+            var dbError: FileProviderOneDriveError?
             var dic = [String: Any]()
             var keys = [String]()
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let properties = json["media_info"] as? [String: Any] {
-                    (dic, keys) = self.mapMediaInfo(properties)
+                dbError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                    (dic, keys) = self.mapMediaInfo(json)
                 }
             }
             completionHandler(dic, keys, dbError ?? error)
@@ -438,9 +339,9 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
 }
 
-extension DropboxFileProvider: FileProvider {
+extension OneDriveFileProvider: FileProvider {
     open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = DropboxFileProvider(credential: self.credential, cache: self.cache)!
+        let copy = OneDriveFileProvider(baseURL: self.baseURL, drive: self.drive, credential: self.credential, cache: self.cache)!
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate

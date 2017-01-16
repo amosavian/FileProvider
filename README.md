@@ -16,7 +16,7 @@
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) 
 ---> 
 
-This library provides implementaion of WebDav and SMB2 (incomplete) and local files.
+This library provides implementaion of WebDav, Dropbox, OneDrive and SMB2 (incomplete) and local files.
 
 All functions are async calls and it wont block your main thread.
 
@@ -27,6 +27,7 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like searching and reading a portion of file.
 - [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API. For now it has limitation in uploading files up to 150MB.
+- [x] **OneDriveFileProvider** A wrapper around OneDrive Web API, works with `onedrive.com` and compatible servers. For now it has limitation in uploading files up to 100MB.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS. I implemented data types and some basic functions but *main interface is not implemented yet!* SMB1/CIFS is depericated and very tricky to be implemented
 - [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
 - [ ] **AmazonS3FileProvider** 
@@ -117,7 +118,7 @@ let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example
 
 * In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
-* For Dropbox, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
+* For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
 	
 For interaction with UI, set delegate variable of `FileProvider` object
 
@@ -332,7 +333,7 @@ documentsProvider.unregisterNotifcation(path: provider.currentPath)
 
 Providers which conform `ExtendedFileProvider` are able to generate thumbnail or provide file meta-information for images, media and pdf files.
 
-Local and Dropbox providers support this functionality.
+Local, OneDrive and Dropbox providers support this functionality.
 
 ##### Thumbnails
 To check either file thumbnail is supported or not and fetch thumbnail, use (and modify) these example code:
@@ -348,6 +349,8 @@ if documentsProvider.thumbnailOfFileSupported(path: path {
     }
 }
 ```
+
+* Please note it won't cache generated images. if you don't do it yourself, it may hit you app's performance.
 
 ##### Meta-informations
 

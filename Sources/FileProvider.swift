@@ -10,7 +10,7 @@ import Foundation
 #if os(iOS) || os(tvOS)
 import UIKit
 public typealias ImageClass = UIImage
-#elseif os(OSX)
+#elseif os(macOS)
 import Cocoa
 public typealias ImageClass = NSImage
 #endif
@@ -33,6 +33,8 @@ public protocol FileProviderBasic: class {
     func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
+    
+    func url(of path: String?) -> URL
 }
 
 public protocol FileProviderBasicRemote: FileProviderBasic {
@@ -181,16 +183,25 @@ public protocol FileProviderMonitor: FileProviderBasic {
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 
+fileprivate let pathTrimSet = CharacterSet(charactersIn: " /")
 extension FileProviderBasic {
     public var type: String {
         return Self.type
     }
     
     public var bareCurrentPath: String {
-        return currentPath.trimmingCharacters(in: CharacterSet(charactersIn: ". /"))
+        return currentPath.trimmingCharacters(in: pathTrimSet)
+    }
+    
+    func escaped(path: String) -> String {
+        return path.trimmingCharacters(in: pathTrimSet)
     }
     
     public func absoluteURL(_ path: String? = nil) -> URL {
+        return url(of: path).absoluteURL
+    }
+    
+    public func url(of path: String? = nil) -> URL {
         let rpath: String
         if let path = path {
             rpath = path
@@ -201,9 +212,9 @@ extension FileProviderBasic {
             if rpath.hasPrefix("/") && baseURL.absoluteString.hasSuffix("/") {
                 var npath = rpath
                 npath.remove(at: npath.startIndex)
-                return baseURL.appendingPathComponent(npath)
+                return URL(string: npath, relativeTo: baseURL)!
             } else {
-                return baseURL.appendingPathComponent(rpath)
+                return URL(string: rpath, relativeTo: baseURL)!
             }
         } else {
             return URL(fileURLWithPath: rpath).standardizedFileURL
@@ -349,16 +360,16 @@ extension ExtendedFileProvider {
         return data.count > 4 && data.scanString(length: 4, encoding: .ascii) == "%PDF"
     }
     
-    internal static func convertToImage(pdfData: Data?) -> ImageClass? {
+    internal static func convertToImage(pdfData: Data?, page: Int = 1) -> ImageClass? {
         guard let pdfData = pdfData else { return nil }
         
         let cfPDFData: CFData = pdfData as CFData
-        if let provider = CGDataProvider(data: cfPDFData), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: 1) {
+        if let provider = CGDataProvider(data: cfPDFData), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: page) {
             let frame = pageRef.getBoxRect(CGPDFBox.mediaBox)
             var size = frame.size
             let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
             
-            #if os(OSX)
+            #if os(macOS)
                 let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
                 
                 size.width  *= CGFloat(ppp)
@@ -423,7 +434,7 @@ extension ExtendedFileProvider {
         
         let newSize = CGSize(width: width, height: height)
         
-        #if os(OSX)
+        #if os(macOS)
             var imageRect = NSRect(origin: CGPoint.zero, size: image.size)
             let imageRef = image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
             

@@ -98,17 +98,20 @@
 		79BD63A81E2CC2940035128C /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63A71E2CC2940035128C /* CoreGraphics.framework */; };
 		79BD63AA1E2CC2BB0035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63A91E2CC2BB0035128C /* AVFoundation.framework */; };
 		79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AB1E2CC2C20035128C /* ImageIO.framework */; };
-		79BD63AE1E2CC2EB0035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */; };
 		79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AF1E2CC3300035128C /* libxml2.tbd */; };
 		79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B11E2CC3350035128C /* ImageIO.framework */; };
-		79BD63B41E2CC33D0035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B31E2CC33D0035128C /* MediaPlayer.framework */; };
 		79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B51E2CC3860035128C /* CoreFoundation.framework */; };
 		79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B71E2CC38D0035128C /* AVFoundation.framework */; };
 		79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B91E2CC39B0035128C /* libxml2.tbd */; };
-		79BD63BC1E2CC3B90035128C /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */; };
 		79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BD1E2CC3C20035128C /* ImageIO.framework */; };
 		79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */; };
 		79BD63C21E2CC3D30035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63C11E2CC3D30035128C /* AVFoundation.framework */; };
+		79BD63C51E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
+		79BD63C61E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
+		79BD63C71E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
+		79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
+		79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
+		79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
@@ -166,6 +169,8 @@
 		79BD63BD1E2CC3C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63C11E2CC3D30035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveFileProvide.swift; sourceTree = "<group>"; };
+		79BD63C41E2D17880035128C /* OneDriveHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveHelper.swift; sourceTree = "<group>"; };
 		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -177,7 +182,6 @@
 				79BD63AA1E2CC2BB0035128C /* AVFoundation.framework in Frameworks */,
 				79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */,
 				79BD63A81E2CC2940035128C /* CoreGraphics.framework in Frameworks */,
-				79BD63AE1E2CC2EB0035128C /* MediaPlayer.framework in Frameworks */,
 				791950F51DE58A5400B4426E /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -189,7 +193,6 @@
 				79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */,
 				79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */,
 				79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */,
-				79BD63B41E2CC33D0035128C /* MediaPlayer.framework in Frameworks */,
 				79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -201,7 +204,6 @@
 				79BD63C21E2CC3D30035128C /* AVFoundation.framework in Frameworks */,
 				79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */,
 				79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */,
-				79BD63BC1E2CC3B90035128C /* MediaPlayer.framework in Frameworks */,
 				79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -279,8 +281,6 @@
 			children = (
 				7924B18B1D89DAE000589DB7 /* AEXML */,
 				799396991D48C02300086753 /* SMBTypes */,
-				799396931D48C02300086753 /* DropboxFileProvider.swift */,
-				794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */,
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
 				79F5745A1DFDB10A00179ABF /* FileObject.swift */,
@@ -288,6 +288,10 @@
 				792572401DF23BDA006A1526 /* LocalHelper.swift */,
 				79BD638B1E2CC2300035128C /* ExtendedLocalFileProvider.swift */,
 				7902C0851D61B56D00564440 /* RemoteSession.swift */,
+				799396931D48C02300086753 /* DropboxFileProvider.swift */,
+				794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */,
+				79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */,
+				79BD63C41E2D17880035128C /* OneDriveHelper.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
 				799396981D48C02300086753 /* SMBFileProvider.swift */,
@@ -477,11 +481,13 @@
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
 				792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */,
+				79BD63C51E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
 				7924B1991D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
 				7924B1B21D89FCDA00589DB7 /* FPSStreamTask.swift in Sources */,
 				799396C51D48C02300086753 /* SMB2FileOperation.swift in Sources */,
+				79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */,
 				799396BF1D48C02300086753 /* SMB2DataTypes.swift in Sources */,
 				799396B91D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C220E1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
@@ -514,11 +520,13 @@
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
 				792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */,
+				79BD63C61E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
 				7924B1B01D89F7DE00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19A1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D81D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C61D48C02300086753 /* SMB2FileOperation.swift in Sources */,
+				79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */,
 				799396C01D48C02300086753 /* SMB2DataTypes.swift in Sources */,
 				799396BA1D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C220F1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
@@ -551,11 +559,13 @@
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
 				792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */,
+				79BD63C71E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
 				7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19B1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D91D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C71D48C02300086753 /* SMB2FileOperation.swift in Sources */,
+				79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */,
 				799396C11D48C02300086753 /* SMB2DataTypes.swift in Sources */,
 				799396BB1D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C22101D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
@@ -585,7 +595,7 @@
 		799396601D48B7BF00086753 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_VERSION_STRING = 0.8.3;
+				BUNDLE_VERSION_STRING = 0.10.0;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -615,7 +625,7 @@
 		799396611D48B7BF00086753 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_VERSION_STRING = 0.8.3;
+				BUNDLE_VERSION_STRING = 0.10.0;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;

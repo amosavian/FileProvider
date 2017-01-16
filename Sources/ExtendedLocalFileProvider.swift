@@ -10,10 +10,9 @@ import Foundation
 import ImageIO
 import CoreGraphics
 import AVFoundation
-import MediaPlayer
 #if os(iOS) || os(tvOS)
 import UIKit
-#elseif os(OSX)
+#elseif os(macOS)
 import Cocoa
 #endif
 
@@ -166,7 +165,7 @@ public struct LocalFileInformationGenerator {
         assetImgGenerate.appliesPreferredTrackTransform = true
         let time = CMTimeMake(asset.duration.value / 3, asset.duration.timescale)
         if let cgImage = try? assetImgGenerate.copyCGImage(at: time, actualTime: nil) {
-            #if os(OSX)
+            #if os(macOS)
             return ImageClass(cgImage: cgImage, size: NSSize.zero)
             #else
             return ImageClass(cgImage: cgImage)

@@ -2,8 +2,8 @@
 //  DropboxHelper.swift
 //  FileProvider
 //
-//  Created by Amir Abbas Mousavian on 5/18/95.
-//
+//  Created by Amir Abbas Mousavian.
+//  Copyright © 2016 Mousavian. Distributed under MIT license.
 //
 
 import Foundation
@@ -34,10 +34,10 @@ public final class DropboxFileObject: FileObject {
     
     open internal(set) var id: String? {
         get {
-            return allValues["NSURLDropboxDocumentIdentifyKey"] as? String
+            return allValues["NSURLDocumentIdentifyKey"] as? String
         }
         set {
-            allValues["NSURLDropboxDocumentIdentifyKey"] = newValue
+            allValues["NSURLDocumentIdentifyKey"] = newValue
         }
     }
     
@@ -57,10 +57,10 @@ internal extension DropboxFileProvider {
         var requestDictionary = [String: AnyObject]()
         let url: URL
         if let cursor = cursor {
-            url = URL(string: "https://api.dropboxapi.com/2/files/list_folder/continue")!
+            url = URL(string: "files/list_folder/continue", relativeTo: apiURL)!
             requestDictionary["cursor"] = cursor as NSString?
         } else {
-            url = URL(string: "https://api.dropboxapi.com/2/files/list_folder")!
+            url = URL(string: "files/list_folder", relativeTo: apiURL)!
             requestDictionary["path"] = correctPath(path) as NSString?
             requestDictionary["recursive"] = recursive as NSNumber?
         }
@@ -101,7 +101,7 @@ internal extension DropboxFileProvider {
         assert(data.count < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
         var requestDictionary = [String: Any]()
         let url: URL
-        url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
+        url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
         requestDictionary["client_modified"] = string(from:modifiedDate)
@@ -127,7 +127,7 @@ internal extension DropboxFileProvider {
     func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         var requestDictionary = [String: Any]()
         let url: URL
-        url = URL(string: "https://content.dropboxapi.com/2/files/upload")!
+        url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
         requestDictionary["client_modified"] = string(from:modifiedDate)
@@ -150,7 +150,7 @@ internal extension DropboxFileProvider {
     }
     
     func search(_ startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, foundItem:@escaping ((_ file: DropboxFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
-        let url = URL(string: "https://api.dropboxapi.com/2/files/search")!
+        let url = URL(string: "files/search", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -206,7 +206,7 @@ internal extension DropboxFileProvider {
         fileObject.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
         fileObject.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
         fileObject.id = json["id"] as? String
-        fileObject.rev = json["id"] as? String
+        fileObject.rev = json["rev"] as? String
         return fileObject
     }
     

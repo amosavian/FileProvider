@@ -16,8 +16,8 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FileProvider"
-  s.version      = "0.9.0"
-  s.summary      = "FileManager replacement for Local and Remote (WebDAV/Dropbox/SMB2) files on iOS and macOS."
+  s.version      = "0.10.0"
+  s.summary      = "FileManager replacement for Local and Remote (WebDAV/Dropbox/OneDrive/SMB2) files on iOS and macOS."
 
   # This description is used to generate tags and improve search results.
   #   * Think: What does it do? Why did you write it? What is the focus?
