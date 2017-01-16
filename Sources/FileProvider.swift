@@ -26,9 +26,6 @@ public protocol FileProviderBasic: class {
     var delegate: FileProviderDelegate? { get set }
     var credential: URLCredential? { get }
     
-    /**
-     *
-    */
     func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void))
     func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
@@ -194,7 +191,7 @@ extension FileProviderBasic {
     }
     
     func escaped(path: String) -> String {
-        return path.trimmingCharacters(in: pathTrimSet)
+        return path.trimmingCharacters(in: pathTrimSet).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
     }
     
     public func absoluteURL(_ path: String? = nil) -> URL {
@@ -202,22 +199,19 @@ extension FileProviderBasic {
     }
     
     public func url(of path: String? = nil) -> URL {
-        let rpath: String
+        var rpath: String
         if let path = path {
             rpath = path
         } else {
             rpath = self.currentPath
         }
         if isPathRelative, let baseURL = baseURL {
-            if rpath.hasPrefix("/") && baseURL.absoluteString.hasSuffix("/") {
-                var npath = rpath
-                npath.remove(at: npath.startIndex)
-                return URL(string: npath, relativeTo: baseURL)!
-            } else {
-                return URL(string: rpath, relativeTo: baseURL)!
+            if rpath.hasPrefix("/") {
+                rpath.remove(at: rpath.startIndex)
             }
+            return URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!, relativeTo: baseURL)!
         } else {
-            return URL(fileURLWithPath: rpath).standardizedFileURL
+            return URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)!.standardizedFileURL
         }
     }
     
