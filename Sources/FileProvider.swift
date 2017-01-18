@@ -205,13 +205,14 @@ extension FileProviderBasic {
         } else {
             rpath = self.currentPath
         }
-        if isPathRelative, let baseURL = baseURL {
-            if rpath.hasPrefix("/") {
+        rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
+        if let baseURL = baseURL {
+            if isPathRelative && rpath.hasPrefix("/") {
                 rpath.remove(at: rpath.startIndex)
             }
-            return URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!, relativeTo: baseURL)!
+            return URL(string: rpath, relativeTo: baseURL) ?? baseURL
         } else {
-            return URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)!.standardizedFileURL
+            return URL(string: rpath)!
         }
     }
     
