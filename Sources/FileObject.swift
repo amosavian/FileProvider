@@ -135,7 +135,7 @@ open class FileObject {
     }
 }
 
-/// Sorting FileObject array by given criteria, not thread-safe
+/// Sorting FileObject array by given criteria, **not thread-safe**
 public struct FileObjectSorting {
     
     /// Determines sort kind by which item of File object
@@ -219,6 +219,17 @@ public struct FileObjectSorting {
                 return ascending ? $0.size < $1.size : $0.size > $1.size
             }
         }
+    }
+}
+
+extension Array where Element: FileObject {
+    public func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
+        let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
+        return sorting.sort(self) as! [Element]
+    }
+    
+    public mutating func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) {
+        self = self.sorted(by: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
     }
 }
 

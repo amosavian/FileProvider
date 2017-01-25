@@ -98,7 +98,12 @@ internal extension DropboxFileProvider {
     }
     
     func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        assert(data.count < 150*1024*1024, "Maximum size of allowed size to upload is 150MB")
+        if data.count > 150 * 1024 * 1024 {
+            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
+            completionHandler?(error)
+            self.delegateNotify(.create(path: targetPath), error: error)
+            return nil
+        }
         var requestDictionary = [String: Any]()
         let url: URL
         url = URL(string: "files/upload", relativeTo: contentURL)!
@@ -125,6 +130,13 @@ internal extension DropboxFileProvider {
     }
     
     func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let size = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1
+        if size > 150 * 1024 * 1024 {
+            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
+            completionHandler?(error)
+            self.delegateNotify(.create(path: targetPath), error: error)
+            return nil
+        }
         var requestDictionary = [String: Any]()
         let url: URL
         url = URL(string: "files/upload", relativeTo: contentURL)!

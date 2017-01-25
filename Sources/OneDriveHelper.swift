@@ -93,7 +93,12 @@ internal extension OneDriveFileProvider {
     }
     
     func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        assert(data.count < 100*1024*1024, "Maximum size of allowed size to upload is 100MB")
+        if data.count > 100 * 1024 * 1024 {
+            let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
+            completionHandler?(error)
+            self.delegateNotify(.create(path: targetPath), error: error)
+            return nil
+        }
         let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
         let url = URL(string: escaped(path: targetPath) + ":/content" + queryStr, relativeTo: driveURL)!
         var request = URLRequest(url: url)
@@ -115,6 +120,13 @@ internal extension OneDriveFileProvider {
     }
     
     func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let size = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1
+        if size > 100 * 1024 * 1024 {
+            let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
+            completionHandler?(error)
+            self.delegateNotify(.create(path: targetPath), error: error)
+            return nil
+        }
         let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
         let url = URL(string: escaped(path: targetPath) + ":/content" + queryStr, relativeTo: driveURL)!
         var request = URLRequest(url: url)

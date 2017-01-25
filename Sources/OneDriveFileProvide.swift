@@ -19,7 +19,7 @@ open class OneDriveFileProvider: NSObject,  FileProviderBasicRemote {
     open let baseURL: URL?
     open var drive: String
     open var driveURL: URL {
-        return URL(string: "/drive/root:/", relativeTo: baseURL)!
+        return URL(string: "/drive/\(drive):/", relativeTo: baseURL)!
     }
     open var currentPath: String = ""
     
