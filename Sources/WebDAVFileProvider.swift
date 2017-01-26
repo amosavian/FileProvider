@@ -35,11 +35,11 @@ public final class WebDavFileObject: FileObject {
 /// Because this class uses NSURLSession, it's necessary to disable App Transport Security
 /// in case of using this class with unencrypted HTTP connection.
 
-open class WebDAVFileProvider: NSObject,  FileProviderBasicRemote {
+open class WebDAVFileProvider: FileProviderBasicRemote {
     open static let type: String = "WebDAV"
-    open let isPathRelative: Bool = true
+    open let isPathRelative: Bool
     open let baseURL: URL?
-    open var currentPath: String = ""
+    open var currentPath: String
     public var dispatch_queue: DispatchQueue {
         willSet {
             assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
@@ -48,8 +48,8 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasicRemote {
     public weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
     open private(set) var cache: URLCache?
-    public var useCache: Bool = false
-    public var validatingCache: Bool = true
+    public var useCache: Bool
+    public var validatingCache: Bool
     
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
@@ -71,10 +71,13 @@ open class WebDAVFileProvider: NSObject,  FileProviderBasicRemote {
             return nil
         }
         self.baseURL = baseURL
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(WebDAVFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
-        //let url = baseURL.uw_absoluteString
-        self.credential = credential
+        self.isPathRelative = true
+        self.currentPath = ""
+        self.useCache = false
+        self.validatingCache = true
         self.cache = cache
+        self.credential = credential
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(WebDAVFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
     }
     
     deinit {

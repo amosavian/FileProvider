@@ -13,15 +13,16 @@ import CoreGraphics
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-open class OneDriveFileProvider: NSObject,  FileProviderBasicRemote {
+open class OneDriveFileProvider: FileProviderBasicRemote {
     open static let type: String = "OneDrive"
-    open let isPathRelative: Bool = true
+    open let isPathRelative: Bool
     open let baseURL: URL?
+    open var serverURL: URL { return baseURL! }
     open var drive: String
     open var driveURL: URL {
         return URL(string: "/drive/\(drive):/", relativeTo: baseURL)!
     }
-    open var currentPath: String = ""
+    open var currentPath: String
     
     open var dispatch_queue: DispatchQueue {
         willSet {
@@ -31,8 +32,8 @@ open class OneDriveFileProvider: NSObject,  FileProviderBasicRemote {
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
     open private(set) var cache: URLCache?
-    public var useCache: Bool = false
-    public var validatingCache: Bool = true
+    public var useCache: Bool
+    public var validatingCache: Bool
    
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
@@ -49,13 +50,16 @@ open class OneDriveFileProvider: NSObject,  FileProviderBasicRemote {
         return _session!
     }
     
-    public init? (baseURL: URL?, drive: String = "root", credential: URLCredential?, cache: URLCache? = nil) {
-        self.baseURL = baseURL ?? URL(string: "https://api.onedrive.com")
+    public init? (credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
+        self.baseURL = serverURL ?? URL(string: "https://api.onedrive.com")
         self.drive = drive
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(OneDriveFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
-        //let url = baseURL.uw_absoluteString
-        self.credential = credential
+        self.isPathRelative = true
+        self.currentPath = ""
+        self.useCache = false
+        self.validatingCache = true
         self.cache = cache
+        self.credential = credential
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(OneDriveFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
     }
     
     deinit {
@@ -341,7 +345,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
 
 extension OneDriveFileProvider: FileProvider {
     open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = OneDriveFileProvider(baseURL: self.baseURL, drive: self.drive, credential: self.credential, cache: self.cache)!
+        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)!
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate

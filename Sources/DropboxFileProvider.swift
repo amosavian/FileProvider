@@ -13,14 +13,14 @@ import CoreGraphics
 // Because this class uses NSURLSession, it's necessary to disable App Transport Security
 // in case of using this class with unencrypted HTTP connection.
 
-open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
+open class DropboxFileProvider: FileProviderBasicRemote {
     open static let type: String = "DropBox"
-    open let isPathRelative: Bool = true
+    open let isPathRelative: Bool
     open let baseURL: URL?
-    open var currentPath: String = ""
+    open var currentPath: String
     
-    open let apiURL = URL(string: "https://api.dropboxapi.com/2/")!
-    open let contentURL = URL(string: "https://content.dropboxapi.com/2")!
+    open let apiURL: URL
+    open let contentURL: URL
     
     open var dispatch_queue: DispatchQueue {
         willSet {
@@ -30,8 +30,8 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
     open private(set) var cache: URLCache?
-    public var useCache: Bool = false
-    public var validatingCache: Bool = true
+    public var useCache: Bool
+    public var validatingCache: Bool
    
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
@@ -50,10 +50,17 @@ open class DropboxFileProvider: NSObject,  FileProviderBasicRemote {
     
     public init? (credential: URLCredential?, cache: URLCache? = nil) {
         self.baseURL = nil
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
-        //let url = baseURL.uw_absoluteString
-        self.credential = credential
+        self.isPathRelative = true
+        self.currentPath = ""
+        self.useCache = false
+        self.validatingCache = true
         self.cache = cache
+        self.credential = credential
+        
+        self.apiURL = URL(string: "https://api.dropboxapi.com/2/")!
+        self.contentURL = URL(string: "https://content.dropboxapi.com/2")!
+        
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
     }
     
     deinit {

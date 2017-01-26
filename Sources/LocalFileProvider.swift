@@ -9,37 +9,38 @@
 import Foundation
 
 open class LocalFileProvider: FileProvider, FileProviderMonitor {
-    open static let type = "Local"
-    open var isPathRelative: Bool = true
-    open private(set) var baseURL: URL? = LocalFileProvider.defaultBaseURL()
-    open var currentPath: String = ""
+    open static let type: String = "Local"
+    open var isPathRelative: Bool
+    open fileprivate(set) var baseURL: URL?
+    open var currentPath: String
     open var dispatch_queue: DispatchQueue
     open var operation_queue: DispatchQueue
     open weak var delegate: FileProviderDelegate?
-    open let credential: URLCredential? = nil
+    open fileprivate(set) var credential: URLCredential?
         
     open private(set) var fileManager = FileManager()
     open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
-    public init () {
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
-        operation_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type).Operation", attributes: [])
-        fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
-        opFileManager.delegate = fileProviderManagerDelegate
+    /// default values are `directory: .documentDirectory, domainMask: .userDomainMask`
+    public convenience init (directory: FileManager.SearchPathDirectory = .documentDirectory, domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
+        self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
     }
     
     public init (baseURL: URL) {
         self.baseURL = baseURL
+        self.isPathRelative = true
+        self.currentPath = ""
+        self.credential = nil
+        
         dispatch_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type).Operation", attributes: [])
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
     }
     
-    open static func defaultBaseURL() -> URL {
-        let paths = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true);
-        return URL(fileURLWithPath: paths[0])
+    open class func defaultBaseURL() -> URL {
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
@@ -355,4 +356,34 @@ public extension LocalFileProvider {
             }
         }
     }
+}
+
+class CloudFileProvider: LocalFileProvider {
+    // FIXME: convert static var type to class var in next Swift version
+    
+    open var type: String { return "iCloudDrive" }
+    
+    public init? (containerId: String?) {
+        assert(!Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
+        guard FileManager.default.ubiquityIdentityToken == nil else {
+            return nil
+        }
+        guard let ubiquityURL = FileManager.default.url(forUbiquityContainerIdentifier: containerId) else {
+            return nil
+        }
+        super.init(baseURL: ubiquityURL.appendingPathComponent("Documents"))
+        
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(self.type)", attributes: DispatchQueue.Attributes.concurrent)
+        operation_queue = DispatchQueue(label: "FileProvider.\(self.type).Operation", attributes: [])
+        
+        fileManager.url(forUbiquityContainerIdentifier: containerId)
+        opFileManager.url(forUbiquityContainerIdentifier: containerId)
+        fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
+        opFileManager.delegate = fileProviderManagerDelegate
+    }
+    
+    open override static func defaultBaseURL() -> URL {
+        return FileManager.default.url(forUbiquityContainerIdentifier: nil) ?? super.defaultBaseURL()
+    }
+
 }

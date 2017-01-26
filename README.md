@@ -30,7 +30,7 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive Web API, works with `onedrive.com` and compatible (business) servers.
 * For now it has limitation in uploading files up to 100MB.
-- [ ] **CloudFilePRovider** A wrapper around app's ubiquitous container to iCloud Drive in iOS 8+ API.
+- [x] **CloudFileProvider** A wrapper around app's ubiquitous container to iCloud Drive in iOS 8+ API.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS.
 * Data types and some basic functions are implemented but *main interface is not implemented yet!*
 *  SMB1/CIFS is depericated and very tricky to be implemented
@@ -103,17 +103,22 @@ For LocalFileProvider if you want to deal with `Documents` folder
 
 ```	swift
 let documentsProvider = LocalFileProvider()
-```
 
-is equal to:
+// Equals with:
+let documentsProvider = LocalFileProvider(directory: .documentDirectory, domainMask: = .userDomainMask)
 
-```	swift
-let documentPath = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true);
-let documentsURL = URL(fileURLWithPath: documentPath);
+// Equals with:
+let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
 let documentsProvider = LocalFileProvider(baseURL: documentsURL)
 ```
 
 You can't change the base url later. and all paths are related to this base url by default.
+
+To initialize an iCloud Container provider use below code, This will automatically manager creating Documents folder in container:
+
+```swift
+let documentsProvider = CloudFileProvider(containerId: nil)
+```
 
 For remote file providers authentication may be necessary:
 
