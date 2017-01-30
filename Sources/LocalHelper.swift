@@ -190,7 +190,7 @@ open class LocalOperationHandle: OperationHandle {
     public let operationType: FileOperationType
     
     init (operationType: FileOperationType, baseURL: URL?) {
-        self.baseURL = baseURL ?? LocalFileProvider.defaultBaseURL()
+        self.baseURL = baseURL ?? URL(fileURLWithPath: "/")
         self.operationType = operationType
     }
     
