@@ -162,7 +162,7 @@ open class CloudFileProvider: LocalFileProvider {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         operation_queue.addOperation {
             let tempFolder: URL
-            if #available(iOS 10.0, *) {
+            if #available(iOS 10.0, macOS 10.12, tvOS 10.0, *) {
                 tempFolder = FileManager.default.temporaryDirectory
             } else {
                 tempFolder = URL(fileURLWithPath: NSTemporaryDirectory())
