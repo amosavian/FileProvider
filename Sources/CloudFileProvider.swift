@@ -161,29 +161,37 @@ open class CloudFileProvider: LocalFileProvider {
         // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         operation_queue.addOperation {
+            let tempFolder: URL
+            if #available(iOS 10.0, *) {
+                tempFolder = FileManager.default.temporaryDirectory
+            } else {
+                tempFolder = URL(fileURLWithPath: NSTemporaryDirectory())
+            }
+            let tmpFile = tempFolder.appendingPathComponent(UUID().uuidString)
+            
             do {
+                try self.opFileManager.copyItem(at: localFile, to: tmpFile)
                 let toUrl = self.absoluteURL(toPath)
-                try self.opFileManager.copyItem(at: localFile, to: toUrl)
-                try self.opFileManager.setUbiquitous(true, itemAt: toUrl, destinationURL: toUrl)
+                try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
                 })
             } catch let e {
+                if self.opFileManager.fileExists(atPath: tmpFile.path) {
+                    try? self.opFileManager.removeItem(at: tmpFile)
+                }
                 completionHandler?(e)
                 DispatchQueue.main.async(execute: {
                     self.delegate?.fileproviderFailed(self, operation: opType)
                 })
             }
         }
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return CloudOperationHandle(operationType: opType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // FIXME: Progress
-        // TODO: test
-        
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         
         do {
@@ -290,15 +298,38 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
-    fileprivate var monitors = [URL: NSMetadataQuery]()
+    fileprivate var monitors = [URL: (NSMetadataQuery, NSObjectProtocol)]()
     //
     open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
-        self.NotImplemented()
+        let pathURL = self.absoluteURL(path)
+        let query = NSMetadataQuery()
+        query.predicate = NSPredicate(format: "(%K BEGINSWITH %@)", NSMetadataItemPathKey, pathURL.path)
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        
+        let updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: nil, using: { (notification) in
+            
+            query.disableUpdates()
+            
+            eventHandler()
+            
+            query.enableUpdates()
+        })
+        
+        query.start()
+        
+        monitors[pathURL] = (query, updateObserver)
     }
-    //
+    
     open override func unregisterNotifcation(path: String) {
-        self.NotImplemented()
+        let key = absoluteURL(path)
+        guard let (query, observer) = monitors[key] else {
+            return
+        }
+        query.disableUpdates()
+        query.stop()
+        monitors.removeValue(forKey: key)
+        NotificationCenter.default.removeObserver(observer)
     }
     
     open override func isRegisteredForNotification(path: String) -> Bool {
@@ -382,24 +413,67 @@ open class CloudOperationHandle: OperationHandle {
     open var bytesSoFar: Int64 {
         assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
         
-        return -1
+        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return 0 }
+        let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
+        let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
+        guard let size = item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 else { return -1 }
+        if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
+            return Int64(uploaded * (Double(size) / 100))
+        } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
+            return Int64(downloaded * (Double(size) / 100))
+        } else if uploaded == 100 || downloaded == 100 {
+            return size
+        }
+        return 0
     }
     
     /// Caution: may put pressure on CPU, may have latency
     open var totalBytes: Int64 {
         assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
-        
-        return -1
+        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return -1 }
+        return item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 ?? -1
     }
     
-    /// Not usable in local provider
     open var inProgress: Bool {
+        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return false }
+        let downloadStatus = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String ?? NSMetadataUbiquitousItemDownloadingStatusNotDownloaded
+        let isUploading = item.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool ?? false
+        return downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent || isUploading
+    }
+    
+    /// Not usable in local provider
+    open func cancel() -> Bool {
         
         return false
     }
     
-    /// Not usable in local provider
-    open func cancel() -> Bool{
-        return false
+    fileprivate static func getMetadataItem(url: URL) -> NSMetadataItem? {
+        let query = NSMetadataQuery()
+        query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        
+        var item: NSMetadataItem?
+        
+        let group = DispatchGroup()
+        var finishObserver: NSObjectProtocol?
+        finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+            defer {
+                query.stop()
+                group.leave()
+                NotificationCenter.default.removeObserver(finishObserver!)
+            }
+            
+            if query.resultCount > 0 {
+                item = query.result(at: 0) as? NSMetadataItem
+            }
+            
+            query.disableUpdates()
+            
+        })
+        
+        group.enter()
+        query.start()
+        _ = group.wait(timeout: DispatchTime.now() + 30)
+        return item
     }
 }

@@ -448,8 +448,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                     self.delegate?.fileproviderFailed(self, operation: opType)
                 }
             }
-            
-            
         }
         
         if isCoorinating {
