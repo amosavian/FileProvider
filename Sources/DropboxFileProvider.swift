@@ -22,11 +22,13 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     open let apiURL: URL
     open let contentURL: URL
     
-    open var dispatch_queue: DispatchQueue {
+    open var dispatch_queue: DispatchQueue
+    open var operation_queue: OperationQueue {
         willSet {
             assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
         }
     }
+    
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
     open private(set) var cache: URLCache?
@@ -38,12 +40,10 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     public var session: URLSession {
         if _session == nil {
             self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
-            let queue = OperationQueue()
-            //queue.underlyingQueue = dispatch_queue
             let config = URLSessionConfiguration.default
             config.urlCache = cache
             config.requestCachePolicy = .returnCacheDataElseLoad
-            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: queue)
+            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
         }
         return _session!
     }
@@ -61,6 +61,9 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         self.contentURL = URL(string: "https://content.dropboxapi.com/2")!
         
         dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        operation_queue = OperationQueue()
+        operation_queue.name = "FileProvider.\(DropboxFileProvider.type).Operation"
+
     }
     
     deinit {
@@ -234,7 +237,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
+            request.setValue("bytes=\(offset)-\(offset + length - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
@@ -289,7 +292,14 @@ extension DropboxFileProvider: FileProviderReadWrite {
 }
 
 extension DropboxFileProvider {
+    @available(*, deprecated, message: "Use DropboxFileProvider.temporaryLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
     open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
+        self.temporaryLink(to: path) { (url, file, _, error) in
+            completionHandler(url, file, error)
+        }
+    }
+    
+    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -313,7 +323,9 @@ extension DropboxFileProvider {
                     }
                 }
             }
-            completionHandler(link, fileObject, dbError ?? error)
+            
+            let expiration: Date? = link != nil ? Date(timeIntervalSinceNow: 4 * 60 * 60) : nil
+            completionHandler(link, fileObject, expiration, dbError ?? error)
         })
         task.resume()
     }

@@ -19,10 +19,12 @@ public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 public protocol FileProviderBasic: class {
     static var type: String { get }
+    var type: String { get }
     var isPathRelative: Bool { get }
     var baseURL: URL? { get }
     var currentPath: String { get set }
     var dispatch_queue: DispatchQueue { get set }
+    var operation_queue: OperationQueue { get set }
     var delegate: FileProviderDelegate? { get set }
     var credential: URLCredential? { get }
     
@@ -32,6 +34,17 @@ public protocol FileProviderBasic: class {
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
     
     func url(of path: String?) -> URL
+}
+
+public extension FileProviderBasic {
+    public var maximumOperationTasks: Int {
+        get {
+            return operation_queue.maxConcurrentOperationCount
+        }
+        set {
+            operation_queue.maxConcurrentOperationCount = newValue
+        }
+    }
 }
 
 public protocol FileProviderBasicRemote: FileProviderBasic {
@@ -180,7 +193,7 @@ public protocol FileProviderMonitor: FileProviderBasic {
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 
-fileprivate let pathTrimSet = CharacterSet(charactersIn: " /")
+internal let pathTrimSet = CharacterSet(charactersIn: " /")
 extension FileProviderBasic {
     public var type: String {
         return Self.type

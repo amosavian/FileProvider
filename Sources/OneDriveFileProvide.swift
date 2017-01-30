@@ -24,11 +24,13 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     }
     open var currentPath: String
     
-    open var dispatch_queue: DispatchQueue {
+    open var dispatch_queue: DispatchQueue
+    open var operation_queue: OperationQueue {
         willSet {
             assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
         }
     }
+    
     open weak var delegate: FileProviderDelegate?
     open let credential: URLCredential?
     open private(set) var cache: URLCache?
@@ -60,6 +62,8 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         self.cache = cache
         self.credential = credential
         dispatch_queue = DispatchQueue(label: "FileProvider.\(OneDriveFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        operation_queue = OperationQueue()
+        operation_queue.name = "FileProvider.\(DropboxFileProvider.type).Operation"
     }
     
     deinit {
@@ -224,7 +228,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + length)", forHTTPHeaderField: "Range")
+            request.setValue("bytes=\(offset)-\(offset + length - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
