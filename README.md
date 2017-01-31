@@ -3,17 +3,17 @@
 >This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
 [![Swift Version][swift-image]][swift-url]
+[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS%2C%20tvOS-lightgray.svg)](#)
 [![License][license-image]][license-url]
-[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS%2C%20tvOS-lightgray.svg)]()
+
+[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
+[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?)](https://github.com/Carthage/Carthage)
 
 [![Build Status][travis-image]][travis-url]
-[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
 [![codebeat badge][codebeat-image]][codebeat-url]
 
 <!--- 
-
-[![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider)
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) 
+[![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
 ---> 
 
 This library provides implementaion of WebDav, Dropbox, OneDrive and SMB2 (incomplete) and local files.
