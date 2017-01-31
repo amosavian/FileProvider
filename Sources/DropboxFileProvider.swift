@@ -58,7 +58,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         self.credential = credential
         
         self.apiURL = URL(string: "https://api.dropboxapi.com/2/")!
-        self.contentURL = URL(string: "https://content.dropboxapi.com/2")!
+        self.contentURL = URL(string: "https://content.dropboxapi.com/2/")!
         
         dispatch_queue = DispatchQueue(label: "FileProvider.\(DropboxFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = OperationQueue()
