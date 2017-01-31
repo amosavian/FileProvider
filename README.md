@@ -6,6 +6,7 @@
 [![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS%2C%20tvOS-lightgray.svg)](#)
 [![License][license-image]][license-url]
 
+[![release badge][release-image]][release-url]
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?)](https://github.com/Carthage/Carthage)
 
@@ -412,3 +413,5 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [codebeat-url]: https://codebeat.co/projects/github-com-amosavian-fileprovider
 [travis-image]: https://img.shields.io/travis/amosavian/FileProvider/master.svg
 [travis-url]: https://travis-ci.org/amosavian/FileProvider
+[release-url]: https://github.com/amosavian/FileProvider/releases
+[release-image]: https://img.shields.io/github/release/amosavian/FileProvider.svg
