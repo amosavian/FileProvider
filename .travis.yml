@@ -1,9 +1,16 @@
 language: objective-c
-osx_image: xcode8
+
+osx_image: xcode8.2
+
 xcode_project: FileProvider.xcodeproj
 env:
   global: 
-    - FRAMEWORK_NAME=FileProvider.framework
+    - PROJECTNAME="FileProvider"
+    - FRAMEWORK_NAME="FileProvider.framework"
+  matrix:
+    - SHCEME="FileProvider OSX" SDK="macosx" ACTION="build"
+    - SHCEME="FileProvider iOS" SDK="iphonesimulator" ACTION="build"
+    - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
 before_install:
   - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
   - brew update
@@ -11,17 +18,15 @@ before_install:
 script:
   - set pipefail
   - xcodebuild -version
-  - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider OSX" -sdk macosx | xcpretty
-  - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO | xcpretty
-  - xcodebuild -project FileProvider.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulator ONLY_ACTIVE_ARCH=NO | xcpretty
-  - pod lib lint --quick
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - xcodebuild -project $PROJECT.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO | xcpretty
+#  - pod lib lint --quick
+# after_success:
+#   - bash <(curl -s https://codecov.io/bash)
 before_deploy:
   - carthage build --no-skip-current
-  - carthage archive FileProvider
+  - carthage archive $PROJECTNAME
 deploy:
-  file: FileProvider.framework.zip
+  file: $PROJECTNAME.framework.zip
   skip_cleanup: true
   on:
     tags: true
