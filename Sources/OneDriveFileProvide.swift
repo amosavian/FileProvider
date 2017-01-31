@@ -53,7 +53,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     }
     
     public init? (credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
-        self.baseURL = serverURL ?? URL(string: "https://api.onedrive.com")
+        self.baseURL = (serverURL ?? URL(string: "https://api.onedrive.com/")!).appendingPathComponent("")
         self.drive = drive
         self.isPathRelative = true
         self.currentPath = ""
@@ -61,9 +61,9 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         self.validatingCache = true
         self.cache = cache
         self.credential = credential
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(OneDriveFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(DropboxFileProvider.type).Operation"
+        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
     }
     
     deinit {

@@ -20,7 +20,7 @@ public struct FileProviderDropboxError: Error, CustomStringConvertible {
 
 public final class DropboxFileObject: FileObject {
     internal init(name: String, path: String) {
-        super.init(absoluteURL: URL(string: path), name: name, path: path)
+        super.init(url: URL(string: path) ?? URL(string: "/")!, name: name, path: path)
     }
     
     open internal(set) var serverTime: Date? {

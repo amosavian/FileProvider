@@ -64,9 +64,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         self.credential = nil
         self.isCoorinating = false
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(LocalFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(LocalFileProvider.type).Operation"
+        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
         
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
@@ -81,7 +81,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
             do {
-                let contents = try self.fileManager.contentsOfDirectory(at: self.absoluteURL(path), includingPropertiesForKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .isHiddenKey, .volumeIsReadOnlyKey], options: .skipsSubdirectoryDescendants)
+                let contents = try self.fileManager.contentsOfDirectory(at: self.url(of: path), includingPropertiesForKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .isHiddenKey, .volumeIsReadOnlyKey], options: .skipsSubdirectoryDescendants)
                 let filesAttributes = contents.flatMap({ (fileURL) -> LocalFileObject? in
                     let path = self.relativePathOf(url: fileURL)
                     return LocalFileObject(fileWithPath: path, relativeTo: self.baseURL)
@@ -111,7 +111,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
-        let url = self.absoluteURL(atPath).appendingPathComponent(folderName)
+        let url = self.url(of: atPath).appendingPathComponent(folderName)
         
         let operationHandler: (URL) -> Void = { url in
             do {
@@ -148,7 +148,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(fileName))
-        let url = self.absoluteURL(atPath).appendingPathComponent(fileName, isDirectory: false)
+        let url = self.url(of: atPath).appendingPathComponent(fileName, isDirectory: false)
         
         let operationHandler: (URL) -> Void = { url in
             let success = self.opFileManager.createFile(atPath: url.path, contents: data, attributes: nil)
@@ -185,8 +185,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.move(source: path, destination: toPath)
-        let sourceUrl = self.absoluteURL(path)
-        let destUrl = self.absoluteURL(toPath)
+        let sourceUrl = self.url(of: path)
+        let destUrl = self.url(of: toPath)
         
         let sourceIntent = NSFileAccessIntent.writingIntent(with: sourceUrl, options: .forDeleting)
         let destIntent = NSFileAccessIntent.writingIntent(with: destUrl, options: .forReplacing)
@@ -230,8 +230,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toPath)
-        let sourceUrl = self.absoluteURL(path)
-        let destUrl = self.absoluteURL(toPath)
+        let sourceUrl = self.url(of: path)
+        let destUrl = self.url(of: toPath)
         
         let sourceIntent = NSFileAccessIntent.readingIntent(with: sourceUrl, options: .withoutChanges)
         let destIntent = NSFileAccessIntent.writingIntent(with: destUrl, options: .forDeleting)
@@ -274,7 +274,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.remove(path: path)
-        let url = self.absoluteURL(path)
+        let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
             do {
@@ -318,7 +318,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         operation_queue.addOperation {
             do {
-                try self.opFileManager.copyItem(at: localFile, to: self.absoluteURL(toPath))
+                try self.opFileManager.copyItem(at: localFile, to: self.url(of: toPath))
                 completionHandler?(nil)
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
@@ -338,7 +338,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         operation_queue.addOperation {
             do {
-                try self.opFileManager.copyItem(at: self.absoluteURL(path), to: toLocalURL)
+                try self.opFileManager.copyItem(at: self.url(of: path), to: toLocalURL)
                 completionHandler?(nil)
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
@@ -356,7 +356,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
-        let url = self.absoluteURL(path)
+        let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
             let data = self.fileManager.contents(atPath: url.path)
@@ -387,7 +387,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         }
         
         let opType = FileOperationType.fetch(path: path)
-        let url = self.absoluteURL(path)
+        let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
             guard self.fileManager.fileExists(atPath: url.path) && !url.fileIsDirectory else {
@@ -426,7 +426,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
-        let url = self.absoluteURL(path)
+        let url = self.url(of: path)
         var options: Data.WritingOptions = []
         if atomically {
             options.insert(.atomic)
@@ -469,7 +469,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async { 
-            let iterator = self.fileManager.enumerator(at: self.absoluteURL(path), includingPropertiesForKeys: nil, options: recursive ? [] : [.skipsSubdirectoryDescendants, .skipsPackageDescendants]) { (url, e) -> Bool in
+            let iterator = self.fileManager.enumerator(at: self.url(of: path), includingPropertiesForKeys: nil, options: recursive ? [] : [.skipsSubdirectoryDescendants, .skipsPackageDescendants]) { (url, e) -> Bool in
                 completionHandler([], e)
                 return true
             }
@@ -491,12 +491,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
-        let absurl = self.absoluteURL(path)
-        let isdir = (try? absurl.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false) ?? false
+        let dirurl = self.url(of: path)
+        let isdir = (try? dirurl.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false) ?? false
         if !isdir {
             return
         }
-        let monitor = LocalFolderMonitor(url: absurl) {
+        let monitor = LocalFolderMonitor(url: dirurl) {
             eventHandler()
         }
         monitor.start()
@@ -532,7 +532,7 @@ public extension LocalFileProvider {
     public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
-                try self.opFileManager.createSymbolicLink(at: self.absoluteURL(path), withDestinationURL: self.absoluteURL(destPath))
+                try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
                 completionHandler?(nil)
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderSucceed(self, operation: .link(link: path, target: destPath))
@@ -549,7 +549,7 @@ public extension LocalFileProvider {
     public func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ url: URL?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             do {
-                let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.absoluteURL(path).path)
+                let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.url(of: path).path)
                 let destUrl = URL(fileURLWithPath: destPath)
                 completionHandler(destUrl, nil)
             } catch let e{

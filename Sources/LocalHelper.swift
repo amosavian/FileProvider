@@ -9,32 +9,32 @@
 import Foundation
 
 public final class LocalFileObject: FileObject {
-    internal init(absoluteURL: URL, name: String, path: String) {
-        super.init(absoluteURL: absoluteURL, name: name, path: path)
+    internal override init(url: URL, name: String, path: String) {
+        super.init(url: url, name: name, path: path)
     }
     
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
         let fileURL: URL
-        if let relativeURL = relativeURL {
-            fileURL = relativeURL.appendingPathComponent(path)
+        var rpath = path.replacingOccurrences(of: relativeURL?.absoluteString  ?? "", with: "")
+        if path.hasPrefix("/") {
+            rpath.remove(at: rpath.startIndex)
+        }
+        if rpath.isEmpty {
+            fileURL = relativeURL ?? URL(fileURLWithPath: path)
         } else {
-            fileURL = URL(fileURLWithPath: path)
-        }
-        do {
-            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey])
-            self.init(absoluteURL: fileURL, name: values.name ?? fileURL.lastPathComponent, path: path)
-            for (key, value) in values.allValues {
-                self.allValues[key.rawValue] = value
+            if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
+                fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
+            } else {
+                fileURL = relativeURL?.appendingPathComponent(path) ?? URL(fileURLWithPath: path)
             }
-        } catch {
-            return nil
         }
+        self.init(fileWithURL: fileURL)
     }
     
     public convenience init?(fileWithURL fileURL: URL) {
         do {
             let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey])
-            self.init(absoluteURL: fileURL, name: values.name ?? fileURL.lastPathComponent, path: fileURL.path)
+            self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: fileURL.path)
             for (key, value) in values.allValues {
                 self.allValues[key.rawValue] = value
             }

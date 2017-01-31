@@ -16,20 +16,25 @@ open class FileObject {
         self.allValues = allValues
     }
     
-    internal init(absoluteURL: URL? = nil, name: String, path: String) {
+    internal init(url: URL, name: String, path: String) {
         self.allValues = [String: Any]()
-        self.absoluteURL = absoluteURL
+        self.url = url
         self.name = name
         self.path = path
     }
     
     /// url to access the resource, not supported by Dropbox provider
-    open internal(set) var absoluteURL: URL? {
+    @available(*, deprecated, message: "Use FileObject.url.absoluteURL instead.")
+    open var absoluteURL: URL? {
+        return url?.absoluteURL
+    }
+    
+    open internal(set) var url: URL? {
         get {
-            return allValues["NSURLAbsoluteURLKey"] as? URL
+            return allValues["NSURLFileURLKey"] as? URL
         }
         set {
-            allValues["NSURLAbsoluteURLKey"] = newValue
+            allValues["NSURLFileURLKey"] = newValue
         }
     }
     

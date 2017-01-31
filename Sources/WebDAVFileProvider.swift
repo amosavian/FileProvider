@@ -9,8 +9,8 @@
 import Foundation
 
 public final class WebDavFileObject: FileObject {
-    internal init(absoluteURL: URL, name: String, path: String) {
-        super.init(absoluteURL: absoluteURL, name: name, path: path)
+    internal override init(url: URL, name: String, path: String) {
+        super.init(url: url, name: name, path: path)
     }
     
     open internal(set) var contentType: String {
@@ -73,16 +73,16 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
         }
-        self.baseURL = baseURL
+        self.baseURL = baseURL.appendingPathComponent("")
         self.isPathRelative = true
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
         self.cache = cache
         self.credential = credential
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(WebDAVFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(DropboxFileProvider.type).Operation"
+        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
     }
     
     deinit {
@@ -91,7 +91,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         let opType = FileOperationType.fetch(path: path)
-        let url = absoluteURL(path)
+        let url = self.url(of: path).appendingPathComponent("")
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
@@ -118,7 +118,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
-        let url = absoluteURL(path)
+        let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
@@ -178,7 +178,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = absoluteURL((atPath as NSString).appendingPathComponent(folderName) + "/")
+        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -200,7 +200,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = absoluteURL(path).appendingPathComponent(fileName)
+        let url = self.url(of: path).appendingPathComponent(fileName)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
@@ -244,10 +244,10 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
-        let sourceURL = absoluteURL(opType.source!)
+        let sourceURL = self.url(of:opType.source!)
         var request = URLRequest(url: sourceURL)
         if let dest = opType.destination {
-            request.setValue(absoluteURL(dest).absoluteString, forHTTPHeaderField: "Destination")
+            request.setValue(url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
         }
         switch opType {
         case .copy:
@@ -294,7 +294,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = absoluteURL(toPath)
+        let url = self.url(of:toPath)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, fromFile: localFile, completionHandler: { (data, response, error) in
@@ -316,7 +316,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = absoluteURL(path)
+        let url = self.url(of:path)
         let request = URLRequest(url: url)
         let task = session.downloadTask(with: request, completionHandler: { (sourceFileURL, response, error) in
             var responseError: FileProviderWebDavError?
@@ -344,7 +344,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     @discardableResult
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
-        let url = absoluteURL(path)
+        let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         if length > 0 {
@@ -370,7 +370,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             return nil
         }
         // FIXME: lock destination before writing process
-        let url = atomically ? absoluteURL(path).appendingPathExtension("tmp") : absoluteURL(path)
+        let url = atomically ? self.url(of: path).appendingPathExtension("tmp") : self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         if !overwrite {
@@ -379,7 +379,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, url: self.absoluteURL(path))
+                responseError = FileProviderWebDavError(code: rCode, url: self.url(of: path))
             }
             defer {
                 self.delegateNotify(opType, error: responseError ?? error)
@@ -398,7 +398,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        let url = absoluteURL(path)
+        let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         //request.setValue("1", forHTTPHeaderField: "Depth")
@@ -504,7 +504,19 @@ internal extension WebDAVFileProvider {
             }
         }
         let href = node[hreftag].value
-        if let href = href, let hrefURL = URL(string: href) {
+        if let href = href {
+            let phrefURL: URL?
+            var relativePath = href.replacingOccurrences(of: self.baseURL?.absoluteString ?? "", with: "/")
+            if relativePath.hasPrefix("http://") || relativePath.hasPrefix("http://") {
+                phrefURL = URL(string: href)
+            } else {
+                if relativePath.hasPrefix("/") {
+                    relativePath.remove(at: relativePath.startIndex)
+                }
+                phrefURL = URL(string: relativePath, relativeTo: self.baseURL) ?? self.baseURL
+            }
+            //let hrefURL = URL(string: href)
+            guard let hrefURL = phrefURL else { return nil }
             var status: Int?
             let statusDesc = (node[statustag].string).components(separatedBy: " ")
             if statusDesc.count > 2 {
@@ -539,10 +551,10 @@ internal extension WebDAVFileProvider {
     fileprivate func mapToFileObject(_ davResponse: DavResponse) -> WebDavFileObject {
         var href = davResponse.href
         if href.baseURL == nil {
-            href = absoluteURL(href.path)
+            href = url(of: href.path)
         }
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.removingPercentEncoding! as NSString).lastPathComponent
-        let fileObject = WebDavFileObject(absoluteURL: href, name: name, path: href.path)
+        let fileObject = WebDavFileObject(url: href, name: name, path: href.path)
         fileObject.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
         fileObject.creationDate = self.resolve(dateString: davResponse.prop["creationdate"] ?? "")
         fileObject.modifiedDate = self.resolve(dateString: davResponse.prop["getlastmodified"] ?? "")

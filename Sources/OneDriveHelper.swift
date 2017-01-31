@@ -19,8 +19,13 @@ public struct FileProviderOneDriveError: Error, CustomStringConvertible {
 }
 
 public final class OneDriveFileObject: FileObject {
-    internal init(name: String, path: String) {
-        super.init(absoluteURL: URL(string: path), name: name, path: path)
+    internal init(baseURL: URL?, name: String, path: String) {
+        var rpath = path
+        if path.hasPrefix("/") {
+            rpath.remove(at: rpath.startIndex)
+        }
+        let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: path)!
+        super.init(url: url, name: name, path: path)
     }
     
     
@@ -199,10 +204,7 @@ internal extension OneDriveFileProvider {
         guard let name = json["name"] as? String else { return nil }
         guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
         let lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
-        let fileObject = OneDriveFileObject(name: name, path: lPath)
-        if let webURL = json["webUrl"] as? String, let absolluteURL = URL(string: webURL) {
-            fileObject.absoluteURL = absolluteURL
-        }
+        let fileObject = OneDriveFileObject(baseURL: self.baseURL, name: name, path: lPath)
         fileObject.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         fileObject.modifiedDate = resolve(dateString: json["lastModifiedDateTime"] as? String ?? "")
         fileObject.creationDate = resolve(dateString: json["createdDateTime"] as? String ?? "")

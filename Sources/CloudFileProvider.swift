@@ -14,7 +14,7 @@ open class CloudFileProvider: LocalFileProvider {
         return "iCloudDrive"
     }
     
-    /// Actually is readonly
+    /// Actually is readonly, value is true
     override open var isCoorinating: Bool {
         get {
             return true
@@ -35,7 +35,7 @@ open class CloudFileProvider: LocalFileProvider {
             return nil
         }
         self.containerId = containerId
-        let baseURL = ubiquityURL.standardized.appendingPathComponent("Documents")
+        let baseURL = ubiquityURL.standardized.appendingPathComponent("Documents/")
         super.init(baseURL: baseURL)
         self.isCoorinating = true
         
@@ -51,7 +51,7 @@ open class CloudFileProvider: LocalFileProvider {
     
     open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
-            let pathURL = self.absoluteURL(path)
+            let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemPathKey, pathURL.path)
             query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
@@ -96,7 +96,7 @@ open class CloudFileProvider: LocalFileProvider {
     
     open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         dispatch_queue.async {
-            let pathURL = self.absoluteURL(path)
+            let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
             query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
@@ -171,7 +171,7 @@ open class CloudFileProvider: LocalFileProvider {
             
             do {
                 try self.opFileManager.copyItem(at: localFile, to: tmpFile)
-                let toUrl = self.absoluteURL(toPath)
+                let toUrl = self.url(of: toPath)
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
                 completionHandler?(nil)
                 DispatchQueue.main.async(execute: {
@@ -195,7 +195,7 @@ open class CloudFileProvider: LocalFileProvider {
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         
         do {
-            try self.opFileManager.startDownloadingUbiquitousItem(at: self.absoluteURL(path))
+            try self.opFileManager.startDownloadingUbiquitousItem(at: self.url(of: path))
         } catch let e {
             completionHandler?(e)
             DispatchQueue.main.async(execute: {
@@ -228,7 +228,7 @@ open class CloudFileProvider: LocalFileProvider {
     
     open override func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
-            let pathURL = self.absoluteURL(path)
+            let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (%K LIKE %@)", NSMetadataItemPathKey, pathURL.path, NSMetadataItemFSNameKey, query)
             query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
@@ -302,7 +302,7 @@ open class CloudFileProvider: LocalFileProvider {
     //
     open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
-        let pathURL = self.absoluteURL(path)
+        let pathURL = self.url(of: path)
         let query = NSMetadataQuery()
         query.predicate = NSPredicate(format: "(%K BEGINSWITH %@)", NSMetadataItemPathKey, pathURL.path)
         query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
@@ -322,7 +322,7 @@ open class CloudFileProvider: LocalFileProvider {
     }
     
     open override func unregisterNotifcation(path: String) {
-        let key = absoluteURL(path)
+        let key = url(of: path)
         guard let (query, observer) = monitors[key] else {
             return
         }
@@ -333,7 +333,7 @@ open class CloudFileProvider: LocalFileProvider {
     }
     
     open override func isRegisteredForNotification(path: String) -> Bool {
-        return monitors[absoluteURL(path)] != nil
+        return monitors[url(of: path)] != nil
     }
     
     /// may return nil
@@ -352,8 +352,9 @@ open class CloudFileProvider: LocalFileProvider {
         }
         
         let path = self.relativePathOf(url: url)
-        
-        let file = FileObject(absoluteURL: url, name: name, path: path)
+        let rpath = path.hasPrefix("/") ? path.substring(from: path.index(after: path.startIndex)) : path
+        let relativeUrl = URL(string: rpath, relativeTo: self.baseURL)
+        let file = FileObject(url: relativeUrl ?? url, name: name, path: path)
         
         file.size = (attribs[NSMetadataItemFSSizeKey] as? NSNumber)?.int64Value ?? -1
         file.creationDate = attribs[NSMetadataItemFSCreationDateKey] as? Date
@@ -369,7 +370,7 @@ open class CloudFileProvider: LocalFileProvider {
     open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
-                try self.opFileManager.evictUbiquitousItem(at: self.absoluteURL(path))
+                try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
                 completionHandler?(nil)
             } catch let e {
                 completionHandler?(e)
@@ -381,7 +382,7 @@ open class CloudFileProvider: LocalFileProvider {
         operation_queue.addOperation {
             do {
                 var expiration: NSDate?
-                let url = try self.opFileManager.url(forPublishingUbiquitousItemAt: self.absoluteURL(path), expiration: &expiration)
+                let url = try self.opFileManager.url(forPublishingUbiquitousItemAt: self.url(of: path), expiration: &expiration)
                 completionHandler(url, nil, expiration as Date?, nil)
             } catch let e {
                 completionHandler(nil, nil, nil, e)

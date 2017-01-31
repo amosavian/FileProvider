@@ -230,6 +230,10 @@ extension FileProviderBasic {
     }
     
     public func relativePathOf(url: URL) -> String {
+        if url.baseURL == self.baseURL {
+            return url.relativePath.removingPercentEncoding!
+        }
+        
         guard let baseURL = self.baseURL else { return url.absoluteString }
         return url.standardizedFileURL.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").removingPercentEncoding!
     }
@@ -264,7 +268,7 @@ extension FileProviderBasic {
             }
             var i = number ?? 2
             let similiar = contents.map {
-                $0.absoluteURL?.lastPathComponent ?? $0.name
+                $0.url?.lastPathComponent ?? $0.name
             }.filter {
                 $0.hasPrefix(result)
             }
@@ -280,7 +284,7 @@ extension FileProviderBasic {
     }
     
     internal func throwError(_ path: String, code: FoundationErrorEnum) -> NSError {
-        let fileURL = self.absoluteURL(path)
+        let fileURL = self.url(of: path)
         let domain: String
         switch code {
         case is URLError:

@@ -25,10 +25,10 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         guard baseURL.uw_scheme.lowercased() == "smb" else {
             return nil
         }
-        self.baseURL = baseURL
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(SMBFileProvider.type)", attributes: DispatchQueue.Attributes.concurrent)
+        self.baseURL = baseURL.appendingPathComponent("")
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(SMBFileProvider.type).Operation"
+        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
         
         self.credential = credential
     }

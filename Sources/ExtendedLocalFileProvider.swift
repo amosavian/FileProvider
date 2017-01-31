@@ -64,7 +64,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         (dispatch_queue).async {
             var thumbnailImage: ImageClass? = nil
             // Check cache
-            let fileURL = self.absoluteURL(path)
+            let fileURL = self.url(of: path)
             // Create Thumbnail and cache
             switch fileURL.pathExtension.lowercased() {
             case LocalFileInformationGenerator.videoThumbnailExtensions:
@@ -117,7 +117,7 @@ extension LocalFileProvider: ExtendedFileProvider {
             var dic = [String: Any]()
             var keys = [String]()
             if let getterMethod = getter {
-                (dic, keys) = getterMethod(self.absoluteURL(path))
+                (dic, keys) = getterMethod(self.url(of: path))
             }
             
             completionHandler(dic, keys, nil)
