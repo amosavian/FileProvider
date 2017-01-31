@@ -207,6 +207,7 @@ extension FileProviderBasic {
         return path.trimmingCharacters(in: pathTrimSet).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
     }
     
+    @available(*, deprecated, message: "Use FileProvider.url(of:).absoluteURL instead.")
     public func absoluteURL(_ path: String? = nil) -> URL {
         return url(of: path).absoluteURL
     }
@@ -295,8 +296,8 @@ extension FileProviderBasic {
         return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
-    internal func NotImplemented() {
-        assert(false, "method not implemented")
+    internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {
+        assert(false, "\(fn) method is not yet implemented. \(file)")
     }
     
     internal func resolve(dateString: String) -> Date? {

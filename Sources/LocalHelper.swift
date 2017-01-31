@@ -33,8 +33,8 @@ public final class LocalFileObject: FileObject {
     
     public convenience init?(fileWithURL fileURL: URL) {
         do {
-            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey])
-            self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: fileURL.path)
+            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey])
+            self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: fileURL.relativePath)
             for (key, value) in values.allValues {
                 self.allValues[key.rawValue] = value
             }
@@ -51,6 +51,14 @@ public final class LocalFileObject: FileObject {
             allValues[URLResourceKey.fileAllocatedSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
         }
     }
+    
+    open var rev: String? {
+        get {
+            let data = allValues[URLResourceKey.generationIdentifierKey.rawValue] as? Data
+            return data?.map { String(format: "%02hhx", $0) }.joined()
+        }
+    }
+
 }
 
 internal class LocalFolderMonitor {
