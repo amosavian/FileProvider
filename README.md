@@ -3,15 +3,18 @@
 >This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
 [![Swift Version][swift-image]][swift-url]
-[![Platform](https://img.shields.io/badge/Platform-iOS%2C%20macOS%2C%20tvOS-lightgray.svg)](#)
+[![Platform][platform-image]](#)
 [![License][license-image]][license-url]
 
-[![release badge][release-image]][release-url]
-[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/FileProvider.svg)](https://cocoapods.org/pods/FileProvider)
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?)](https://github.com/Carthage/Carthage)
+[![Release versin][release-image]][release-url]
+[![CocoaPods version](https://img.shields.io/cocoapods/v/FileProvider.svg)](cocoapods)
+[![Carthage compatible][carthage-image]](https://github.com/Carthage/Carthage)
 
 [![Build Status][travis-image]][travis-url]
-[![codebeat badge][codebeat-image]][codebeat-url]
+[![Codebeat Badge][codebeat-image]][codebeat-url]
+[![Cocoapods Docs][docs-image]](docs-url)
+[![Cocoapods Downloads][cocoapods-downloads]](cocoapods)
+[![Cocoapods Apps][cocoapods-apps]](cocoapods)
 
 <!--- 
 [![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
@@ -405,9 +408,11 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [https://github.com/amosavian/](https://github.com/amosavian/)
 
-[swift-image]:https://img.shields.io/badge/swift-3.0-orange.svg
+[cocoapods]: https://cocoapods.org/pods/FileProvider
+[swift-image]: https://img.shields.io/badge/swift-3.0-orange.svg
 [swift-url]: https://swift.org/
-[license-image]: https://img.shields.io/badge/License-MIT-blue.svg
+[platform-image]: https://img.shields.io/cocoapods/p/FileProvider.svg
+[license-image]: https://img.shields.io/github/license/amosavian/FileProvider.svg
 [license-url]: LICENSE
 [codebeat-image]: https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517
 [codebeat-url]: https://codebeat.co/projects/github-com-amosavian-fileprovider
@@ -415,3 +420,8 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [travis-url]: https://travis-ci.org/amosavian/FileProvider
 [release-url]: https://github.com/amosavian/FileProvider/releases
 [release-image]: https://img.shields.io/github/release/amosavian/FileProvider.svg
+[carthage-image]: https://img.shields.io/badge/Carthage-compatible-4BC51D.svg
+[cocoapods-downloads]: https://img.shields.io/cocoapods/dt/FileProvider.svg
+[cocoapods-apps]: https://img.shields.io/cocoapods/at/FileProvider.svg
+[docs-image]: https://img.shields.io/cocoapods/metrics/doc-percent/FileProvider.svg
+[docs-url]: http://cocoadocs.org/docsets/FileProvider/
