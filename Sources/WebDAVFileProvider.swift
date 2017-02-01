@@ -82,7 +82,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
             var fileObjects = [WebDavFileObject]()
             if let data = data {
                 let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                for attr in xresponse {
+                for attr in xresponse where attr.href != url {
                     if attr.href.path == url.path {
                         continue
                     }
@@ -480,10 +480,9 @@ struct DavResponse {
         guard let hrefString = node[hreftag].value else { return nil }
         
         // trying to figure out relative path out of href
-        let hrefURL: URL?
-        let newhrefString = URL(string: removeSlash(hrefString), relativeTo: baseURL)?.absoluteString ?? hrefString
-        let relativePath = newhrefString.replacingOccurrences(of: baseURL?.absoluteString ?? "", with: "", options: .anchored, range: nil)
-        hrefURL = URL(string: removeSlash(relativePath), relativeTo: baseURL) ?? baseURL
+        let hrefAbsolute = URL(string: hrefString, relativeTo: baseURL)?.absoluteString ?? hrefString
+        let relativePath = hrefAbsolute.replacingOccurrences(of: baseURL?.absoluteString ?? "", with: "", options: .anchored, range: nil)
+        let hrefURL = URL(string: removeSlash(relativePath), relativeTo: baseURL) ?? baseURL
         
         guard let href = hrefURL?.standardized else { return nil }
         
@@ -548,7 +547,9 @@ public final class WebDavFileObject: FileObject {
     internal init(_ davResponse: DavResponse) {
         let href = davResponse.href
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.removingPercentEncoding! as NSString).lastPathComponent
-        super.init(url: href, name: name, path: href.relativePath)
+        let relativePath = href.relativePath
+        let path = relativePath.hasPrefix("/") ? relativePath : ("/" + relativePath)
+        super.init(url: href, name: name, path: path)
         self.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
         self.creationDate = resolve(dateString: davResponse.prop["creationdate"] ?? "")
         self.modifiedDate = resolve(dateString: davResponse.prop["getlastmodified"] ?? "")

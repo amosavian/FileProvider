@@ -14,27 +14,33 @@ public final class LocalFileObject: FileObject {
     }
     
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
-        let fileURL: URL
-        var rpath = path.replacingOccurrences(of: relativeURL?.absoluteString  ?? "", with: "")
+        var fileURL: URL?
+        var rpath = path.replacingOccurrences(of: relativeURL?.absoluteString  ?? "", with: "", options: .anchored)
         if path.hasPrefix("/") {
             rpath.remove(at: rpath.startIndex)
         }
         if rpath.isEmpty {
-            fileURL = relativeURL ?? URL(fileURLWithPath: path)
+            fileURL = relativeURL
         } else {
             if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
                 fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
             } else {
-                fileURL = relativeURL?.appendingPathComponent(path) ?? URL(fileURLWithPath: path)
+                fileURL = URL(string: rpath, relativeTo: relativeURL)
             }
         }
-        self.init(fileWithURL: fileURL)
+        if let fileURL = fileURL {
+            self.init(fileWithURL: fileURL)
+        } else {
+            return nil
+        }
     }
     
     public convenience init?(fileWithURL fileURL: URL) {
         do {
             let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey])
-            self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: fileURL.relativePath)
+            let path = fileURL.relativePath.hasPrefix("/") ? fileURL.relativePath : "/" + fileURL.relativePath
+            
+            self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: path)
             for (key, value) in values.allValues {
                 self.allValues[key.rawValue] = value
             }
