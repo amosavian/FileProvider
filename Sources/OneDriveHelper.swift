@@ -28,6 +28,23 @@ public final class OneDriveFileObject: FileObject {
         super.init(url: url, name: name, path: path)
     }
     
+    internal convenience init? (baseURL: URL?, drive: String, jsonStr: String) {
+        guard let json = jsonToDictionary(jsonStr) else { return nil }
+        self.init(baseURL: baseURL, drive: drive, json: json)
+    }
+    
+    internal convenience init? (baseURL: URL?, drive: String, json: [String: AnyObject]) {
+        guard let name = json["name"] as? String else { return nil }
+        guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
+        let lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
+        self.init(baseURL: baseURL, name: name, path: lPath)
+        self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
+        self.modifiedDate = resolve(dateString: json["lastModifiedDateTime"] as? String ?? "")
+        self.creationDate = resolve(dateString: json["createdDateTime"] as? String ?? "")
+        self.type = (json["folder"] as? String) != nil ? .directory : .regular
+        self.id = json["id"] as? String
+        self.entryTag = json["eTag"] as? String
+    }
     
     open internal(set) var id: String? {
         get {
@@ -79,7 +96,7 @@ internal extension OneDriveFileProvider {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
                             files.append(file)
                         }
                     }
@@ -173,7 +190,7 @@ internal extension OneDriveFileProvider {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
                             foundItem(file)
                         }
                     }
@@ -195,25 +212,6 @@ internal extension OneDriveFileProvider {
 // codebeat:enable[ARITY]
 
 internal extension OneDriveFileProvider {
-    func mapToFileObject(_ jsonStr: String) -> OneDriveFileObject? {
-        guard let json = jsonToDictionary(jsonStr) else { return nil }
-        return self.mapToFileObject(json)
-    }
-    
-    func mapToFileObject(_ json: [String: AnyObject]) -> OneDriveFileObject? {
-        guard let name = json["name"] as? String else { return nil }
-        guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
-        let lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
-        let fileObject = OneDriveFileObject(baseURL: self.baseURL, name: name, path: lPath)
-        fileObject.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        fileObject.modifiedDate = resolve(dateString: json["lastModifiedDateTime"] as? String ?? "")
-        fileObject.creationDate = resolve(dateString: json["createdDateTime"] as? String ?? "")
-        fileObject.type = (json["folder"] as? String) != nil ? .directory : .regular
-        fileObject.id = json["id"] as? String
-        fileObject.entryTag = json["eTag"] as? String
-        return fileObject
-    }
-    
     static let dateFormatter = DateFormatter()
     static let decimalFormatter = NumberFormatter()
     
@@ -254,7 +252,7 @@ internal extension OneDriveFileProvider {
             keys.append("Duration")
             dic["Duration"] = OneDriveFileProvider.formatshort(interval: TimeInterval(duration) / 1000)
         }
-        if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = self.resolve(dateString: timeTakenStr) {
+        if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
             keys.append("Date taken")
             OneDriveFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             dic["Date taken"] = OneDriveFileProvider.dateFormatter.string(from: timeTaken)

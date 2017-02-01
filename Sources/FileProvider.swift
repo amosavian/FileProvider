@@ -299,37 +299,6 @@ extension FileProviderBasic {
     internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {
         assert(false, "\(fn) method is not yet implemented. \(file)")
     }
-    
-    internal func resolve(dateString: String) -> Date? {
-        let dateFor: DateFormatter = DateFormatter()
-        dateFor.locale = Locale(identifier: "en_US")
-        dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz"
-        if let rfc1123 = dateFor.date(from: dateString) {
-            return rfc1123
-        }
-        dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
-        if let rfc850 = dateFor.date(from: dateString) {
-            return rfc850
-        }
-        dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        if let asctime = dateFor.date(from: dateString) {
-            return asctime
-        }
-        dateFor.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssz"
-        if let isotime = dateFor.date(from: dateString) {
-            return isotime
-        }
-        return nil
-    }
-    
-    public func string(from date:Date) -> String {
-        let fm = DateFormatter()
-        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
-        fm.timeZone = TimeZone(identifier:"UTC")
-        fm.locale = Locale(identifier:"en_US_POSIX")
-        return fm.string(from:date)
-    }
-    
 }
 
 public protocol ExtendedFileProvider: FileProviderBasic {

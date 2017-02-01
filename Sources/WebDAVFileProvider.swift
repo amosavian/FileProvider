@@ -8,30 +8,6 @@
 
 import Foundation
 
-public final class WebDavFileObject: FileObject {
-    internal override init(url: URL, name: String, path: String) {
-        super.init(url: url, name: name, path: path)
-    }
-    
-    open internal(set) var contentType: String {
-        get {
-            return allValues["NSURLContentTypeKey"] as? String ?? ""
-        }
-        set {
-            allValues["NSURLContentTypeKey"] = newValue
-        }
-    }
-    
-    open internal(set) var entryTag: String? {
-        get {
-            return allValues["NSURLEntryTagKey"] as? String
-        }
-        set {
-            allValues["NSURLEntryTagKey"] = newValue
-        }
-    }
-}
-
 /// Because this class uses NSURLSession, it's necessary to disable App Transport Security
 /// in case of using this class with unencrypted HTTP connection.
 
@@ -105,12 +81,12 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
             }
             var fileObjects = [WebDavFileObject]()
             if let data = data {
-                let xresponse = self.parseXMLResponse(data)
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
                 for attr in xresponse {
                     if attr.href.path == url.path {
                         continue
                     }
-                    fileObjects.append(self.mapToFileObject(attr))
+                    fileObjects.append(WebDavFileObject(attr))
                 }
             }
             completionHandler(fileObjects, responseError ?? error)
@@ -131,9 +107,9 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             if let data = data {
-                let xresponse = self.parseXMLResponse(data)
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
                 if let attr = xresponse.first {
-                    completionHandler(self.mapToFileObject(attr), responseError ?? error)
+                    completionHandler(WebDavFileObject(attr), responseError ?? error)
                     return
                 }
             }
@@ -158,7 +134,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
             var totalSize: Int64 = -1
             var usedSize: Int64 = 0
             if let data = data {
-                let xresponse = self.parseXMLResponse(data)
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
                 if let attr = xresponse.first {
                     totalSize = Int64(attr.prop["quota-available-bytes"] ?? "") ?? -1
                     usedSize = Int64(attr.prop["quota-used-bytes"] ?? "") ?? 0
@@ -270,7 +246,7 @@ extension WebDAVFileProvider: FileProviderOperations {
                     responseError = FileProviderWebDavError(code: code, url: sourceURL)
                 }
                 if code == .multiStatus, let data = data {
-                    let xresponses = self.parseXMLResponse(data)
+                    let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
                     for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         completionHandler?(FileProviderWebDavError(code: code, url: sourceURL))
                     }
@@ -411,14 +387,14 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 responseError = FileProviderWebDavError(code: rCode, url: url)
             }
             if let data = data {
-                let xresponse = self.parseXMLResponse(data)
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
                 var fileObjects = [WebDavFileObject]()
                 for attr in xresponse {
                     let path = attr.href.path
                     if !((path as NSString).lastPathComponent.contains(query)) {
                         continue
                     }
-                    let fileObject = self.mapToFileObject(attr)
+                    let fileObject = WebDavFileObject(attr)
                     fileObjects.append(fileObject)
                     foundItemHandler?(fileObject)
                 }
@@ -458,37 +434,34 @@ extension WebDAVFileProvider: FileProvider {
 // MARK: WEBDAV XML response implementation
 
 internal extension WebDAVFileProvider {
-    struct DavResponse {
-        let href: URL
-        let hrefString: String
-        let status: Int?
-        let prop: [String: String]
+    fileprivate func delegateNotify(_ operation: FileOperationType, error: Error?) {
+        DispatchQueue.main.async(execute: {
+            if error == nil {
+                self.delegate?.fileproviderSucceed(self, operation: operation)
+            } else {
+                self.delegate?.fileproviderFailed(self, operation: operation)
+            }
+        })
     }
+}
+
+struct DavResponse {
+    let href: URL
+    let hrefString: String
+    let status: Int?
+    let prop: [String: String]
     
-    fileprivate func parseXMLResponse(_ response: Data) -> [DavResponse] {
-        var result = [DavResponse]()
-        do {
-            let xml = try AEXMLDocument(xml: response)
-            var rootnode = xml.root
-            var responsetag = "response"
-            for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus") {
-                rootnode = node
+    init? (_ node: AEXMLElement, baseURL: URL?) {
+        
+        func removeSlash(_ str: String) -> String {
+            if str.hasPrefix("/") {
+                return str.substring(from: str.index(after: str.startIndex))
+            } else {
+                return str
             }
-            for node in rootnode.children where node.name.lowercased().hasSuffix("response") {
-                responsetag = node.name
-                break
-            }
-            for responseNode in rootnode[responsetag].all ?? [] {
-                if let davResponse = mapNodeToDavResponse(responseNode) {
-                    result.append(davResponse)
-                }
-            }
-        } catch _ { 
         }
-        return result
-    }
-    
-    fileprivate func mapNodeToDavResponse(_ node: AEXMLElement) -> DavResponse? {
+        
+        // find node names with namespace
         var hreftag = "href"
         var statustag = "status"
         var propstattag = "propstat"
@@ -503,75 +476,106 @@ internal extension WebDAVFileProvider {
                 propstattag = node.name
             }
         }
-        let href = node[hreftag].value
-        if let href = href {
-            let phrefURL: URL?
-            var relativePath = href.replacingOccurrences(of: self.baseURL?.absoluteString ?? "", with: "/")
-            if relativePath.hasPrefix("http://") || relativePath.hasPrefix("http://") {
-                phrefURL = URL(string: href)
-            } else {
-                if relativePath.hasPrefix("/") {
-                    relativePath.remove(at: relativePath.startIndex)
-                }
-                phrefURL = URL(string: relativePath, relativeTo: self.baseURL) ?? self.baseURL
-            }
-            //let hrefURL = URL(string: href)
-            guard let hrefURL = phrefURL else { return nil }
-            var status: Int?
-            let statusDesc = (node[statustag].string).components(separatedBy: " ")
-            if statusDesc.count > 2 {
-                status = Int(statusDesc[1])
-            }
-            var propDic = [String: String]()
-            let propStatNode = node[propstattag]
-            for node in propStatNode.children where node.name.lowercased().hasSuffix("status"){
-                statustag = node.name
-                break
-            }
-            let statusDesc2 = (propStatNode[statustag].string).components(separatedBy: " ")
-            if statusDesc2.count > 2 {
-                status = Int(statusDesc2[1])
-            }
-            var proptag = "prop"
-            for tnode in propStatNode.children where tnode.name.lowercased().hasSuffix("prop") {
-                proptag = tnode.name
-                break
-            }
-            for propItemNode in propStatNode[proptag].children {
-                propDic[propItemNode.name.components(separatedBy: ":").last!.lowercased()] = propItemNode.value
-                if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xml.contains("collection") {
-                    propDic["getcontenttype"] = "httpd/unix-directory"
-                }
-            }
-            return DavResponse(href: hrefURL, hrefString: href, status: status, prop: propDic)
+        
+        guard let hrefString = node[hreftag].value else { return nil }
+        
+        // trying to figure out relative path out of href
+        let hrefURL: URL?
+        let newhrefString = URL(string: removeSlash(hrefString), relativeTo: baseURL)?.absoluteString ?? hrefString
+        let relativePath = newhrefString.replacingOccurrences(of: baseURL?.absoluteString ?? "", with: "", options: .anchored, range: nil)
+        hrefURL = URL(string: removeSlash(relativePath), relativeTo: baseURL) ?? baseURL
+        
+        guard let href = hrefURL?.standardized else { return nil }
+        
+        // reading status and properties
+        var status: Int?
+        let statusDesc = (node[statustag].string).components(separatedBy: " ")
+        if statusDesc.count > 2 {
+            status = Int(statusDesc[1])
         }
-        return nil
+        var propDic = [String: String]()
+        let propStatNode = node[propstattag]
+        for node in propStatNode.children where node.name.lowercased().hasSuffix("status"){
+            statustag = node.name
+            break
+        }
+        let statusDesc2 = (propStatNode[statustag].string).components(separatedBy: " ")
+        if statusDesc2.count > 2 {
+            status = Int(statusDesc2[1])
+        }
+        var proptag = "prop"
+        for tnode in propStatNode.children where tnode.name.lowercased().hasSuffix("prop") {
+            proptag = tnode.name
+            break
+        }
+        for propItemNode in propStatNode[proptag].children {
+            propDic[propItemNode.name.components(separatedBy: ":").last!.lowercased()] = propItemNode.value
+            if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xml.contains("collection") {
+                propDic["getcontenttype"] = "httpd/unix-directory"
+            }
+        }
+        self.href = href
+        self.hrefString = hrefString
+        self.status = status
+        self.prop = propDic
     }
     
-    fileprivate func mapToFileObject(_ davResponse: DavResponse) -> WebDavFileObject {
-        var href = davResponse.href
-        if href.baseURL == nil {
-            href = url(of: href.path)
+    static func parse(xmlResponse: Data, baseURL: URL?) -> [DavResponse] {
+        var result = [DavResponse]()
+        do {
+            let xml = try AEXMLDocument(xml: xmlResponse)
+            var rootnode = xml.root
+            var responsetag = "response"
+            for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus") {
+                rootnode = node
+            }
+            for node in rootnode.children where node.name.lowercased().hasSuffix("response") {
+                responsetag = node.name
+                break
+            }
+            for responseNode in rootnode[responsetag].all ?? [] {
+                if let davResponse = DavResponse(responseNode, baseURL: baseURL) {
+                    result.append(davResponse)
+                }
+            }
+        } catch _ {
         }
+        return result
+    }
+}
+
+public final class WebDavFileObject: FileObject {
+    internal init(_ davResponse: DavResponse) {
+        let href = davResponse.href
         let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.removingPercentEncoding! as NSString).lastPathComponent
-        let fileObject = WebDavFileObject(url: href, name: name, path: href.path)
-        fileObject.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-        fileObject.creationDate = self.resolve(dateString: davResponse.prop["creationdate"] ?? "")
-        fileObject.modifiedDate = self.resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
-        fileObject.contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
-        fileObject.type = fileObject.contentType == "httpd/unix-directory" ? .directory : .regular
-        fileObject.entryTag = davResponse.prop["getetag"]
-        return fileObject
+        super.init(url: href, name: name, path: href.relativePath)
+        self.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
+        self.creationDate = resolve(dateString: davResponse.prop["creationdate"] ?? "")
+        self.modifiedDate = resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
+        self.contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
+        self.isHidden = (Int(davResponse.prop["ishidden"] ?? "0") ?? 0) > 0
+        self.type = self.contentType == "httpd/unix-directory" ? .directory : .regular
+        self.entryTag = davResponse.prop["getetag"]
     }
     
-    fileprivate func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
+    /// MIME type of the file
+    open internal(set) var contentType: String {
+        get {
+            return allValues["NSURLContentTypeKey"] as? String ?? ""
+        }
+        set {
+            allValues["NSURLContentTypeKey"] = newValue
+        }
+    }
+    
+    /// HTTP E-Tag, can be used to mark changed files
+    open internal(set) var entryTag: String? {
+        get {
+            return allValues["NSURLEntryTagKey"] as? String
+        }
+        set {
+            allValues["NSURLEntryTagKey"] = newValue
+        }
     }
 }
 

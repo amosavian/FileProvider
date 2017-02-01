@@ -140,6 +140,37 @@ open class FileObject {
     }
 }
 
+internal func resolve(dateString: String) -> Date? {
+    let dateFor: DateFormatter = DateFormatter()
+    dateFor.locale = Locale(identifier: "en_US")
+    dateFor.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssZ"
+    if let rfc3339 = dateFor.date(from: dateString) {
+        return rfc3339
+    }
+    dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss z"
+    if let rfc1123 = dateFor.date(from: dateString) {
+        return rfc1123
+    }
+    dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
+    if let rfc850 = dateFor.date(from: dateString) {
+        return rfc850
+    }
+    dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
+    if let asctime = dateFor.date(from: dateString) {
+        return asctime
+    }
+    
+    return nil
+}
+
+internal func rfc3339utc(of date:Date) -> String {
+    let fm = DateFormatter()
+    fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
+    fm.timeZone = TimeZone(identifier:"UTC")
+    fm.locale = Locale(identifier:"en_US_POSIX")
+    return fm.string(from:date)
+}
+
 /// Sorting FileObject array by given criteria, **not thread-safe**
 public struct FileObjectSorting {
     

@@ -23,6 +23,24 @@ public final class DropboxFileObject: FileObject {
         super.init(url: URL(string: path) ?? URL(string: "/")!, name: name, path: path)
     }
     
+    internal convenience init? (jsonStr: String) {
+        guard let json = jsonToDictionary(jsonStr) else { return nil }
+        self.init(json: json)
+    }
+    
+    internal convenience init? (json: [String: AnyObject]) {
+        guard let name = json["name"] as? String else { return nil }
+        guard let path = json["path_display"] as? String else { return nil }
+        self.init(name: name, path: path)
+        self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
+        self.serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
+        self.modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
+        self.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
+        self.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
+        self.id = json["id"] as? String
+        self.rev = json["rev"] as? String
+    }
+    
     open internal(set) var serverTime: Date? {
         get {
             return allValues["NSURLServerDateKey"] as? Date
@@ -79,7 +97,7 @@ internal extension DropboxFileProvider {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["entries"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                        if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
                             files.append(file)
                         }
                     }
@@ -104,17 +122,17 @@ internal extension DropboxFileProvider {
             self.delegateNotify(.create(path: targetPath), error: error)
             return nil
         }
-        var requestDictionary = [String: Any]()
+        var requestDictionary = [String: AnyObject]()
         let url: URL
         url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = string(from:modifiedDate)
+        requestDictionary["client_modified"] = rfc3339utc(of: modifiedDate) as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
+        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         request.httpBody = data
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
@@ -137,17 +155,17 @@ internal extension DropboxFileProvider {
             self.delegateNotify(.create(path: targetPath), error: error)
             return nil
         }
-        var requestDictionary = [String: Any]()
+        var requestDictionary = [String: AnyObject]()
         let url: URL
         url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = string(from:modifiedDate)
+        requestDictionary["client_modified"] = rfc3339utc(of: modifiedDate) as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.setValue(dictionaryToJSON(requestDictionary as [String : AnyObject]), forHTTPHeaderField: "Dropbox-API-Arg")
+        request.setValue(dictionaryToJSON(requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.uploadTask(with: request, fromFile: localFile, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -181,7 +199,7 @@ internal extension DropboxFileProvider {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["matches"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = self.mapToFileObject(entry) {
+                        if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
                             foundItem(file)
                         }
                     }
@@ -203,25 +221,6 @@ internal extension DropboxFileProvider {
 // codebeat:enable[ARITY]
 
 internal extension DropboxFileProvider {
-    func mapToFileObject(_ jsonStr: String) -> DropboxFileObject? {
-        guard let json = jsonToDictionary(jsonStr) else { return nil }
-        return self.mapToFileObject(json)
-    }
-    
-    func mapToFileObject(_ json: [String: AnyObject]) -> DropboxFileObject? {
-        guard let name = json["name"] as? String else { return nil }
-        guard let path = json["path_display"] as? String else { return nil }
-        let fileObject = DropboxFileObject(name: name, path: path)
-        fileObject.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        fileObject.serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
-        fileObject.modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
-        fileObject.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
-        fileObject.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
-        fileObject.id = json["id"] as? String
-        fileObject.rev = json["rev"] as? String
-        return fileObject
-    }
-    
     static let dateFormatter = DateFormatter()
     static let decimalFormatter = NumberFormatter()
     
@@ -241,7 +240,7 @@ internal extension DropboxFileProvider {
             let longStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))
             dic["Location"] = "\(latStr), \(longStr)"
         }
-        if let timeTakenStr = json["time_taken"] as? String, let timeTaken = self.resolve(dateString: timeTakenStr) {
+        if let timeTakenStr = json["time_taken"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
             keys.append("Date taken")
             DropboxFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             dic["Date taken"] = DropboxFileProvider.dateFormatter.string(from: timeTaken)

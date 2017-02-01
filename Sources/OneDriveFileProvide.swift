@@ -87,7 +87,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 dbError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = self.mapToFileObject(json) {
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: json) {
                     fileObject = file
                 }
             }
