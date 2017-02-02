@@ -366,7 +366,9 @@ open class CloudFileProvider: LocalFileProvider {
         return file
     }
     
-    /// Removes local copy of file, but spares cloud copy
+    /// Removes local copy of file, but spares cloud copy/
+    /// - Parameter path: Path of file or directory to be remoed from local
+    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
     open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
@@ -378,6 +380,7 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
+    /// Returns a pulic url with expiration date, can be shared with other people.
     open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {

@@ -10,6 +10,7 @@ import Foundation
 
 /// Containts path and attributes of a file or resource.
 open class FileObject {
+    /// A `Dictionary` contains file information,  using `URLResourceKey` keys.
     open internal(set) var allValues: [String: Any]
     
     internal init(allValues: [String: Any]) {
@@ -215,13 +216,19 @@ public struct FileObjectSorting {
     public static let createdAscending = FileObjectSorting(type: .creationDate, ascending: true)
     public static let createdDesceding = FileObjectSorting(type: .creationDate, ascending: false)
     
+    /// Initializes a `FileObjectSorting` allows to sort an `Array` of `FileObject`.
+    ///
+    /// - Parameters:
+    ///   - type: Determines to sort based on which file property.
+    ///   - ascending: `true` of resulting `Array` is ascending
+    ///   - isDirectoriesFirst: Puts directoris on the top of resulting `Array`.
     public init (type: SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) {
         self.sortType = type
         self.ascending = ascending
         self.isDirectoriesFirst = isDirectoriesFirst
     }
     
-    /// Sorts array of FileObjects by criterias set in properties
+    /// Sorts array of `FileObject`s by criterias set in properties
     public func sort(_ files: [FileObject]) -> [FileObject] {
         return files.sorted {
             if isDirectoriesFirst {
@@ -259,11 +266,13 @@ public struct FileObjectSorting {
 }
 
 extension Array where Element: FileObject {
+    /// Returns a sorted array of `FileObject`s by criterias set in properties.
     public func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
         let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
         return sorting.sort(self) as! [Element]
     }
     
+    /// Sorts array of `FileObject`s by criterias set in properties
     public mutating func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) {
         self = self.sorted(by: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
     }

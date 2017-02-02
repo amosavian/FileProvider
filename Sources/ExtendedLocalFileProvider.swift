@@ -61,6 +61,7 @@ extension LocalFileProvider: ExtendedFileProvider {
     }
     
     public func thumbnailOfFile(path: String, dimension: CGSize? = nil, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+        let dimension = dimension ?? CGSize(width: 64, height: 64)
         (dispatch_queue).async {
             var thumbnailImage: ImageClass? = nil
             // Check cache
@@ -85,7 +86,7 @@ extension LocalFileProvider: ExtendedFileProvider {
             }
             
             if let image = thumbnailImage {
-                let scaledImage = dimension != nil ? LocalFileProvider.scaleDown(image: image, toSize: dimension!) : image
+                let scaledImage = LocalFileProvider.scaleDown(image: image, toSize: dimension)
                 completionHandler(scaledImage, nil)
             }
         }

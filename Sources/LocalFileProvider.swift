@@ -359,8 +359,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
-            let data = self.fileManager.contents(atPath: url.path)
-            completionHandler(data, nil)
+            do {
+                let data = try Data(contentsOf: url)
+                completionHandler(data, nil)
+            } catch let e {
+                completionHandler(nil, e)
+            }
         }
         
         if isCoorinating {
@@ -382,7 +386,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     @discardableResult
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        if length < 0 {
+        if length == 0 {
+            return nil
+        }
+        
+        if offset == 0 && length < 0 {
             return self.contents(path: path, completionHandler: completionHandler)
         }
         
@@ -391,18 +399,30 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         
         let operationHandler: (URL) -> Void = { url in
             guard self.fileManager.fileExists(atPath: url.path) && !url.fileIsDirectory else {
-                completionHandler(nil, self.throwError(path, code: URLError.cannotOpenFile as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: URLError.fileDoesNotExist as FoundationErrorEnum))
                 return
             }
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
                 completionHandler(nil, self.throwError(path, code: URLError.cannotOpenFile as FoundationErrorEnum))
                 return
             }
+            
             defer {
                 handle.closeFile()
             }
+            
             handle.seek(toFileOffset: UInt64(offset))
+            guard Int64(handle.offsetInFile) == offset else {
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadUnknown as FoundationErrorEnum))
+                return
+            }
+            
             let data = handle.readData(ofLength: length)
+            guard length > 0 && data.count == length else {
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                return
+            }
+            
             completionHandler(data, nil)
         }
         

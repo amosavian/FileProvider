@@ -18,25 +18,89 @@ public typealias ImageClass = NSImage
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 public protocol FileProviderBasic: class {
+    /// An string to identify type of provider.
     static var type: String { get }
+    
+    /// An string to identify type of provider.
     var type: String { get }
+    
+    /// The paths in arguments should resolved against base url.
     var isPathRelative: Bool { get }
+    
+    /// The url of which paths should resolve against.
     var baseURL: URL? { get }
+    
+    /// Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
     var currentPath: String { get set }
+    
+    /**
+     Dispatch queue usually used in query methods.
+     Set it to a new object to switch between cuncurrent and serial queues.
+     - **Default:** Cuncurrent `DispatchQueue` object.
+    */
     var dispatch_queue: DispatchQueue { get set }
+    
+    /// Operation queue ususlly used in file operation methods.
+    /// use `maximumOperationTasks` property of provider to manage operation queue.
     var operation_queue: OperationQueue { get set }
+    
+    /// Delegate to update UI after finishing file operations.
     var delegate: FileProviderDelegate? { get set }
+    
+    /**
+     login credential for provider. Should be set in `init` method.
+     
+     **Example initialization:**
+     ````
+     let credential = URLCredential(user: "user", password: "password", persistence: .forSeession)
+     ````
+     
+     - Note: In OAuth based providers like `DropboxFileProvider` and `OneDriveFileProvider`, password is Token.
+     use [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) library to fetch clientId and Token of user.
+     */
     var credential: URLCredential? { get }
     
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter completionHandler: a block with result of directory entries or error.
+        `contents`: An array of `FileObject` identifying the the directory entries.
+        `error`: Error returned by system.
+     */
     func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void))
+    
+    /**
+     Returns a `FileObject` containing the attributes of the item (file, directory, symlink, etc.) at the path in question via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter completionHandler: a block with result of directory entries or error.
+        `attributes`: A `FileObject` containing the attributes of the item.
+        `error`: Error returned by system.
+     */
     func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
+    
+    /// Returns total and used space in provider container asynchronously.
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
     
+    /**
+     Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
+     don't return an absolute url to be used to access file directly.
+     - Parameter path: Relative path of file or directory.
+     - Returns: An url, can be used to access to file directly.
+    */
     func url(of path: String?) -> URL
 }
 
 public extension FileProviderBasic {
+    /// The maximum number of queued operations that can execute at the same time.
+    ///
+    /// The default value of this property is `OperationQueue.defaultMaxConcurrentOperationCount`.
     public var maximumOperationTasks: Int {
         get {
             return operation_queue.maxConcurrentOperationCount
@@ -48,9 +112,19 @@ public extension FileProviderBasic {
 }
 
 public protocol FileProviderBasicRemote: FileProviderBasic {
+    ///
     var session: URLSession { get }
+    
+    /// A `URLCache` to cache downloaded files and contents.
+    ///
+    /// If set to nil, `URLCache.shared` object will be used.
+    /// - Note: It has no effect unless setting `useCache` property to `true`.
     var cache: URLCache? { get }
+    
+    /// Determine to use `cache` property to cache downloaded file objects. Doesn't have effect on query type methods.
     var useCache: Bool { get set }
+    
+    /// Validating cached data using E-Tag or Revision identifier if possible.
     var validatingCache: Bool { get set }
 }
 
@@ -105,24 +179,140 @@ internal extension FileProviderBasicRemote {
 public protocol FileProviderOperations: FileProviderBasic {
     var fileOperationDelegate : FileOperationDelegate? { get set }
     
+    /**
+     Creates a new directory at the specified path asynchronously. 
+     This will create any necessary intermediate directories.
+     
+     - Parameters:
+       - folder: Directory name.
+       - at: Parent path of new directory.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     */
     @discardableResult
     func create(folder: String, at: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Creates an new file with data passed to method asynchronously. 
+     Returns error via completionHandler if file is already exists.
+     
+     - Parameters:
+       - file: New file name with extension separated by period.
+       - at: Parent path of new file.
+       - data: Data of new files. Pass nil or `Data()` to create empty file.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
+    
     func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Moves a file or directory from `path` to designated path asynchronously.
+     When you want move a file, destination path should also consists of file name.
+     Either a new name or the old one. If file is already exist, an error will be returned via completionHandler.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Moves a file or directory from `path` to designated path asynchronously.
+     When you want move a file, destination path should also consists of file name.
+     Either a new name or the old one.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func moveItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Copies a file or directory from `path` to designated path asynchronously.
+     When want copy a file, destination path should also consists of file name.
+     Either a new name or the old one. If file is already exist, an error will be returned via completionHandler.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func copyItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Copies a file or directory from `path` to designated path asynchronously.
+     When want copy a file, destination path should also consists of file name.
+     Either a new name or the old one.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func copyItem(path: String, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Removes the file or directory at the specified path.
+     
+     - Parameters:
+       - path: file or directory path.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     
+     */
     @discardableResult
     func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Uploads a file from local file url to designated path asynchronously.
+     Method will fail if source is not a local url with `file://` scheme.
+     
+     - Parameters:
+       - localFile: a file url to file.
+       - to: destination path of file, including file/directory name.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     func copyItem(localFile: URL, to: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Uploads a file from local file url to designated path asynchronously.
+     Method will fail if source is not a local url with `file://` scheme.
+     
+     - Parameters:
+       - localFile: a file url to file.
+       - to: destination path of file, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     func copyItem(localFile: URL, to: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Download a file from `path` to designated local file url asynchronously.
+     Method will fail if destination is not a local url with `file://` scheme.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - toLocalURL: destination local url of file, including file/directory name.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
@@ -145,20 +335,104 @@ extension FileProviderOperations {
 }
 
 public protocol FileProviderReadWrite: FileProviderBasic {
+    /**
+     Retreives a `Data` object with the contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - completionHandler: a block with result of file contents or error.
+         `contents`: contents of file in a `Data` object.
+         `error`: Error returned by system.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+    */
     @discardableResult
     func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
+    
+    /**
+     Retreives a `Data` object with a portion contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - offset: First byte index which should be read. **Starts from 0.**
+       - length: Bytes count of data. Pass `-1` to read until the end of file.
+       - completionHandler: a block with result of file contents or error.
+         `contents`: contents of file in a `Data` object.
+         `error`: Error returned by system.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle?
     
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     It will return error if file is already exists.
+     Not attomically by default, unless the provider enforces it.
+     
+     - Parameters:
+       - path: Path of target file.
+       - contents: Data to be written into file.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func writeContents(path: String, contents: Data, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     It will return error if file is already exists.
+     
+     - Parameters:
+       - path: Path of target file.
+       - contents: Data to be written into file.
+       - atomically: data will be written to a temporary file before writing to final location. Default is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func writeContents(path: String, contents: Data, atomically: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     Not attomically by default, unless the provider enforces it.
+     
+     - Parameters:
+     - path: Path of target file.
+       - contents: Data to be written into file.
+       - overwrite: Destination file should be overwritten if file is already exists. Default is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func writeContents(path: String, contents: Data, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
+    
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     
+     - Parameters:
+       - path: Path of target file.
+       - contents: Data to be written into file.
+       - overwrite: Destination file should be overwritten if file is already exists. Default is `false`.
+       - atomically: data will be written to a temporary file before writing to final location. Default is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     func writeContents(path: String, contents: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: Simple string of file name to be search (for now).
+       - foundItemHandler: Block which is called when a file is found
+       - completionHandler: Block which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     */
     func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
 }
 
@@ -185,8 +459,33 @@ extension FileProviderReadWrite {
 }
 
 public protocol FileProviderMonitor: FileProviderBasic {
+    
+    /**
+     Starts monitoring a path and its subpaths, including files and folders, for any change,
+     including copy, move/rename, content changes, etc.
+     To avoid thread congestion, `evetHandler` will be triggered with 0.2 seconds interval,
+     and has a 0.25 second delay, to ensure it's called after updates.
+     
+     - Note: this functionality is available only in `LocalFileProvider` and `CloudFileProvider`.
+     - Note: `eventHandler` is not called on main thread, for updating UI. dispatch routine to main thread.
+     - Important: `eventHandler` may be called if file is changed in recursive subpaths of registered path.
+       This may cause negative impact on performance if a root path is being monitored.
+    
+     - Parameters:
+       - path: path of directory.
+       - eventHandler: Block executed after change, on a secondary thread.
+     */
     func registerNotifcation(path: String, eventHandler: @escaping (() -> Void))
+    
+    /// Stops monitoring the path.
+    ///
+    /// - Parameter path: path of directory.
     func unregisterNotifcation(path: String)
+    
+    /// Investigate either the path is registered for change notification or not.
+    ///
+    /// - Parameter path: path of directory.
+    /// - Returns: Directory is being monitored or not.
     func isRegisteredForNotification(path: String) -> Bool
 }
 
@@ -199,6 +498,7 @@ extension FileProviderBasic {
         return Self.type
     }
     
+    /// path without heading and trailing slash
     public var bareCurrentPath: String {
         return currentPath.trimmingCharacters(in: pathTrimSet)
     }
@@ -248,6 +548,8 @@ extension FileProviderBasic {
         return p
     }
     
+    /// Returns a file name supposed to be unique with adding numbers to end of file.
+    /// - Important: It's a synchronous method. Don't use it on matin thread.
     public func fileByUniqueName(_ filePath: String) -> String {
         let fileUrl = URL(fileURLWithPath: filePath)
         let dirPath = fileUrl.deletingLastPathComponent().path 
@@ -302,10 +604,61 @@ extension FileProviderBasic {
 }
 
 public protocol ExtendedFileProvider: FileProviderBasic {
+    /// Returuns true if thumbnail preview is supported by provider and file type accordingly.
+    ///
+    /// - Parameter path: path of file.
+    /// - Returns: A `Bool` idicates path can have thumbnail.
     func thumbnailOfFileSupported(path: String) -> Bool
+    
+    /// Returns true if provider supports fetching properties of file like dimensions, duration, etc.
+    /// Usually media or document files support these meta-infotmations.
+    ///
+    /// - Parameter path: path of file.
+    /// - Returns: A `Bool` idicates path can have properties.
     func propertiesOfFileSupported(path: String) -> Bool
+    
+    /**
+     Generates ans returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
+     regarding provider type, usually 64x64 pixels.
+     
+     - Parameters:
+       - path: path of file.
+       - completionHandler: a block with result of preview image or error.
+         `image`: `NSImage`/`UIImage` object contains preview.
+         `error`: Error returned by system.
+    */
     func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
+    
+    /**
+     Generates ans returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
+     regarding provider type, usually 64x64 pixels. Default value used when `dimenstion` is `nil`.
+     
+     - Note: `LocalFileInformationGenerator` variables can be set to change default behavior of
+             thumbnail and properties generator of `LocalFileProvider`.
+     
+     - Parameters:
+       - path: path of file.
+       - dimension: width and height of result preview image.
+       - completionHandler: a block with result of preview image or error.
+         `image`: `NSImage`/`UIImage` object contains preview.
+     `error`: Error returned by system.
+     */
     func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
+    
+    /**
+     Fetching properties of file like dimensions, duration, etc. It's variant depending on file type.
+     Images, videos and audio files meta-information will be returned.
+     
+     - Note: `LocalFileInformationGenerator` variables can be set to change default behavior of 
+             thumbnail and properties generator of `LocalFileProvider`.
+     
+     - Parameters:
+       - path: path of file.
+       - completionHandler: a block with result of preview image or error.
+         `propertiesDictionary`: A `Dictionary` of proprty keys and values.
+         `keys`: An `Array` contains ordering of keys.
+         `error`: Error returned by system.
+     */
     func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
 }
 
@@ -432,13 +785,21 @@ extension ExtendedFileProvider {
     }
 }
 
+/// Operation type description of file operation, included files path in associated values.
 public enum FileOperationType: CustomStringConvertible {
+    /// Creating a file or directory in path.
     case create (path: String)
+    /// Copying a file or directory from source to destination.
     case copy   (source: String, destination: String)
+    /// Moving a file or directory from source to destination.
     case move   (source: String, destination: String)
+    /// Modifying data of a file o in path by writing new data.
     case modify (path: String)
+    /// Deleting file or directory in path.
     case remove (path: String)
+    /// Creating a symbolic link or alias to target.
     case link   (link: String, target: String)
+    /// Fetching data in file located in path.
     case fetch  (path: String)
     
     public var description: String {
@@ -453,16 +814,24 @@ public enum FileOperationType: CustomStringConvertible {
         }
     }
     
+    /// present participle of action, like 'Copying`.
     public var actionDescription: String {
         return description.trimmingCharacters(in: CharacterSet(charactersIn: "e")) + "ing"
     }
     
+    /// Path of subjecting file.
     public var source: String? {
         guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
         let mirror = Mirror(reflecting: reflect)
         return reflect as? String ?? mirror.children.first?.value as? String
     }
     
+    /// Path of subjecting file.
+    public var path: String? {
+        return source
+    }
+    
+    /// Path of destination file.
     public var destination: String? {
         guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
         let mirror = Mirror(reflecting: reflect)
@@ -479,11 +848,22 @@ public enum FileOperationType: CustomStringConvertible {
 
 
 public protocol OperationHandle {
+    /// Operation supposed to be done on files. Contains file paths as associated value.
     var operationType: FileOperationType { get }
+    
+    /// Bytes written/read by operation so far.
     var bytesSoFar: Int64 { get }
+    
+    /// Total bytes of operation.
     var totalBytes: Int64 { get }
+    
+    /// Operation is progress or not, Returns false if operation is done or not initiated yet.
     var inProgress: Bool { get }
+    
+    /// Progress of operation, usually equals with `bytesSoFar/totalBytes`. or NaN if not available.
     var progress: Float { get }
+    
+    /// Cancels operation while in progress, or cancels data/download/upload url session task.
     func cancel() -> Bool
 }
 
@@ -496,8 +876,15 @@ public extension OperationHandle {
 }
 
 public protocol FileProviderDelegate: class {
+    /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation finished with success.
+    /// This method is called in main thread to avoids UI bugs.
     func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
+    /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation finished with failure.
+    /// This method is called in main thread to avoids UI bugs.
     func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
+    /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation progess.
+    /// Supported by some providers, especially remote ones.
+    /// This method is called in main thread to avoids UI bugs.
     func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperationType, progress: Float)
 }
 

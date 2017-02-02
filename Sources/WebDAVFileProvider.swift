@@ -319,6 +319,10 @@ extension WebDAVFileProvider: FileProviderOperations {
 extension WebDAVFileProvider: FileProviderReadWrite {
     @discardableResult
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        if length == 0 {
+            return nil
+        }
+        
         let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         var request = URLRequest(url: url)
@@ -412,9 +416,10 @@ extension WebDAVFileProvider: FileProviderReadWrite {
          * A messy approach is listing a directory with an interval period and compare
          * with previous results
          */
+        NotImplemented()
     }
     fileprivate func unregisterNotifcation(path: String) {
-        
+        NotImplemented()
     }
     // TODO: implements methods for lock mechanism
 }

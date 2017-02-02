@@ -231,6 +231,10 @@ extension DropboxFileProvider: FileProviderOperations {
 
 extension DropboxFileProvider: FileProviderReadWrite {
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        if length == 0 {
+            return nil
+        }
+        
         let opType = FileOperationType.fetch(path: path)
         let url = URL(string: "files/download", relativeTo: contentURL)!
         var request = URLRequest(url: url)
