@@ -12,7 +12,7 @@
 
 [![Build Status][travis-image]][travis-url]
 [![Codebeat Badge][codebeat-image]][codebeat-url]
-[![Cocoapods Docs][docs-image]](docs-url)
+[![Cocoapods Docs][docs-image]][docs-url]
 [![Cocoapods Downloads][cocoapods-downloads]][cocoapods]
 [![Cocoapods Apps][cocoapods-apps]][cocoapods]
 
