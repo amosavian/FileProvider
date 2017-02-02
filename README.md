@@ -36,12 +36,11 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
     * For now it has limitation in uploading files up to 100MB.
 - [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
-- [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS.
+- [ ] **AmazonS3FileProvider** Amazon storage backend. Used by many sites.
+- [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
     * Data types and some basic functions are implemented but *main interface is not implemented yet!*
     *  SMB1/CIFS is depericated and very tricky to be implemented
 - [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
-- [ ] **AmazonS3FileProvider** 
-- [ ] **GoogleDriveFileProvider**
 
 ## Requirements
 
