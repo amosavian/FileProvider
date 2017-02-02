@@ -29,15 +29,16 @@ Local and WebDAV providers are fully tested and can be used in production enviro
 ## Features
 
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like searching and reading a portion of file.
-- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
-- [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
-	* For now it has limitation in uploading files up to 150MB.
-- [x] **OneDriveFileProvider** A wrapper around OneDrive Web API, works with `onedrive.com` and compatible (business) servers.
-* For now it has limitation in uploading files up to 100MB.
 - [x] **CloudFileProvider** A wrapper around app's ubiquitous container to iCloud Drive in iOS 8+ API.
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
+- [x] **DropboxFileProvider** A wrapper around Dropbox REST API.
+    * For now it has limitation in uploading files up to 150MB.
+- [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
+    * For now it has limitation in uploading files up to 100MB.
+- [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on MacOS.
-	* Data types and some basic functions are implemented but *main interface is not implemented yet!*
-	*  SMB1/CIFS is depericated and very tricky to be implemented
+    * Data types and some basic functions are implemented but *main interface is not implemented yet!*
+    *  SMB1/CIFS is depericated and very tricky to be implemented
 - [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
 - [ ] **AmazonS3FileProvider** 
 - [ ] **GoogleDriveFileProvider**
