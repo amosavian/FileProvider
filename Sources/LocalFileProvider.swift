@@ -9,7 +9,7 @@
 import Foundation
 
 open class LocalFileProvider: FileProvider, FileProviderMonitor {
-    open static let type: String = "Local"
+    open class var type: String { return "Local" }
     open var isPathRelative: Bool
     open fileprivate(set) var baseURL: URL?
     open var currentPath: String
@@ -22,17 +22,41 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
-    /// Forces file operations to use NSFileCoordinating, should be set true if:
-    /// - Files are on ubiquity(iCloud) container
-    /// - Multiple processes are accessing same file, recommended always in macOS and when using app extensions in iOS/tvOS (shared container)
+    /**
+     Forces file operations to use `NSFileCoordinating`, should be set `true` if:
+     - Files are on ubiquity (iCloud) container.
+     - Multiple processes are accessing same file, recommended when accessing a shared/public 
+     user document in macOS and when using app extensions in iOS/tvOS (shared container).
+     
+     By default it's `true` when using iCloud or shared container (App Group) initializers,
+     otherwise it's `false` to accelerate operations.
+    */
     open var isCoorinating: Bool
     
-    /// default values are `directory: .documentDirectory, domainMask: .userDomainMask`
+    /**
+     Initializes provider for the specified common directory in the requested domains.
+     default values are `directory: .documentDirectory, domainMask: .userDomainMask`.
+     
+     - Parameters:
+       - directory: The search path directory. The supported values are described in `FileManager.SearchPathDirectory`.
+       - domainMask: The file system domain to search. The value for this parameter is one or more of the constants described in `FileManager.SearchPathDomainMask`.
+    */
     public convenience init (directory: FileManager.SearchPathDirectory = .documentDirectory, domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
         self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
     }
     
-    public convenience init ? (sharedContainerId: String, directory: FileManager.SearchPathDirectory = .userDirectory) {
+    /**
+     Failable initializer for the specified shared container directory, allows data and files to be shared among app
+     and extensions regarding sandbox requirements. Container ID is same with app group specified in project `Capabilities`
+     tab under `App Group` item. If you don't have enough privilage to access container or the app group imply does't exist,
+     initialing will fail.
+     default values are `directory: .documentDirectory`.
+    
+     - Parameters:
+       - sharedContainerId: Same  with `App Group` identifier defined in project settings.
+       - directory: The search path directory. The supported values are described in `FileManager.SearchPathDirectory`.
+    */
+    public convenience init? (sharedContainerId: String, directory: FileManager.SearchPathDirectory = .documentDirectory) {
         guard let baseURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: sharedContainerId) else {
             return nil
         }
@@ -57,14 +81,20 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         try? fileManager.createDirectory(at: finalBaseURL, withIntermediateDirectories: true)
     }
     
+    /// Initializes provider for the specified local URL.
+    ///
+    /// - Parameter baseURL: Local URL location for base directory.
     public init (baseURL: URL) {
+        guard baseURL.isFileURL else {
+            fatalError("Cannot initialize a Local provider from remote URL.")
+        }
         self.baseURL = baseURL
         self.isPathRelative = true
         self.currentPath = ""
         self.credential = nil
         self.isCoorinating = false
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
         
@@ -73,6 +103,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         
     }
     
+    /// **DEPRECATED:** No longer is in use and overriding this method has no effect anymore.
     @available(*, deprecated, message: "Overriding this method has no effect anymore.")
     open class func defaultBaseURL() -> URL {
         return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -549,6 +580,17 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
 }
 
 public extension LocalFileProvider {
+    /**
+     Creates a symbolic link at the specified path that points to an item at the given path.
+     This method does not traverse symbolic links contained in destURL, making it possible 
+     to create symbolic links to locations that do not yet exist. 
+     Also, if the final path component in url is a symbolic link, that link is not followed.
+    
+     - Parameters:
+       - path: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
+       - destPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    */
     public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
@@ -566,6 +608,11 @@ public extension LocalFileProvider {
         }
     }
     
+    /// Returns the path of the item pointed to by a symbolic link.
+    ///
+    /// - Parameters:
+    ///   - path: The path of a file or directory.
+    ///   - completionHandler: Returns destination url of given symbolic link, or an `Error` object if it fails.
     public func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ url: URL?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             do {

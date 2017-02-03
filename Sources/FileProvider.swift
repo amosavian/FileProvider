@@ -111,8 +111,10 @@ public extension FileProviderBasic {
     }
 }
 
+public var fileProviderCancelTasksOnInvalidating = true
+
 public protocol FileProviderBasicRemote: FileProviderBasic {
-    ///
+    /// Underlying URLSession instance used for HTTP/S requests
     var session: URLSession { get }
     
     /// A `URLCache` to cache downloaded files and contents.
@@ -177,6 +179,7 @@ internal extension FileProviderBasicRemote {
 }
 
 public protocol FileProviderOperations: FileProviderBasic {
+    /// Delgate for managing operations involving the copying, moving, linking, or removal of files and directories. When you use an FileManager object to initiate a copy, move, link, or remove operation, the file provider asks its delegate whether the operation should begin at all and whether it should proceed when an error occurs.
     var fileOperationDelegate : FileOperationDelegate? { get set }
     
     /**
@@ -507,7 +510,8 @@ extension FileProviderBasic {
         return path.trimmingCharacters(in: pathTrimSet).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
     }
     
-    @available(*, deprecated, message: "Use FileProvider.url(of:).absoluteURL instead.")
+    /// **DEPRECATED:** Use `url(of:).absoluteURL` instead.
+    @available(*, deprecated, message: "Use url(of:).absoluteURL instead.")
     public func absoluteURL(_ path: String? = nil) -> URL {
         return url(of: path).absoluteURL
     }
@@ -535,7 +539,7 @@ extension FileProviderBasic {
             return url.relativePath.removingPercentEncoding!
         }
         
-        guard let baseURL = self.baseURL else { return url.absoluteString }
+        guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
         return url.standardizedFileURL.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").removingPercentEncoding!
     }
     

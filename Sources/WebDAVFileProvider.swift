@@ -12,7 +12,7 @@ import Foundation
 /// in case of using this class with unencrypted HTTP connection.
 
 open class WebDAVFileProvider: FileProviderBasicRemote {
-    open static let type: String = "WebDAV"
+    open class var type: String { return "WebDAV" }
     open let isPathRelative: Bool
     open let baseURL: URL?
     open var currentPath: String
@@ -45,6 +45,14 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         return _session!
     }
     
+    /**
+     Initializes WebDAV provider.
+     
+     - Parameters:
+       - baseURL: Location of WebDAV server.
+       - credential: An `URLCredential` object with `user` and `password`.
+       - cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
+    */
     public init? (baseURL: URL, credential: URLCredential?, cache: URLCache? = nil) {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
@@ -56,13 +64,17 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         self.validatingCache = true
         self.cache = cache
         self.credential = credential
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
     }
     
     deinit {
-        _session?.invalidateAndCancel()
+        if fileProviderCancelTasksOnInvalidating {
+            _session?.invalidateAndCancel()
+        } else {
+            _session?.finishTasksAndInvalidate()
+        }
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {

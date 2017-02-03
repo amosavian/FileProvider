@@ -9,10 +9,7 @@
 import Foundation
 
 open class CloudFileProvider: LocalFileProvider {
-    
-    public var type: String {
-        return "iCloudDrive"
-    }
+    open override class var type: String { return "iCloudDrive" }
     
     /// Actually is readonly, value is true
     override open var isCoorinating: Bool {
@@ -24,8 +21,19 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
-    open var containerId: String?
+    /// The fully-qualified container identifier for an iCloud container directory.
+    open fileprivate(set) var containerId: String?
     
+    /**
+     Initializes the provider for the iCloud container associated with the specified identifier and 
+     establishes access to that container.
+     
+     - Important: Do not call this method from your app’s main thread. Because this method might take a nontrivial amount of time to set up iCloud and return the requested URL, you should always call it from a secondary thread.
+     
+     - Parameter containerId: The fully-qualified container identifier for an iCloud container directory. The string you specify must not contain wildcards and must be of the form `<TEAMID>.<CONTAINER>`, where `<TEAMID>` is your development team ID and `<CONTAINER>` is the bundle identifier of the container you want to access.\
+     The container identifiers for your app must be declared in the `com.apple.developer.ubiquity-container-identifiers` array of the `.entitlements` property list file in your Xcode project.\
+     If you specify nil for this parameter, this method uses the first container listed in the `com.apple.developer.ubiquity-container-identifiers` entitlement array.
+    */
     public init? (containerId: String?) {
         assert(!Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
         guard FileManager.default.ubiquityIdentityToken == nil else {
@@ -39,9 +47,9 @@ open class CloudFileProvider: LocalFileProvider {
         super.init(baseURL: baseURL)
         self.isCoorinating = true
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(self.type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(self.type).Operation"
+        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
         
         fileManager.url(forUbiquityContainerIdentifier: containerId)
         opFileManager.url(forUbiquityContainerIdentifier: containerId)
@@ -89,7 +97,7 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
-    /// iCloud Storage size and free space is unavailable, it returns local space
+    /// - Important: iCloud Storage size and free space is unavailable, it returns local space
     open override func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
         super.storageProperties(completionHandler: completionHandler)
     }
@@ -128,32 +136,32 @@ open class CloudFileProvider: LocalFileProvider {
     
     @discardableResult
     open override func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.create(folder: folderName, at: atPath, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.create(folder: folderName, at: atPath, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.create(file: fileName, at: atPath, contents: data, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.create(file: fileName, at: atPath, contents: data, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.removeItem(path: path, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.removeItem(path: path, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
@@ -204,26 +212,26 @@ open class CloudFileProvider: LocalFileProvider {
             return nil
         }
         
-        let r = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        let r = super.contents(path: path, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.contents(path: path, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        let r = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     @discardableResult
     open override func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let r = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler)
-        return CloudOperationHandle(operationType: r!.operationType, baseURL: self.baseURL)
+        guard let r = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
+        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
     open override func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
@@ -336,7 +344,6 @@ open class CloudFileProvider: LocalFileProvider {
         return monitors[url(of: path)] != nil
     }
     
-    /// may return nil
     open override func copy(with zone: NSZone? = nil) -> Any {
         let copy = CloudFileProvider(containerId: self.containerId)
         copy?.currentPath = self.currentPath
@@ -413,7 +420,6 @@ open class CloudOperationHandle: OperationHandle {
         return dest.hasPrefix("file://") ? URL(fileURLWithPath: dest) : baseURL.appendingPathComponent(dest)
     }
     
-    /// Caution: may put pressure on CPU, may have latency
     open var bytesSoFar: Int64 {
         assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
         
@@ -431,7 +437,6 @@ open class CloudOperationHandle: OperationHandle {
         return 0
     }
     
-    /// Caution: may put pressure on CPU, may have latency
     open var totalBytes: Int64 {
         assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
         guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return -1 }
@@ -447,7 +452,6 @@ open class CloudOperationHandle: OperationHandle {
     
     /// Not usable in local provider
     open func cancel() -> Bool {
-        
         return false
     }
     

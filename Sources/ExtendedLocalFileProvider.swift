@@ -128,20 +128,20 @@ extension LocalFileProvider: ExtendedFileProvider {
 }
 
 public struct LocalFileInformationGenerator {
-    static public var imageThumbnailExtensions: [String] = ["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]
-    static public var audioThumbnailExtensions: [String] = ["mp3", "aac", "m4a"]
-    static public var videoThumbnailExtensions: [String] = ["mov", "mp4", "m4v", "mpg", "mpeg"]
-    static public var pdfThumbnailExtensions: [String] = ["pdf"]
+    static public var imageThumbnailExtensions: [String]  = ["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]
+    static public var audioThumbnailExtensions: [String]  = ["mp3", "aac", "m4a"]
+    static public var videoThumbnailExtensions: [String]  = ["mov", "mp4", "m4v", "mpg", "mpeg"]
+    static public var pdfThumbnailExtensions: [String]    = ["pdf"]
     static public var officeThumbnailExtensions: [String] = []
     static public var customThumbnailExtensions: [String] = []
     
-    static public var imagePropertiesExtensions: [String] = ["jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff"]
-    static public var audioPropertiesExtensions: [String] = ["mp3", "aac", "m4a", "caf"]
-    static public var videoPropertiesExtensions: [String] = ["mp4", "mpg", "3gp", "mov", "avi"]
-    static public var pdfPropertiesExtensions: [String] = ["pdf"]
+    static public var imagePropertiesExtensions: [String]   = ["jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff"]
+    static public var audioPropertiesExtensions: [String]   = ["mp3", "aac", "m4a", "caf"]
+    static public var videoPropertiesExtensions: [String]   = ["mp4", "mpg", "3gp", "mov", "avi"]
+    static public var pdfPropertiesExtensions: [String]     = ["pdf"]
     static public var archivePropertiesExtensions: [String] = []
-    static public var officePropertiesExtensions: [String] = []
-    static public var customPropertiesExtensions: [String] = []
+    static public var officePropertiesExtensions: [String]  = []
+    static public var customPropertiesExtensions: [String]  = []
     
     static public var imageThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         return ImageClass(contentsOfFile: fileURL.path)
@@ -439,6 +439,6 @@ public struct LocalFileInformationGenerator {
     static public var customProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
 }
 
-func ~=<T : Equatable>(array: [T], value: T) -> Bool {
+fileprivate func ~=<T : Equatable>(array: [T], value: T) -> Bool {
     return array.contains(value)
 }

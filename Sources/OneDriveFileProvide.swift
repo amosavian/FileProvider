@@ -10,15 +10,15 @@
 import Foundation
 import CoreGraphics
 
-// Because this class uses NSURLSession, it's necessary to disable App Transport Security
-// in case of using this class with unencrypted HTTP connection.
-
 open class OneDriveFileProvider: FileProviderBasicRemote {
-    open static let type: String = "OneDrive"
+    open class var type: String { return "OneDrive" }
     open let isPathRelative: Bool
     open let baseURL: URL?
+    /// OneDrive server url, equals with unwrapped `baseURL`
     open var serverURL: URL { return baseURL! }
+    /// Drive name for user, default is `root`. Changing its value will effect on new operations.
     open var drive: String
+    /// Generated storage url from server url and drive name
     open var driveURL: URL {
         return URL(string: "/drive/\(drive):/", relativeTo: baseURL)!
     }
@@ -52,7 +52,21 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         return _session!
     }
     
-    public init? (credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
+    /**
+     Initializer for Onedrive provider with given client ID and Token.
+     These parameters must be retrieved via [Authentication for the OneDrive API](https://dev.onedrive.com/auth/readme.htm).
+     
+     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token.
+     The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
+     
+     - Parameters:
+       - credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
+       - serverURL: server url, Set it if you are trying to connect OneDrive Business server, otherwise leave it
+         `nil` to connect to OneDrive Personal uses.
+       - drive: drive name for user on server, default value is `root`.
+       - cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
+     */
+    public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
         self.baseURL = (serverURL ?? URL(string: "https://api.onedrive.com/")!).appendingPathComponent("")
         self.drive = drive
         self.isPathRelative = true
@@ -61,13 +75,17 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         self.validatingCache = true
         self.cache = cache
         self.credential = credential
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
     }
     
     deinit {
-        _session?.invalidateAndCancel()
+        if fileProviderCancelTasksOnInvalidating {
+            _session?.invalidateAndCancel()
+        } else {
+            _session?.finishTasksAndInvalidate()
+        }
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
@@ -82,16 +100,16 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderOneDriveError?
+            var serverError: FileProviderOneDriveError?
             var fileObject: OneDriveFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: json) {
                     fileObject = file
                 }
             }
-            completionHandler(fileObject, dbError ?? error)
+            completionHandler(fileObject, serverError ?? error)
         }) 
         task.resume()
     }
@@ -170,12 +188,12 @@ extension OneDriveFileProvider: FileProviderOperations {
             request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
         }
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderOneDriveError?
+            var serverError: FileProviderOneDriveError?
             if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                 dbError = FileProviderOneDriveError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                 serverError = FileProviderOneDriveError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            completionHandler?(dbError ?? error)
-            self.delegateNotify(operation, error: dbError ?? error)
+            completionHandler?(serverError ?? error)
+            self.delegateNotify(operation, error: serverError ?? error)
         })
         task.taskDescription = operation.json
         task.resume()
@@ -203,8 +221,8 @@ extension OneDriveFileProvider: FileProviderOperations {
             guard let cacheURL = cacheURL, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
-                let dbError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
-                completionHandler?(dbError ?? error)
+                let serverError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                completionHandler?(serverError ?? error)
                 return
             }
             do {
@@ -237,12 +255,12 @@ extension OneDriveFileProvider: FileProviderReadWrite {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderOneDriveError?
+            var serverError: FileProviderOneDriveError?
             if let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: httpResponse.statusCode) {
-                dbError = FileProviderOneDriveError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                serverError = FileProviderOneDriveError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            let filedata = dbError ?? error == nil ? data : nil
-            completionHandler(filedata, dbError ?? error)
+            let filedata = serverError ?? error == nil ? data : nil
+            completionHandler(filedata, serverError ?? error)
         })
         task.taskDescription = opType.json
         task.resume()
@@ -281,7 +299,40 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         NotImplemented()
     }
     
-    // TODO: Implement /copy_reference, /get_account & /get_current_account
+    /**
+     Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
+     
+     - Parameters:
+       - to: path of file, including file/directory name.
+       - completionHandler: a block with result of directory entries or error.
+         `link`: a url returned by OneDrive to share.
+         `attribute`: `nil` for OneDrive.
+         `expiration`: `nil` for OneDrive, as it doesn't expires.
+         `error`: Error returned by OneDrive.
+     */
+    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: OneDriveFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+        let url =  URL(string: escaped(path: path) + ":/action.createLink", relativeTo: driveURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
+        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var serverError: FileProviderOneDriveError?
+            var link: URL?
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                    if let linkDic = json["link"] as? NSDictionary, let linkStr = linkDic["webUrl"] as? String {
+                        link = URL(string: linkStr)
+                    }
+                }
+            }
+            
+            completionHandler(link, nil, nil, serverError ?? error)
+        })
+        task.resume()
+    }
 }
 
 
@@ -335,17 +386,17 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var dbError: FileProviderOneDriveError?
+            var serverError: FileProviderOneDriveError?
             var dic = [String: Any]()
             var keys = [String]()
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                dbError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
                 if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
                     (dic, keys) = self.mapMediaInfo(json)
                 }
             }
-            completionHandler(dic, keys, dbError ?? error)
+            completionHandler(dic, keys, serverError ?? error)
         })
         task.resume()
     }
@@ -353,7 +404,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
 
 extension OneDriveFileProvider: FileProvider {
     open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)!
+        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate

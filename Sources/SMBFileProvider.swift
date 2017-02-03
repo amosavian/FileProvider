@@ -9,8 +9,7 @@
 import Foundation
 
 class SMBFileProvider: FileProvider, FileProviderMonitor {
-
-    open static var type: String = "Samba"
+    open class var type: String { return "SMB" }
     open var isPathRelative: Bool = true
     open var baseURL: URL?
     open var currentPath: String = ""
@@ -26,7 +25,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
             return nil
         }
         self.baseURL = baseURL.appendingPathComponent("")
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: DispatchQueue.Attributes.concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
         

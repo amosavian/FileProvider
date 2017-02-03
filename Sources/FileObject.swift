@@ -25,11 +25,13 @@ open class FileObject {
     }
     
     /// url to access the resource, not supported by Dropbox provider
-    @available(*, deprecated, message: "Use FileObject.url.absoluteURL instead.")
+    @available(*, deprecated, message: "Use url.absoluteURL instead.")
     open var absoluteURL: URL? {
         return url?.absoluteURL
     }
     
+    /// URL to access the resource, can be a relative URL against base URL.
+    /// not supported by Dropbox provider.
     open internal(set) var url: URL? {
         get {
             return allValues["NSURLFileURLKey"] as? URL
@@ -99,7 +101,8 @@ open class FileObject {
         }
     }
     
-    @available(*, deprecated, message: "Use FileObject.type property instead.")
+    /// **DEPRECATED:** Use `type` property instead.
+    @available(*, deprecated, message: "Use type property instead.")
     open var fileType: URLFileResourceType? {
         return self.type
     }
