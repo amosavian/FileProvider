@@ -189,6 +189,16 @@ public struct LocalFileInformationGenerator {
     }
     
     static public var imageProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
+        var dic = [String: Any]()
+        var keys = [String]()
+        
+        func add(key: String, value: Any?) {
+            if let value = value {
+                keys.append(key)
+                dic[key] = value
+            }
+        }
+        
         func simplify(_ top:Int64, _ bottom:Int64) -> (newTop:Int, newBottom:Int) {
             var x = top
             var y = bottom
@@ -203,79 +213,57 @@ public struct LocalFileInformationGenerator {
             return(Int(newTopVal), Int(newBottomVal))
         }
         
-        var dic = [String: Any]()
-        var keys = [String]()
         guard let cgDataRef = CGImageSourceCreateWithURL(fileURL as CFURL, nil), let cfImageDict = CGImageSourceCopyPropertiesAtIndex(cgDataRef, 0, nil) else {
             return (dic, keys)
         }
         let imageDict = cfImageDict as NSDictionary
-        let tiffDict = imageDict[kCGImagePropertyTIFFDictionary as String] as? [String : AnyObject] ?? [:]
-        let exifDict = imageDict[kCGImagePropertyExifDictionary as String] as? [String : AnyObject] ?? [:]
-        if let pixelWidth: AnyObject = imageDict.object(forKey: kCGImagePropertyPixelWidth) as? NSNumber, let pixelHeight: AnyObject = imageDict.object(forKey: kCGImagePropertyPixelHeight) as? NSNumber {
-            keys.append("Dimensions")
-            dic["Dimensions"] = "\(pixelWidth)x\(pixelHeight)"
+        let tiffDict = imageDict[kCGImagePropertyTIFFDictionary as String] as? NSDictionary ?? [:]
+        let exifDict = imageDict[kCGImagePropertyExifDictionary as String] as? NSDictionary ?? [:]
+        if let pixelWidth = imageDict.object(forKey: kCGImagePropertyPixelWidth) as? NSNumber, let pixelHeight = imageDict.object(forKey: kCGImagePropertyPixelHeight) as? NSNumber {
+            add(key: "Dimensions", value: "\(pixelWidth)x\(pixelHeight)")
         }
-        if let dpi = imageDict[kCGImagePropertyDPIWidth as String] {
-            keys.append("DPI")
-            dic["DPI"] = dpi
-        }
-        if let devicemake = tiffDict[kCGImagePropertyTIFFMake as String] {
-            keys.append("Device make")
-            dic["Device make"] = devicemake
-        }
-        if let devicemodel = tiffDict[kCGImagePropertyTIFFModel as String] {
-            keys.append("Device model")
-            dic["Device model"] = devicemodel
-        }
-        if let lensmodel = exifDict[kCGImagePropertyExifLensModel as String] {
-            keys.append("Lens model")
-            dic["Lens model"] = lensmodel
-        }
-        if let artist = tiffDict[kCGImagePropertyTIFFArtist as String] as? String , !artist.isEmpty {
-            keys.append("Artist")
-            dic["Artist"] = artist
-        }
+        
+        add(key: "DPI", value: imageDict[kCGImagePropertyDPIWidth as String])
+        add(key: "Device make", value: tiffDict[kCGImagePropertyTIFFMake as String])
+        add(key: "Device model", value: tiffDict[kCGImagePropertyTIFFModel as String])
+        add(key: "Lens model", value: exifDict[kCGImagePropertyExifLensModel as String])
+        add(key: "Artist", value: tiffDict[kCGImagePropertyTIFFArtist as String] as? String)
         if let cr = tiffDict[kCGImagePropertyTIFFCopyright as String] as? String , !cr.isEmpty {
-            keys.append("Copyright")
-            dic["Copyright"] = cr
+            add(key: "Copyright", value: cr)
+
         }
         if let date = tiffDict[kCGImagePropertyTIFFDateTime as String] as? String , !date.isEmpty {
-            keys.append("Date taken")
-            dic["Date taken"] = date
+            add(key: "Date taken", value: date)
         }
-        if let latitude = tiffDict[kCGImagePropertyGPSLatitude as String]?.doubleValue, let longitude = tiffDict[kCGImagePropertyGPSLongitude as String]?.doubleValue {
-            keys.append("Location")
-            dic["Location"] = "\(latitude), \(longitude)"
+        if let latitude = tiffDict[kCGImagePropertyGPSLatitude as String] as? NSNumber, let longitude = tiffDict[kCGImagePropertyGPSLongitude as String] as? NSNumber {
+            add(key: "Location", value: "\(latitude), \(longitude)")
         }
-        if let colorspace = imageDict[kCGImagePropertyColorModel as String] {
-            keys.append("Color space")
-            dic["Color space"] = colorspace
-        }
-        if let focallen = exifDict[kCGImagePropertyExifFocalLength as String] {
-            keys.append("Focal length")
-            dic["Focal length"] = focallen
-        }
-        if let fnum = exifDict[kCGImagePropertyExifFNumber as String] {
-            keys.append("F number")
-            dic["F number"] = fnum
-        }
-        if let expprog = exifDict[kCGImagePropertyExifExposureProgram as String] {
-            keys.append("Exposure program")
-            dic["Exposure program"] = expprog
-        }
-        if let exp = exifDict[kCGImagePropertyExifExposureTime as String]?.doubleValue {
-            let expfrac = simplify(Int64(exp * 10_000_000_000_000), 10_000_000_000_000)
-            keys.append("Exposure time")
-            dic["Exposure time"] = "\(expfrac.newTop)/\(expfrac.newBottom)"
+        add(key: "Color space", value: imageDict[kCGImagePropertyColorModel as String])
+        add(key: "Focal length", value: exifDict[kCGImagePropertyExifFocalLength as String])
+        add(key: "F number", value: exifDict[kCGImagePropertyExifFNumber as String])
+        add(key: "Exposure program", value: exifDict[kCGImagePropertyExifExposureProgram as String])
+        
+        if let exp = exifDict[kCGImagePropertyExifExposureTime as String] as? NSNumber {
+            let expfrac = simplify(Int64(exp.doubleValue * 10_000_000_000_000), 10_000_000_000_000)
+            add(key: "Exposure time", value: "\(expfrac.newTop)/\(expfrac.newBottom)")
         }
         if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? NSArray , iso.count > 0 {
-            keys.append("ISO speed")
-            dic["ISO speed"] = iso[0]
+            add(key: "ISO speed", value: iso[0])
         }
         return (dic, keys)
     }
     
     static var audioProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
+        var dic = [String: Any]()
+        var keys = [String]()
+        
+        func add(key: String, value: Any?) {
+            if let value = value {
+                keys.append(key)
+                dic[key] = value
+            }
+        }
+        
         func makeDescription(_ key: String?) -> String? {
             guard let key = key else {
                 return nil
@@ -287,8 +275,6 @@ public struct LocalFileInformationGenerator {
             return newKey.capitalized
         }
         
-        var dic = [String: Any]()
-        var keys = [String]()
         if FileManager.default.fileExists(atPath: fileURL.path) {
             let playerItem = AVPlayerItem(url: fileURL)
             let metadataList = playerItem.asset.commonMetadata
@@ -301,12 +287,8 @@ public struct LocalFileInformationGenerator {
                 }
             }
             if let ap = try? AVAudioPlayer(contentsOf: fileURL) {
-                keys.append("Duration")
-                dic["Duration"] = LocalFileProvider.formatshort(interval: ap.duration)
-                if let bitRate = ap.settings[AVSampleRateKey] as? Int {
-                    keys.append("Bitrate")
-                    dic["Bitrate"] = bitRate
-                }
+                add(key: "Duration", value: LocalFileProvider.formatshort(interval: ap.duration))
+                add(key: "Bitrate", value: ap.settings[AVSampleRateKey] as? Int)
             }
         }
         return (dic, keys)
@@ -315,6 +297,14 @@ public struct LocalFileInformationGenerator {
     static public var videoProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
         var dic = [String: Any]()
         var keys = [String]()
+        
+        func add(key: String, value: Any?) {
+            if let value = value {
+                keys.append(key)
+                dic[key] = value
+            }
+        }
+        
         if let audioprops = LocalFileInformationGenerator.audioProperties?(fileURL) {
             dic = audioprops.prop
             keys = audioprops.keys
@@ -329,17 +319,14 @@ public struct LocalFileInformationGenerator {
             var bitrate: Float = 0
             let width = Int(videoTracks[0].naturalSize.width)
             let height = Int(videoTracks[0].naturalSize.height)
-            keys.append("Dimensions")
-            dic["Dimensions"] = "\(width)x\(height)"
+            add(key: "Dimensions", value: "\(width)x\(height)")
             var duration: Int64 = 0
             for track in videoTracks {
                 duration += track.timeRange.duration.timescale > 0 ? track.timeRange.duration.value / Int64(track.timeRange.duration.timescale) : 0
                 bitrate += track.estimatedDataRate
             }
-            keys.append("Duration")
-            dic["Duration"] = LocalFileProvider.formatshort(interval: TimeInterval(duration))
-            keys.append("Video Bitrate")
-            dic["Video Bitrate"] = "\(Int(ceil(bitrate / 1000))) kbps"
+            add(key: "Duration", value: LocalFileProvider.formatshort(interval: TimeInterval(duration)))
+            add(key: "Video Bitrate", value: "\(Int(ceil(bitrate / 1000))) kbps")
         }
         let audioTracks = asset.tracks(withMediaType: AVMediaTypeAudio)
         // dic["Audio channels"] = audioTracks.count
@@ -347,12 +334,21 @@ public struct LocalFileInformationGenerator {
         for track in audioTracks {
             bitrate += track.estimatedDataRate
         }
-        keys.append("Audio Bitrate")
-        dic["Audio Bitrate"] = "\(Int(ceil(bitrate / 1000))) kbps"
+        add(key: "Audio Bitrate", value: "\(Int(ceil(bitrate / 1000))) kbps")
         return (dic, keys)
     }
     
     static public var pdfProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
+        var dic = [String: Any]()
+        var keys = [String]()
+        
+        func add(key: String, value: Any?) {
+            if let value = value {
+                keys.append(key)
+                dic[key] = value
+            }
+        }
+        
         func getKey(_ key: String, from dict: CGPDFDictionaryRef) -> String? {
             var cfValue: CGPDFStringRef? = nil
             if (CGPDFDictionaryGetString(dict, key, &cfValue)), let value = CGPDFStringCopyTextString(cfValue!) {
@@ -378,56 +374,40 @@ public struct LocalFileInformationGenerator {
             return nil
         }
         
-        var dic = [String: Any]()
-        var keys = [String]()
         if let data = try? Data(contentsOf: fileURL), let provider = CGDataProvider(data: data as CFData), let reference = CGPDFDocument(provider), let dict = reference.info {
             if let title = getKey("Title", from: dict), !title.isEmpty {
-                keys.append("Title")
-                dic["Title"] = title
+                add(key: "Title", value: title)
             }
             if let author = getKey("Author", from: dict), !author.isEmpty {
-                keys.append("Author")
-                dic["Author"] = author
+                add(key: "Author", value: author)
             }
             if let subject = getKey("Subject", from: dict), !subject.isEmpty {
-                keys.append("Subject")
-                dic["Subject"] = subject
+                add(key: "Subject", value: subject)
             }
             var majorVersion: Int32 = 0
             var minorVersion: Int32 = 0
             reference.getVersion(majorVersion: &majorVersion, minorVersion: &minorVersion)
             if majorVersion > 0 {
-                keys.append("Version")
-                dic["Version"] = String(majorVersion) + "." + String(minorVersion)
+                add(key: "Version", value:  String(majorVersion) + "." + String(minorVersion))
             }
-            if reference.numberOfPages > 0 {
-                keys.append("Pages")
-                dic["Pages"] = reference.numberOfPages
-            }
+            add(key: "Pages", value: reference.numberOfPages)
             
             if reference.numberOfPages > 0, let pageRef = reference.page(at: 1) {
                 let size = pageRef.getBoxRect(CGPDFBox.mediaBox).size
-                keys.append("Resolution")
-                dic["Resolution"] = "\(Int(size.width))x\(Int(size.height))"
+                add(key: "Resolution", value: "\(Int(size.width))x\(Int(size.height))")
             }
             if let creator = getKey("Creator", from: dict), !creator.isEmpty {
-                keys.append("Content creator")
-                dic["Content creator"] = creator
+                add(key: "Content creator", value: creator)
             }
-            if let creationDateString = getKey("CreationDate", from: dict), let creationDate = convertDate(creationDateString) {
-                keys.append("Creation date")
-                dic["Creation date"] = creationDate
+            if let creationDateString = getKey("CreationDate", from: dict) {
+                add(key: "Creation date", value: convertDate(creationDateString))
             }
-            if let modifiedDateString = getKey("ModDate", from: dict), let modDate = convertDate(modifiedDateString) {
-                keys.append("Modified date")
-                dic["Modified date"] = modDate
+            if let modifiedDateString = getKey("ModDate", from: dict) {
+                add(key: "Modified date", value: convertDate(modifiedDateString))
             }
-            keys.append("Security")
-            dic["Security"] = reference.isEncrypted ? "Present" : "None"
-            keys.append("Allows printing")
-            dic["Allows printing"] = reference.allowsPrinting ? "Yes" : "No"
-            keys.append("Allows copying")
-            dic["Allows copying"] = reference.allowsCopying ? "Yes" : "No"
+            add(key: "Security", value: reference.isEncrypted ? "Present" : "None")
+            add(key: "Allows printing", value: reference.allowsPrinting ? "Yes" : "No")
+            add(key: "Allows copying", value: reference.allowsCopying ? "Yes" : "No")
         }
         return (dic, keys)
     }

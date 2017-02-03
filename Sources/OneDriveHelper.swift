@@ -235,72 +235,51 @@ internal extension OneDriveFileProvider {
         var dic = [String: Any]()
         var keys = [String]()
         
+        func add(key: String, value: Any?) {
+            if let value = value {
+                keys.append(key)
+                dic[key] = value
+            }
+        }
+        
         if let parent = json["image"] as? [String: Any] ?? json["video"] as? [String: Any], let height = parent["height"] as? UInt64, let width = parent["width"] as? UInt64 {
-            keys.append("Dimensions")
-            dic["Dimensions"] = "\(width)x\(height)"
+            add(key: "Dimensions", value: "\(width)x\(height)")
         }
         if let location = json["location"] as? [String: Any], let latitude = location["latitude"] as? Double, let longitude = location["longitude"] as? Double {
-            
             OneDriveFileProvider.decimalFormatter.numberStyle = .decimal
             OneDriveFileProvider.decimalFormatter.maximumFractionDigits = 5
-            keys.append("Location")
             let latStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))
             let longStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))
-            dic["Location"] = "\(latStr), \(longStr)"
+            add(key: "Location", value: "\(latStr), \(longStr)")
         }
         if let parent = json["image"] as? [String: Any] ?? json["video"] as? [String: Any], let duration = parent["duration"] as? UInt64 {
-            keys.append("Duration")
-            dic["Duration"] = OneDriveFileProvider.formatshort(interval: TimeInterval(duration) / 1000)
+            add(key: "Duration", value: OneDriveFileProvider.formatshort(interval: TimeInterval(duration) / 1000))
         }
         if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
-            keys.append("Date taken")
             OneDriveFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            dic["Date taken"] = OneDriveFileProvider.dateFormatter.string(from: timeTaken)
+            add(key: "Date taken", value:  OneDriveFileProvider.dateFormatter.string(from: timeTaken))
         }
         
         if let photo = json["photo"] as? [String: Any] {
-            if let devicemake = photo["cameraMake"] as? String {
-                keys.append("Device make")
-                dic["Device make"] = devicemake
-            }
-            if let devicemodel = photo["cameraModel"] as? String {
-                keys.append("Device model")
-                dic["Device model"] = devicemodel
-            }
-            if let focallen = photo["focalLength"] as? Double {
-                keys.append("Focal length")
-                dic["Focal length"] = focallen
-            }
-            if let fnum = photo["fNumber"] as? Double {
-                keys.append("F number")
-                dic["F number"] = fnum
-            }
+            add(key: "Device make", value: photo["cameraMake"] as? String)
+            add(key: "Device model", value: photo["cameraModel"] as? String)
+            add(key: "focalLength", value: photo["focalLength"] as? Double)
+            add(key: "fNumber", value: photo["fNumber"] as? Double)
             if let expNom = photo["exposureNumerator"] as? Double, let expDen = photo["exposureDenominator"] as? Double {
-                keys.append("Exposure time")
-                dic["Exposure time"] = "\(Int(expNom))/\(Int(expDen))"
+                add(key: "Exposure time", value: "\(Int(expNom))/\(Int(expDen))")
             }
-            if let iso = photo["iso"] as? Int64 {
-                keys.append("ISO speed")
-                dic["ISO speed"] = iso
-            }
-
+            add(key: "ISO speed", value: photo["iso"] as? Int64)
         }
         
         if let audio = json["audio"] as? [String: Any] {
             for (key, value) in audio {
                 if key == "bitrate" || key == "isVariableBitrate" { continue }
                 let casedKey = spaceCamelCase(key)
-                keys.append(casedKey)
-                dic[casedKey] = value
+                add(key: casedKey, value: value)
             }
         }
         
-        if let video = json["video"] as? [String: Any] {
-            if let bitRate = video["bitrate"] as? Int {
-                keys.append("Bitrate")
-                dic["Bitrate"] = bitRate
-            }
-        }
+        add(key: "Bitrate", value: (json["video"] as? NSDictionary)?["bitrate"] as? Int)
         
         return (dic, keys)
     }
