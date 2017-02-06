@@ -4,10 +4,6 @@ osx_image: xcode8.2
 
 xcode_project: FileProvider.xcodeproj
 
-branches:
-  only:
-    - master
-
 env:
   global: 
     - PROJECTNAME="FileProvider"
@@ -17,14 +13,14 @@ env:
     - SHCEME="FileProvider iOS" SDK="iphonesimulator" ACTION="build"
     - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
 before_install:
-  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
+#  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
   - brew update
   - brew outdated carthage || brew upgrade carthage
 
 before_script:
   - set pipefail
-    - xcodebuild -version
-    - pod lib lint --quick
+  - xcodebuild -version
+  - pod lib lint --quick
 script:
   - xcodebuild -project $PROJECT.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
 
