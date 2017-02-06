@@ -133,8 +133,6 @@ open class DropboxFileProvider: FileProviderBasicRemote {
 }
 
 extension DropboxFileProvider: FileProviderOperations {
-    
-    
     public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
@@ -244,7 +242,10 @@ extension DropboxFileProvider: FileProviderOperations {
 
 extension DropboxFileProvider: FileProviderReadWrite {
     public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        if length == 0 {
+        if length == 0 || offset < 0 {
+            dispatch_queue.async {
+                completionHandler(Data(), nil)
+            }
             return nil
         }
         
@@ -305,12 +306,12 @@ extension DropboxFileProvider: FileProviderReadWrite {
         NotImplemented()
     }
     
-    // TODO: Implement /copy_reference, /get_account & /get_current_account
+    // TODO: Implement /get_account & /get_current_account
 }
 
 extension DropboxFileProvider {
     /// *DEPRECATED:* Use `publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?))` function instead.
-    @available(*, deprecated, message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
+    @available(*, deprecated, renamed: "publicLink(to:completionHandler:)", message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
     open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
         self.publicLink(to: path) { (url, file, _, error) in
             completionHandler(url, file, error)
@@ -318,7 +319,7 @@ extension DropboxFileProvider {
     }
     
     /// *DEPRECATED:* Use `publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?))` function instead.
-    @available(*, deprecated, message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
+    @available(*, deprecated, renamed: "publicLink(to:completionHandler:)", message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
     open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         self.publicLink(to: path) { (url, file, expiration, error) in
             completionHandler(url, file, expiration, error)

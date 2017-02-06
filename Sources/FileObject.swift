@@ -25,7 +25,7 @@ open class FileObject {
     }
     
     /// url to access the resource, not supported by Dropbox provider
-    @available(*, deprecated, message: "Use url.absoluteURL instead.")
+    @available(*, deprecated, renamed: "url", message: "Use url.absoluteURL instead.")
     open var absoluteURL: URL? {
         return url?.absoluteURL
     }
@@ -101,8 +101,8 @@ open class FileObject {
         }
     }
     
-    /// **DEPRECATED:** Use `type` property instead.
-    @available(*, deprecated, message: "Use type property instead.")
+    /// **OBSOLETED:** Use `type` property instead.
+    @available(*, obsoleted: 1.0, renamed: "type", message: "Use type property instead.")
     open var fileType: URLFileResourceType? {
         return self.type
     }

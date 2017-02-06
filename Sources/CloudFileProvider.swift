@@ -11,7 +11,8 @@ import Foundation
 open class CloudFileProvider: LocalFileProvider {
     open override class var type: String { return "iCloudDrive" }
     
-    /// Actually is readonly, value is true
+    /// Forces file operations to use `NSFileCoordinating`,
+    /// Actually this is readonly, and value is always true.
     override open var isCoorinating: Bool {
         get {
             return true
@@ -24,6 +25,9 @@ open class CloudFileProvider: LocalFileProvider {
     /// The fully-qualified container identifier for an iCloud container directory.
     open fileprivate(set) var containerId: String?
     
+    /// Scope of container, indicates user can manipulate data/files or not.
+    open fileprivate(set) var scope: UbiquitousScope
+    
     /**
      Initializes the provider for the iCloud container associated with the specified identifier and 
      establishes access to that container.
@@ -31,10 +35,11 @@ open class CloudFileProvider: LocalFileProvider {
      - Important: Do not call this method from your app’s main thread. Because this method might take a nontrivial amount of time to set up iCloud and return the requested URL, you should always call it from a secondary thread.
      
      - Parameter containerId: The fully-qualified container identifier for an iCloud container directory. The string you specify must not contain wildcards and must be of the form `<TEAMID>.<CONTAINER>`, where `<TEAMID>` is your development team ID and `<CONTAINER>` is the bundle identifier of the container you want to access.\
-     The container identifiers for your app must be declared in the `com.apple.developer.ubiquity-container-identifiers` array of the `.entitlements` property list file in your Xcode project.\
-     If you specify nil for this parameter, this method uses the first container listed in the `com.apple.developer.ubiquity-container-identifiers` entitlement array.
+         The container identifiers for your app must be declared in the `com.apple.developer.ubiquity-container-identifiers` array of the `.entitlements` property list file in your Xcode project.\
+         If you specify nil for this parameter, this method uses the first container listed in the `com.apple.developer.ubiquity-container-identifiers` entitlement array.
+     - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a Documents subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
     */
-    public init? (containerId: String?) {
+    public init? (containerId: String?, scope: UbiquitousScope = .documents) {
         assert(!Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
         guard FileManager.default.ubiquityIdentityToken == nil else {
             return nil
@@ -43,7 +48,14 @@ open class CloudFileProvider: LocalFileProvider {
             return nil
         }
         self.containerId = containerId
-        let baseURL = ubiquityURL.standardized.appendingPathComponent("Documents/")
+        self.scope = scope
+        let baseURL: URL
+        if scope == .documents {
+            baseURL = ubiquityURL.standardized.appendingPathComponent("Documents/")
+        } else {
+            baseURL = ubiquityURL.standardized
+        }
+        
         super.init(baseURL: baseURL)
         self.isCoorinating = true
         
@@ -57,12 +69,14 @@ open class CloudFileProvider: LocalFileProvider {
         try? fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
     
+    // FIXME: create runloop for dispatch_queue, start query on it
     open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
+            
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemPathKey, pathURL.path)
-            query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+            query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
             finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
                 defer {
@@ -91,9 +105,14 @@ open class CloudFileProvider: LocalFileProvider {
                     }
                 }
                 
+                query.stop()
                 completionHandler(contents, nil)
             })
-            query.start()
+            DispatchQueue.main.async {
+                if !query.start() {
+                    completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                }
+            }
         }
     }
     
@@ -107,7 +126,7 @@ open class CloudFileProvider: LocalFileProvider {
             let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
-            query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+            query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
             finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
                 defer {
@@ -130,7 +149,11 @@ open class CloudFileProvider: LocalFileProvider {
                     completionHandler(nil, noFileError)
                 }
             })
-            query.start()
+            DispatchQueue.main.async {
+                if !query.start() {
+                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission))
+                }
+            }
         }
     }
     
@@ -239,7 +262,7 @@ open class CloudFileProvider: LocalFileProvider {
             let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (%K LIKE %@)", NSMetadataItemPathKey, pathURL.path, NSMetadataItemFSNameKey, query)
-            query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+            query.searchScopes = [self.scope.rawValue]
             
             var lastReportedCount = 0
             
@@ -302,18 +325,22 @@ open class CloudFileProvider: LocalFileProvider {
                 completionHandler(contents, nil)
             })
             
-            query.start()
+            DispatchQueue.main.async {
+                if !query.start() {
+                    completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                }
+            }
         }
     }
     
-    fileprivate var monitors = [URL: (NSMetadataQuery, NSObjectProtocol)]()
-    //
+    fileprivate var monitors = [String: (NSMetadataQuery, NSObjectProtocol)]()
+    
     open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let pathURL = self.url(of: path)
         let query = NSMetadataQuery()
         query.predicate = NSPredicate(format: "(%K BEGINSWITH %@)", NSMetadataItemPathKey, pathURL.path)
-        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        query.searchScopes = [self.scope.rawValue]
         
         let updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: nil, using: { (notification) in
             
@@ -324,24 +351,25 @@ open class CloudFileProvider: LocalFileProvider {
             query.enableUpdates()
         })
         
-        query.start()
-        
-        monitors[pathURL] = (query, updateObserver)
+        DispatchQueue.main.async {
+            if query.start() {
+                self.monitors[path] = (query, updateObserver)
+            }
+        }
     }
     
     open override func unregisterNotifcation(path: String) {
-        let key = url(of: path)
-        guard let (query, observer) = monitors[key] else {
+        guard let (query, observer) = monitors[path] else {
             return
         }
         query.disableUpdates()
         query.stop()
-        monitors.removeValue(forKey: key)
         NotificationCenter.default.removeObserver(observer)
+        monitors.removeValue(forKey: path)
     }
     
     open override func isRegisteredForNotification(path: String) -> Bool {
-        return monitors[url(of: path)] != nil
+        return monitors[path] != nil
     }
     
     open override func copy(with zone: NSZone? = nil) -> Any {
@@ -397,6 +425,38 @@ open class CloudFileProvider: LocalFileProvider {
             } catch let e {
                 completionHandler(nil, nil, nil, e)
             }
+        }
+    }
+}
+
+public enum UbiquitousScope: RawRepresentable {
+    /// Search all files not in the Documents directories of the app’s iCloud container directories.
+    /// Use this scope to store user-related data files that your app needs to share 
+    /// but that are not files you want the user to manipulate directly.
+    case data
+    /// Search all files in the Documents directories of the app’s iCloud container directories.
+    /// Put documents that the user is allowed to access inside a Documents subdirectory.
+    case documents
+    
+    public typealias RawValue = String
+    
+    public init? (rawValue: String) {
+        switch rawValue {
+        case NSMetadataQueryUbiquitousDataScope:
+            self = .data
+        case NSMetadataQueryUbiquitousDocumentsScope:
+            self = .documents
+        default:
+            return nil
+        }
+    }
+    
+    public var rawValue: String {
+        switch self {
+        case .data:
+            return NSMetadataQueryUbiquitousDataScope
+        case .documents:
+            return NSMetadataQueryUbiquitousDocumentsScope
         }
     }
 }
@@ -458,11 +518,12 @@ open class CloudOperationHandle: OperationHandle {
     fileprivate static func getMetadataItem(url: URL) -> NSMetadataItem? {
         let query = NSMetadataQuery()
         query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
-        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope, NSMetadataQueryUbiquitousDataScope]
         
         var item: NSMetadataItem?
         
         let group = DispatchGroup()
+        group.enter()
         var finishObserver: NSObjectProtocol?
         finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
             defer {
@@ -479,8 +540,9 @@ open class CloudOperationHandle: OperationHandle {
             
         })
         
-        group.enter()
-        query.start()
+        DispatchQueue.main.async {
+            query.start()
+        }
         _ = group.wait(timeout: DispatchTime.now() + 30)
         return item
     }

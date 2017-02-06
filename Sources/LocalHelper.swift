@@ -67,7 +67,7 @@ public final class LocalFileObject: FileObject {
 
 }
 
-internal class LocalFolderMonitor {
+internal final class LocalFolderMonitor {
     fileprivate let source: DispatchSourceFileSystemObject
     fileprivate let descriptor: CInt
     fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: .default)

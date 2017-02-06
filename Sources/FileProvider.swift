@@ -510,8 +510,8 @@ extension FileProviderBasic {
         return path.trimmingCharacters(in: pathTrimSet).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
     }
     
-    /// **DEPRECATED:** Use `url(of:).absoluteURL` instead.
-    @available(*, deprecated, message: "Use url(of:).absoluteURL instead.")
+    /// **OBSOLETED:** Use `url(of:).absoluteURL` instead.
+    @available(*, obsoleted: 1.0, renamed: "url(of:)", message: "Use url(of:).absoluteURL instead.")
     public func absoluteURL(_ path: String? = nil) -> URL {
         return url(of: path).absoluteURL
     }
@@ -534,11 +534,20 @@ extension FileProviderBasic {
         }
     }
     
+    
+    /// Returns the relative path of url, wothout percent encoding. Even if url is absolute or
+    /// retrieved from another provider, it will try to resolve the url against `baseURL` of
+    /// current provider. It's highly recomended to use this method for displaying purposes.
+    ///
+    /// - Parameter url: Absolute url to file or directory.
+    /// - Returns: A `String` contains relative path of url against base url.
     public func relativePathOf(url: URL) -> String {
-        if url.baseURL == self.baseURL {
+        // check if url derieved from current base url
+        if url.relativeString.isEmpty, url.baseURL == self.baseURL {
             return url.relativePath.removingPercentEncoding!
         }
         
+        // resolve url string against baseurl
         guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
         return url.standardizedFileURL.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").removingPercentEncoding!
     }

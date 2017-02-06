@@ -417,7 +417,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     
     @discardableResult
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        if length == 0 {
+        if length == 0 || offset < 0 {
+            dispatch_queue.async {
+                completionHandler(Data(), nil)
+            }
             return nil
         }
         
