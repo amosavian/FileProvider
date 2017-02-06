@@ -3,6 +3,11 @@ language: objective-c
 osx_image: xcode8.2
 
 xcode_project: FileProvider.xcodeproj
+
+branches:
+  only:
+    - master
+
 env:
   global: 
     - PROJECTNAME="FileProvider"
@@ -16,17 +21,25 @@ before_install:
   - brew update
   - brew outdated carthage || brew upgrade carthage
 script:
-  - set pipefail
-  - xcodebuild -version
-  - xcodebuild -project $PROJECT.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO | xcpretty
-#  - pod lib lint --quick
+  - global:
+    - set pipefail
+    - xcodebuild -version
+    - pod lib lint --quick
+  - matrix:
+    - xcodebuild -project $PROJECT.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
 # after_success:
 #   - bash <(curl -s https://codecov.io/bash)
+
 before_deploy:
-  - carthage build --no-skip-current
+  - brew update
+  - brew outdated carthage || brew upgrade carthage
+  - carthage version
   - carthage archive $PROJECTNAME
+  
 deploy:
+  provider: releases
   file: $PROJECTNAME.framework.zip
   skip_cleanup: true
   on:
+    repo: amosavian/FileProvider
     tags: true
