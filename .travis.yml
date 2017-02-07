@@ -8,10 +8,10 @@ env:
   global: 
     - PROJECTNAME="FileProvider"
     - FRAMEWORK_NAME="FileProvider.framework"
-  matrix:
-    - SHCEME="FileProvider OSX" SDK="macosx" ACTION="build"
-    - SHCEME="FileProvider iOS" SDK="iphonesimulator" ACTION="build"
-    - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
+#  matrix:
+#    - SHCEME="FileProvider OSX" SDK="macosx" ACTION="build"
+#    - SHCEME="FileProvider iOS" SDK="iphonesimulator" ACTION="build"
+#    - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
 
 before_install:
 #  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
@@ -22,7 +22,10 @@ script:
   - set pipefail
   - xcodebuild -version
   - pod lib lint --quick
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
+#  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider OSX" -sdk macosx build
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator build ONLY_ACTIVE_ARCH=NO
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulato build ONLY_ACTIVE_ARCH=NO
 
 # after_success:
 #   - bash <(curl -s https://codecov.io/bash)
