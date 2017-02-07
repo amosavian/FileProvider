@@ -18,12 +18,10 @@ before_install:
   - brew update
   - brew outdated carthage || brew upgrade carthage
 
-before_script:
+script:
   - set pipefail
   - xcodebuild -version
   - pod lib lint --quick
-
-script:
   - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
 
 # after_success:
