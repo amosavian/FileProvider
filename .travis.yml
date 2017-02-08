@@ -14,7 +14,7 @@ env:
 #    - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
 
 before_install:
-#  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
+  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
   - brew update
   - brew outdated carthage || brew upgrade carthage
 
@@ -23,9 +23,9 @@ script:
   - xcodebuild -version
   - pod lib lint --quick
 #  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider OSX" -sdk macosx build
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator build ONLY_ACTIVE_ARCH=NO
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulato build ONLY_ACTIVE_ARCH=NO
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider OSX" -sdk macosx build | xcpretty
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator build ONLY_ACTIVE_ARCH=NO | xcpretty
+  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulator build ONLY_ACTIVE_ARCH=NO | xcpretty
 
 # after_success:
 #   - bash <(curl -s https://codecov.io/bash)

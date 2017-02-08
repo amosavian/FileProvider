@@ -8,7 +8,7 @@
 
 import Foundation
 
-open class LocalFileProvider: FileProvider, FileProviderMonitor {
+open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
     open class var type: String { return "Local" }
     open var isPathRelative: Bool
     open fileprivate(set) var baseURL: URL?
@@ -21,6 +21,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open private(set) var fileManager = FileManager()
     open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
+    
+    open var undoManager: UndoManager? = nil
     
     /**
      Forces file operations to use `NSFileCoordinating`, should be set `true` if:
@@ -142,234 +144,121 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
-        let url = self.url(of: atPath).appendingPathComponent(folderName)
-        
-        let operationHandler: (URL) -> Void = { url in
-            do {
-                try self.opFileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: [:])
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        }
-        
-        if isCoorinating {
-            let intent = NSFileAccessIntent.writingIntent(with: url, options: .forReplacing)
-            self.coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            })
-        } else {
-            operation_queue.addOperation {
-                operationHandler(url)
-            }
-        }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(fileName))
-        let url = self.url(of: atPath).appendingPathComponent(fileName, isDirectory: false)
+        let fileName = fileName.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let path = (atPath as NSString).appendingPathComponent(fileName)
+        let opType = FileOperationType.create(path: path)
         
-        let operationHandler: (URL) -> Void = { url in
-            let success = self.opFileManager.createFile(atPath: url.path, contents: data, attributes: nil)
-            if success {
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } else {
-                completionHandler?(self.throwError(atPath, code: URLError.cannotCreateFile as FoundationErrorEnum))
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        }
-        
-        if isCoorinating {
-            let intent = NSFileAccessIntent.writingIntent(with:url, options: .forReplacing)
-            self.coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            })
-        } else {
-            operation_queue.addOperation {
-                operationHandler(url)
-            }
-        }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, data: data, atomically: true, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.move(source: path, destination: toPath)
-        let sourceUrl = self.url(of: path)
-        let destUrl = self.url(of: toPath)
-        
-        let sourceIntent = NSFileAccessIntent.writingIntent(with: sourceUrl, options: .forDeleting)
-        let destIntent = NSFileAccessIntent.writingIntent(with: destUrl, options: .forReplacing)
-        
-        let operationHandler: (URL, URL) -> Void = { sourceUrl, destUrl in
-            if !overwrite && self.fileManager.fileExists(atPath: destUrl.path) {
-                completionHandler?(self.throwError(toPath, code: URLError.cannotMoveFile as FoundationErrorEnum))
-                return
-            }
-            do {
-                try self.opFileManager.moveItem(at: sourceUrl, to: destUrl)
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
+
+        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+            completionHandler?(self.throwError(toPath, code: URLError.cannotMoveFile as FoundationErrorEnum))
+            return nil
         }
         
-        if isCoorinating {
-            coordinated(intents: [sourceIntent, destIntent], completionHandler: operationHandler) { (error) in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        } else {
-            operation_queue.addOperation {
-                operationHandler(sourceUrl, destUrl)
-            }
-        }
-        
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toPath)
-        let sourceUrl = self.url(of: path)
-        let destUrl = self.url(of: toPath)
         
-        let sourceIntent = NSFileAccessIntent.readingIntent(with: sourceUrl, options: .withoutChanges)
-        let destIntent = NSFileAccessIntent.writingIntent(with: destUrl, options: .forDeleting)
-        
-        let operationHandler: (URL, URL) -> Void = { sourceUrl, destUrl in
-            if !overwrite && self.fileManager.fileExists(atPath: destUrl.path) {
-                completionHandler?(self.throwError(toPath, code: URLError.cannotMoveFile as FoundationErrorEnum))
-                return
-            }
-            do {
-                try self.opFileManager.copyItem(at: sourceUrl, to: destUrl)
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
+        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+            completionHandler?(self.throwError(toPath, code: URLError.cannotWriteToFile as FoundationErrorEnum))
+            return nil
         }
         
-        if isCoorinating {
-            coordinated(intents: [sourceIntent, destIntent], moving: true, completionHandler: operationHandler) { (error) in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        } else {
-            operation_queue.addOperation {
-                operationHandler(sourceUrl, destUrl)
-            }
-        }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.remove(path: path)
-        let url = self.url(of: path)
-        
-        let operationHandler: (URL) -> Void = { url in
-            do {
-                let successfulSecurityScopedResourceAccess = url.startAccessingSecurityScopedResource()
-                try self.opFileManager.removeItem(at: url)
-                if successfulSecurityScopedResourceAccess {
-                    url.stopAccessingSecurityScopedResource()
-                }
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        }
-        
-        if isCoorinating {
-            let intent = NSFileAccessIntent.writingIntent(with:url, options: .forReplacing)
-            self.coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            })
-        } else {
-            operation_queue.addOperation {
-                operationHandler(url)
-            }
-        }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        operation_queue.addOperation {
-            do {
-                try self.opFileManager.copyItem(at: localFile, to: self.url(of: toPath))
-                completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        }
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
-        operation_queue.addOperation {
+        return self.doOperation(opType, completionHandler: completionHandler)
+    }
+    
+    dynamic func doSimpleOperation(_ box: UndoBox) {
+        _ = self.doOperation(box.operation) { (_) in
+            return
+        }
+    }
+    
+    @discardableResult
+    fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        guard let sourcePath = opType.source else { return nil }
+        let destPath = opType.destination
+        let source: URL, dest: URL?
+        
+        if sourcePath.hasPrefix("file://") {
+            source = URL(string: sourcePath)!
+        } else {
+            source = self.url(of: sourcePath)
+        }
+        
+        if let destPath = destPath {
+            if destPath.hasPrefix("file://") {
+                dest = URL(string: destPath)!
+            } else {
+                dest = self.url(of: destPath)
+            }
+        } else {
+            dest = nil
+        }
+        
+        let operationHandler: (URL, URL?) -> Void = { source, dest in
             do {
-                try self.opFileManager.copyItem(at: self.url(of: path), to: toLocalURL)
+                let successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
+                switch opType {
+                case .create:
+                    if sourcePath.hasSuffix("/") {
+                        try self.opFileManager.createDirectory(at: source, withIntermediateDirectories: true, attributes: [:])
+                    } else {
+                        try data?.write(to: source, options: Data.WritingOptions.atomic)
+                    }
+                case .modify:
+                    try data?.write(to: source, options: atomically ? [.atomic] : [])
+                case .copy:
+                    guard let dest = dest else { return }
+                    try self.opFileManager.copyItem(at: source, to: dest)
+                case .move:
+                    guard let dest = dest else { return }
+                    try self.opFileManager.moveItem(at: source, to: dest)
+                case.remove:
+                    try self.opFileManager.removeItem(at: source)
+                default:
+                    return
+                }
+                if successfulSecurityScopedResourceAccess {
+                    source.stopAccessingSecurityScopedResource()
+                }
+                
+                if let undoOp = self.undoOperation(for: opType) {
+                    let undoBox = UndoBox(provider: self, operation: undoOp)
+                    self.undoManager?.registerUndo(withTarget: self, selector: #selector(LocalFileProvider.doSimpleOperation(_:)), object: undoBox)
+                }
+                
                 completionHandler?(nil)
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
@@ -381,6 +270,36 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
                 }
             }
         }
+        
+        if isCoorinating {
+            var intents = [NSFileAccessIntent]()
+            
+            switch opType {
+            case .create, .remove, .modify:
+                intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forReplacing))
+            case .copy:
+                guard let dest = dest else { return nil }
+                intents.append(NSFileAccessIntent.readingIntent(with: source, options: .withoutChanges))
+                intents.append(NSFileAccessIntent.writingIntent(with: dest, options: .forReplacing))
+            case .move:
+                guard let dest = dest else { return nil }
+                intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forDeleting))
+                intents.append(NSFileAccessIntent.writingIntent(with: dest, options: .forReplacing))
+            default:
+                return nil
+            }
+            self.coordinated(intents: intents, completionHandler: operationHandler, errorHandler: { error in
+                completionHandler?(error)
+                DispatchQueue.main.async {
+                    self.delegate?.fileproviderFailed(self, operation: opType)
+                }
+            })
+        } else {
+            operation_queue.addOperation {
+                operationHandler(source, dest)
+            }
+        }
+        
         return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
     }
     
@@ -447,13 +366,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
             
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadUnknown as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: URLError.zeroByteResource as FoundationErrorEnum))
                 return
             }
             
             let data = handle.readData(ofLength: length)
             guard length > 0 && data.count == length else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: URLError.cannotOpenFile as FoundationErrorEnum))
                 return
             }
             
@@ -480,45 +399,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     @discardableResult
     open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
-        let url = self.url(of: path)
-        var options: Data.WritingOptions = []
-        if atomically {
-            options.insert(.atomic)
-        }
-        if overwrite {
-            options.insert(.withoutOverwriting)
-        }
-        
-        let operationHandler: (URL) -> Void = { url in
-            do {
-                try data.write(to: url, options: atomically ? [.atomic] : [])
-                completionHandler?(nil)
-                DispatchQueue.main.async{
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
-            } catch let e {
-                completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            }
-        }
-        
-        if isCoorinating {
-            let intent = NSFileAccessIntent.writingIntent(with: url, options: .forReplacing)
-            coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
-                completionHandler?(error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
-            })
-        } else {
-            operation_queue.addOperation {
-                operationHandler(url)
-            }
-        }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return self.doOperation(opType, data: data, atomically: atomically, completionHandler: completionHandler)
     }
     
     open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
@@ -641,19 +522,21 @@ internal extension LocalFileProvider {
         }
     }
     
-    func coordinated(intents: [NSFileAccessIntent], moving: Bool = false, completionHandler: @escaping (_ sourceUrl: URL, _ destURL: URL) -> Void, errorHandler:  ((_ error: Error) -> Void)? = nil) {
+    func coordinated(intents: [NSFileAccessIntent], moving: Bool = false, completionHandler: @escaping (_ sourceUrl: URL, _ destURL: URL?) -> Void, errorHandler:  ((_ error: Error) -> Void)? = nil) {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(with: intents, queue: operation_queue) { (error) in
             if let error = error {
                 errorHandler?(error)
                 return
             }
-            if moving {
-                coordinator.item(at: intents[0].url, willMoveTo: intents[1].url)
+            let newSource: URL = intents[0].url
+            let newDest: URL? = intents.count > 1 ? intents[1].url : nil
+            if moving, let newDest = newDest {
+                coordinator.item(at: newSource, willMoveTo: newDest)
             }
-            completionHandler(intents[0].url, intents[1].url)
-            if moving {
-                coordinator.item(at: intents[0].url, didMoveTo: intents[1].url)
+            completionHandler(newSource, newDest)
+            if moving, let newDest = newDest {
+                coordinator.item(at: newSource, didMoveTo: newDest)
             }
         }
     }

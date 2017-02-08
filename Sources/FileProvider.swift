@@ -492,6 +492,42 @@ public protocol FileProviderMonitor: FileProviderBasic {
     func isRegisteredForNotification(path: String) -> Bool
 }
 
+public protocol FileProvideUndoable: FileProviderOperations {
+    var undoManager: UndoManager? { get set }
+    
+    func canUndo(handle: OperationHandle) -> Bool
+    func canUndo(operation: FileOperationType) -> Bool
+}
+
+public extension FileProvideUndoable {
+    public func canUndo(operation: FileOperationType) -> Bool {
+        return undoOperation(for: operation) != nil
+    }
+    
+    public func canUndo(handle: OperationHandle) -> Bool {
+        return canUndo(operation: handle.operationType)
+    }
+    
+    internal func undoOperation(for operation: FileOperationType) -> FileOperationType? {
+        switch operation {
+        case .create(path: let path):
+            return .remove(path: path)
+        case .modify(path: _):
+            return nil
+        case .copy(source: _, destination: let dest):
+            return .remove(path: dest)
+        case .move(source: let source, destination: let dest):
+            return .move(source: dest, destination: source)
+        case .link(link: let link, target: _):
+            return .remove(path: link)
+        case .remove(path: _):
+            return nil
+        default:
+            return nil
+        }
+    }
+}
+
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 

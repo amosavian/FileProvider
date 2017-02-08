@@ -297,6 +297,16 @@ open class LocalOperationHandle: OperationHandle {
     }
 }
 
+class UndoBox: NSObject {
+    weak var provider: FileProvideUndoable?
+    let operation: FileOperationType
+    
+    init(provider: FileProvideUndoable, operation: FileOperationType) {
+        self.provider = provider
+        self.operation = operation
+    }
+}
+
 internal extension URL {
     var fileIsDirectory: Bool {
         return (try? self.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
