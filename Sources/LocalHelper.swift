@@ -37,12 +37,12 @@ public final class LocalFileObject: FileObject {
     
     public convenience init?(fileWithURL fileURL: URL) {
         do {
-            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey])
+            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey, .documentIdentifierKey])
             let path = fileURL.relativePath.hasPrefix("/") ? fileURL.relativePath : "/" + fileURL.relativePath
             
             self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: path)
             for (key, value) in values.allValues {
-                self.allValues[key.rawValue] = value
+                self.allValues[key] = value
             }
         } catch {
             return nil
@@ -51,20 +51,28 @@ public final class LocalFileObject: FileObject {
     
     open internal(set) var allocatedSize: Int64 {
         get {
-            return allValues[URLResourceKey.fileAllocatedSizeKey.rawValue] as? Int64 ?? 0
+            return allValues[.fileAllocatedSizeKey] as? Int64 ?? 0
         }
         set {
-            allValues[URLResourceKey.fileAllocatedSizeKey.rawValue] = Int(exactly: newValue) ?? Int.max
+            allValues[.fileAllocatedSizeKey] = Int(exactly: newValue) ?? Int.max
+        }
+    }
+    
+    open internal(set) var id: Int? {
+        get {
+            return allValues[.documentIdentifierKey] as? Int
+        }
+        set {
+            allValues[.documentIdentifierKey] = newValue
         }
     }
     
     open var rev: String? {
         get {
-            let data = allValues[URLResourceKey.generationIdentifierKey.rawValue] as? Data
+            let data = allValues[.generationIdentifierKey] as? Data
             return data?.map { String(format: "%02hhx", $0) }.joined()
         }
     }
-
 }
 
 internal final class LocalFolderMonitor {

@@ -48,28 +48,28 @@ public final class OneDriveFileObject: FileObject {
     
     open internal(set) var id: String? {
         get {
-            return allValues["NSURLDocumentIdentifyKey"] as? String
+            return allValues[.documentIdentifierKey] as? String
         }
         set {
-            allValues["NSURLDocumentIdentifyKey"] = newValue
+            allValues[.documentIdentifierKey] = newValue
         }
     }
     
     open internal(set) var contentType: String {
         get {
-            return allValues["NSURLContentTypeKey"] as? String ?? ""
+            return allValues[.mimeType] as? String ?? ""
         }
         set {
-            allValues["NSURLContentTypeKey"] = newValue
+            allValues[.mimeType] = newValue
         }
     }
     
     open internal(set) var entryTag: String? {
         get {
-            return allValues["NSURLEntryTagKey"] as? String
+            return allValues[.entryTag] as? String
         }
         set {
-            allValues["NSURLEntryTagKey"] = newValue
+            allValues[.entryTag] = newValue
         }
     }
 }

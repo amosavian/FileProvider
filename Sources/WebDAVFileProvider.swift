@@ -582,20 +582,20 @@ public final class WebDavFileObject: FileObject {
     /// MIME type of the file
     open internal(set) var contentType: String {
         get {
-            return allValues["NSURLContentTypeKey"] as? String ?? ""
+            return allValues[.mimeType] as? String ?? ""
         }
         set {
-            allValues["NSURLContentTypeKey"] = newValue
+            allValues[.mimeType] = newValue
         }
     }
     
     /// HTTP E-Tag, can be used to mark changed files
     open internal(set) var entryTag: String? {
         get {
-            return allValues["NSURLEntryTagKey"] as? String
+            return allValues[.entryTag] as? String
         }
         set {
-            allValues["NSURLEntryTagKey"] = newValue
+            allValues[.entryTag] = newValue
         }
     }
 }

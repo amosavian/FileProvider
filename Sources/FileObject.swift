@@ -11,14 +11,14 @@ import Foundation
 /// Containts path and attributes of a file or resource.
 open class FileObject {
     /// A `Dictionary` contains file information,  using `URLResourceKey` keys.
-    open internal(set) var allValues: [String: Any]
+    open internal(set) var allValues: [URLResourceKey: Any]
     
-    internal init(allValues: [String: Any]) {
+    internal init(allValues: [URLResourceKey: Any]) {
         self.allValues = allValues
     }
     
     internal init(url: URL, name: String, path: String) {
-        self.allValues = [String: Any]()
+        self.allValues = [URLResourceKey: Any]()
         self.url = url
         self.name = name
         self.path = path
@@ -34,70 +34,70 @@ open class FileObject {
     /// not supported by Dropbox provider.
     open internal(set) var url: URL? {
         get {
-            return allValues["NSURLFileURLKey"] as? URL
+            return allValues[.fileURL] as? URL
         }
         set {
-            allValues["NSURLFileURLKey"] = newValue
+            allValues[.fileURL] = newValue
         }
     }
     
     /// Name of the file, usually equals with the last path component
     open internal(set) var name: String {
         get {
-            return allValues[URLResourceKey.nameKey.rawValue] as! String
+            return allValues[.nameKey] as! String
         }
         set {
-            allValues[URLResourceKey.nameKey.rawValue] = newValue
+            allValues[.nameKey] = newValue
         }
     }
     
     /// Relative path of file object
     open internal(set) var path: String {
         get {
-            return allValues[URLResourceKey.pathKey.rawValue] as! String
+            return allValues[.pathKey] as! String
         }
         set {
-            allValues[URLResourceKey.pathKey.rawValue] = newValue
+            allValues[.pathKey] = newValue
         }
     }
     
     /// Size of file on disk, return -1 for directories.
     open internal(set) var size: Int64 {
         get {
-            return allValues[URLResourceKey.fileSizeKey.rawValue] as? Int64 ?? -1
+            return allValues[.fileSizeKey] as? Int64 ?? -1
         }
         set {
-            allValues[URLResourceKey.fileSizeKey.rawValue] = newValue
+            allValues[.fileSizeKey] = newValue
         }
     }
     
     /// The time contents of file has been created, returns nil if not set
     open internal(set) var creationDate: Date? {
         get {
-            return allValues[URLResourceKey.creationDateKey.rawValue] as? Date
+            return allValues[.creationDateKey] as? Date
         }
         set {
-            allValues[URLResourceKey.creationDateKey.rawValue] = newValue
+            allValues[.creationDateKey] = newValue
         }
     }
     
     /// The time contents of file has been modified, returns nil if not set
     open internal(set) var modifiedDate: Date? {
         get {
-            return allValues[URLResourceKey.contentModificationDateKey.rawValue] as? Date
+            return allValues[.contentModificationDateKey] as? Date
         }
         set {
-            allValues[URLResourceKey.contentModificationDateKey.rawValue] = newValue
+            allValues[.contentModificationDateKey] = newValue
         }
     }
     
     /// return resource type of file, usually directory, regular or symLink
     open internal(set) var type: URLFileResourceType? {
         get {
-            return allValues[URLResourceKey.fileResourceTypeKey.rawValue] as? URLFileResourceType
+            return allValues[.fileResourceTypeKey] as? URLFileResourceType
         }
         set {
-            allValues[URLResourceKey.fileResourceTypeKey.rawValue] = newValue
+            allValues[.fileResourceTypeKey] = newValue
         }
     }
     
@@ -111,20 +111,20 @@ open class FileObject {
     /// Setting this value on a file begining with dot has no effect
     open internal(set) var isHidden: Bool {
         get {
-            return allValues[URLResourceKey.isHiddenKey.rawValue] as? Bool ?? false
+            return allValues[.isHiddenKey] as? Bool ?? false
         }
         set {
-            allValues[URLResourceKey.isHiddenKey.rawValue] = newValue
+            allValues[.isHiddenKey] = newValue
         }
     }
     
     /// File can not be written
     open internal(set) var isReadOnly: Bool {
         get {
-            return !(allValues[URLResourceKey.isWritableKey.rawValue] as? Bool ?? true)
+            return !(allValues[.isWritableKey] as? Bool ?? true)
         }
         set {
-            allValues[URLResourceKey.isWritableKey.rawValue] = !newValue
+            allValues[.isWritableKey] = !newValue
         }
     }
     
@@ -294,6 +294,13 @@ extension URLFileResourceType {
         default: self = .unknown
         }
     }
+}
+
+internal extension URLResourceKey {
+    static let fileURL = URLResourceKey(rawValue: "NSURLFileURLKey")
+    static let serverDate = URLResourceKey(rawValue: "NSURLServerDateKey")
+    static let entryTag = URLResourceKey(rawValue: "NSURLEntryTagKey")
+    static let mimeType = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
 }
 
 internal extension URL {

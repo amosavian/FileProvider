@@ -114,7 +114,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
             do {
-                let contents = try self.fileManager.contentsOfDirectory(at: self.url(of: path), includingPropertiesForKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .isHiddenKey, .volumeIsReadOnlyKey], options: .skipsSubdirectoryDescendants)
+                let contents = try self.fileManager.contentsOfDirectory(at: self.url(of: path), includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)
                 let filesAttributes = contents.flatMap({ (fileURL) -> LocalFileObject? in
                     let path = self.relativePathOf(url: fileURL)
                     return LocalFileObject(fileWithPath: path, relativeTo: self.baseURL)
@@ -127,9 +127,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     open func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
-        let dict = (try? FileManager.default.attributesOfFileSystem(forPath: baseURL?.path ?? "/"))
-        let totalSize = (dict?[.systemSize] as? NSNumber)?.int64Value ?? -1;
-        let freeSize = (dict?[.systemFreeSize] as? NSNumber)?.int64Value ?? 0;
+        let values = try? baseURL?.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityKey])
+        let totalSize = Int64(values??.volumeTotalCapacity ?? -1)
+        let freeSize = Int64(values??.volumeAvailableCapacity ?? 0)
         completionHandler(totalSize, totalSize - freeSize)
     }
     
@@ -228,8 +228,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         
         let operationHandler: (URL, URL?) -> Void = { source, dest in
+            let successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             do {
-                let successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
                 switch opType {
                 case .create:
                     if sourcePath.hasSuffix("/") {
@@ -264,6 +264,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     self.delegate?.fileproviderSucceed(self, operation: opType)
                 }
             } catch let e {
+                if successfulSecurityScopedResourceAccess {
+                    source.stopAccessingSecurityScopedResource()
+                }
                 completionHandler?(e)
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderFailed(self, operation: opType)
@@ -352,11 +355,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         let operationHandler: (URL) -> Void = { url in
             guard self.fileManager.fileExists(atPath: url.path) && !url.fileIsDirectory else {
-                completionHandler(nil, self.throwError(path, code: URLError.fileDoesNotExist as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
                 return
             }
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                completionHandler(nil, self.throwError(path, code: URLError.cannotOpenFile as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission as FoundationErrorEnum))
                 return
             }
             
@@ -366,13 +369,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
-                completionHandler(nil, self.throwError(path, code: URLError.zeroByteResource as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadUnknown as FoundationErrorEnum))
                 return
             }
             
             let data = handle.readData(ofLength: length)
             guard length > 0 && data.count == length else {
-                completionHandler(nil, self.throwError(path, code: URLError.cannotOpenFile as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
                 return
             }
             

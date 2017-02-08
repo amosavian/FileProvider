@@ -43,28 +43,28 @@ public final class DropboxFileObject: FileObject {
     
     open internal(set) var serverTime: Date? {
         get {
-            return allValues["NSURLServerDateKey"] as? Date
+            return allValues[.serverDate] as? Date
         }
         set {
-            allValues["NSURLServerDateKey"] = newValue
+            allValues[.serverDate] = newValue
         }
     }
     
     open internal(set) var id: String? {
         get {
-            return allValues["NSURLDocumentIdentifyKey"] as? String
+            return allValues[.documentIdentifierKey] as? String
         }
         set {
-            allValues["NSURLDocumentIdentifyKey"] = newValue
+            allValues[.documentIdentifierKey] = newValue
         }
     }
     
     open internal(set) var rev: String? {
         get {
-            return allValues[URLResourceKey.generationIdentifierKey.rawValue] as? String
+            return allValues[.generationIdentifierKey] as? String
         }
         set {
-            allValues[URLResourceKey.generationIdentifierKey.rawValue] = newValue
+            allValues[.generationIdentifierKey] = newValue
         }
     }
 }
