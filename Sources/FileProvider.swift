@@ -493,9 +493,15 @@ public protocol FileProviderMonitor: FileProviderBasic {
 }
 
 public protocol FileProvideUndoable: FileProviderOperations {
+    /// To initialize undo manager either call `setupUndoManager()` or set it manually.
+    ///
+    /// - Note: Only some operations (moving/renaming, copying and creating) are supported for undoing.
+    /// - Note: recording operations will occur after setting this object.
     var undoManager: UndoManager? { get set }
     
+    /// UndoManager supports undoing this file operation
     func canUndo(handle: OperationHandle) -> Bool
+    /// UndoManager supports undoing this operation
     func canUndo(operation: FileOperationType) -> Bool
 }
 
@@ -525,6 +531,13 @@ public extension FileProvideUndoable {
         default:
             return nil
         }
+    }
+    
+    /// Initiates `self.undoManager` if equals with `nil`, and set `levelsOfUndo` to 10.
+    public func setupUndoManager() {
+        guard self.undoManager == nil else { return }
+        self.undoManager = UndoManager()
+        self.undoManager?.levelsOfUndo = 10
     }
 }
 

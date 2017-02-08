@@ -308,10 +308,12 @@ open class LocalOperationHandle: OperationHandle {
 class UndoBox: NSObject {
     weak var provider: FileProvideUndoable?
     let operation: FileOperationType
+    let undoOperation: FileOperationType
     
-    init(provider: FileProvideUndoable, operation: FileOperationType) {
+    init(provider: FileProvideUndoable, operation: FileOperationType, undoOperation: FileOperationType) {
         self.provider = provider
         self.operation = operation
+        self.undoOperation = undoOperation
     }
 }
 

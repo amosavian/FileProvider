@@ -329,13 +329,56 @@ let data = "What's up Newyork!".data(encoding: .utf8)
 documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
 ```
 
+### Undo Operations
+
+Providers conform to `FileProviderUndoable` can perform undo for **some** operations like moving/renaming, copying and creating (file or folder). **Now, only `LocalFileProvider` supports this feature.** To implement:
+
+```swift
+// To setup a new UndoManager:
+documentsProvider.setupUndoManager()
+// or if you have an UndoManager object already:
+documentsProvider.undoManager = self.undoManager
+
+// e.g.: To undo last operation manually:
+documentsProvider.undoManager?.undo()
+``` 
+
+You can also bind `UndoManager` object with view controller to use shake gesture and builtin undo support in iOS/macOS, add these code to your ViewController class like this sample code:
+
+```swift
+class ViewController: UIViewController
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
+    
+    override var undoManager: UndoManager? {
+        return (provider as? FileProvideUndoable)?.undoManager
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Your code here
+        UIApplication.shared.applicationSupportsShakeToEdit = true
+        self.becomeFirstResponder()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Your code here
+        UIApplication.shared.applicationSupportsShakeToEdit = false
+        self.resignFirstResponder()
+    }
+    // The rest of your implementation
+}
+```
+
 ### Operation Handle
 
 Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst.
 
 It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
 
-### Monitoring FIle Changes
+### Monitoring File Changes
 
 You can monitor updates in some file system (Local and SMB2), there is three methods in supporting provider you can use to register a handler, to unregister and to check whether it's being monitored or not. It's useful to find out when new files added or removed from directory and update user interface. The handler will be dispatched to main threads to avoid UI bugs with a 0.25 sec delay.
 

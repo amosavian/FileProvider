@@ -200,7 +200,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     dynamic func doSimpleOperation(_ box: UndoBox) {
-        _ = self.doOperation(box.operation) { (_) in
+        guard let _ = self.undoManager else { return }
+        _ = self.doOperation(box.undoOperation) { (_) in
             return
         }
     }
@@ -209,22 +210,21 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let sourcePath = opType.source else { return nil }
         let destPath = opType.destination
-        let source: URL, dest: URL?
-        
-        if sourcePath.hasPrefix("file://") {
-            source = URL(string: sourcePath)!
-        } else {
-            source = self.url(of: sourcePath)
-        }
+        let source: URL = sourcePath.hasPrefix("file://") ? URL(string: sourcePath)! : self.url(of: sourcePath)
+        let dest: URL?
         
         if let destPath = destPath {
-            if destPath.hasPrefix("file://") {
-                dest = URL(string: destPath)!
-            } else {
-                dest = self.url(of: destPath)
-            }
+            dest = destPath.hasPrefix("file://") ? URL(string: destPath)! : self.url(of: destPath)
         } else {
             dest = nil
+        }
+        
+        if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: opType) {
+            let undoBox = UndoBox(provider: self, operation: opType, undoOperation: undoOp)
+            undoManager.beginUndoGrouping()
+            undoManager.registerUndo(withTarget: self, selector: #selector(LocalFileProvider.doSimpleOperation(_:)), object: undoBox)
+            undoManager.setActionName(opType.actionDescription)
+            undoManager.endUndoGrouping()
         }
         
         let operationHandler: (URL, URL?) -> Void = { source, dest in
@@ -252,11 +252,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 }
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
-                }
-                
-                if let undoOp = self.undoOperation(for: opType) {
-                    let undoBox = UndoBox(provider: self, operation: undoOp)
-                    self.undoManager?.registerUndo(withTarget: self, selector: #selector(LocalFileProvider.doSimpleOperation(_:)), object: undoBox)
                 }
                 
                 completionHandler?(nil)
@@ -354,12 +349,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
-            guard self.fileManager.fileExists(atPath: url.path) && !url.fileIsDirectory else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
-                return
-            }
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
                 return
             }
             
@@ -367,17 +358,18 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 handle.closeFile()
             }
             
+            let size = LocalFileObject(fileWithURL: url)?.size ?? -1
+            guard size > offset else {
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                return
+            }
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadUnknown as FoundationErrorEnum))
+                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
                 return
             }
             
             let data = handle.readData(ofLength: length)
-            guard length > 0 && data.count == length else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
-                return
-            }
             
             completionHandler(data, nil)
         }
@@ -462,6 +454,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.isPathRelative = self.isPathRelative
+        copy.undoManager = self.undoManager
+        copy.isCoorinating = self.isCoorinating
         return copy
     }
 }
