@@ -3,7 +3,7 @@ osx_image: xcode8.2
 xcode_project: $PROJECTNAME.xcodeproj
 env:
   global: 
-  - PROJECT="$PROJECTNAME.xcodeprojr"
+  - PROJECT="$PROJECTNAME.xcodeproj"
   - FRAMEWORK_NAME="$PROJECTNAME.framework"
   - IOS_FRAMEWORK_SCHEME="$PROJECTNAME iOS"
   - MACOS_FRAMEWORK_SCHEME="$PROJECTNAME macOS"
