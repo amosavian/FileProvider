@@ -1,46 +1,72 @@
 language: objective-c
-
 osx_image: xcode8.2
-
-xcode_project: FileProvider.xcodeproj
-
+xcode_project: $PROJECTNAME.xcodeproj
 env:
   global: 
-    - PROJECTNAME="FileProvider"
-    - FRAMEWORK_NAME="FileProvider.framework"
-#  matrix:
-#    - SHCEME="FileProvider OSX" SDK="macosx" ACTION="build"
-#    - SHCEME="FileProvider iOS" SDK="iphonesimulator" ACTION="build"
-#    - SHCEME="FileProvider tvOS" SDK="appletvsimulator" ACTION="build"
+  - PROJECT="$PROJECTNAME.xcodeprojr"
+  - FRAMEWORK_NAME="$PROJECTNAME.framework"
+  - IOS_FRAMEWORK_SCHEME="$PROJECTNAME iOS"
+  - MACOS_FRAMEWORK_SCHEME="$PROJECTNAME macOS"
+  - TVOS_FRAMEWORK_SCHEME="$PROJECTNAME tvOS"
+  - IOS_SDK=iphonesimulator
+  - MACOS_SDK=macosx
+  - TVOS_SDK=appletvsimulator
+  matrix:
+    - DESTINATION="OS=10.0,name=iPhone 7 Plus"     SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD_LINT="YES"
+    - DESTINATION="OS=9.0,name=iPhone 6"           SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD_LINT="NO"
+    - DESTINATION="OS=8.1,name=iPhone 4S"          SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD_LINT="NO"
 
+    - DESTINATION="OS=10.0,name=Apple TV 1080p"    SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"    RUN_TESTS="NO" BUILD_EXAMPLE="NO"  POD_LINT="NO"
+    - DESTINATION="OS=9.0,name=Apple TV 1080p"     SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"    RUN_TESTS="NO" BUILD_EXAMPLE="NO"  POD_LINT="NO"
+
+    - DESTINATION="arch=x86_64"                    SCHEME="$MACOS_FRAMEWORK_SCHEME"   SDK="$MACOS_SDK"   RUN_TESTS="NO" BUILD_EXAMPLE="NO"  POD_LINT="NO"
 before_install:
   - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
-  - brew update
-  - brew outdated carthage || brew upgrade carthage
+  - gem install cocoapods --no-rdoc --no-ri --no-document --quiet
+  # - gem install xcpretty-travis-formatter
 
 script:
-  - set pipefail
+  - set -o pipefail
   - xcodebuild -version
-  - pod lib lint --quick
-#  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "$SCHEME" -sdk $SDK $ACTION ONLY_ACTIVE_ARCH=NO
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider OSX" -sdk macosx build | xcpretty
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider iOS" -sdk iphonesimulator build ONLY_ACTIVE_ARCH=NO | xcpretty
-  - xcodebuild -project $PROJECTNAME.xcodeproj -scheme "FileProvider tvOS" -sdk appletvsimulator build ONLY_ACTIVE_ARCH=NO | xcpretty
+
+  # Run `pod lib lint` if specified
+  - if [ $POD_LINT == "YES" ]; then
+      pod lib lint;
+    fi
+
+  # Build Example in Debug if specified
+  - if [ $BUILD_EXAMPLE == "YES" ]; then
+      xcodebuild -project "$WORKSPACE" -scheme "$EXAMPLE_SCHEME" -sdk "$SDK" -destination "$DESTINATION" -configuration Debug ONLY_ACTIVE_ARCH=NO build | xcpretty;
+    fi
+
+  # Build Framework in Debug and Run Tests if specified
+  - if [ $RUN_TESTS == "YES" ]; then
+      xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk "$SDK" -destination "$DESTINATION" -configuration Debug ONLY_ACTIVE_ARCH=NO ENABLE_TESTABILITY=YES test | xcpretty;
+    else
+      xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk "$SDK" -destination "$DESTINATION" -configuration Debug ONLY_ACTIVE_ARCH=NO build | xcpretty;
+    fi
+
+  # Build Framework in Release and Run Tests if specified
+  - if [ $RUN_TESTS == "YES" ]; then
+      xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk "$SDK" -destination "$DESTINATION" -configuration Release ONLY_ACTIVE_ARCH=NO ENABLE_TESTABILITY=YES test | xcpretty;
+    else
+      xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk "$SDK" -destination "$DESTINATION" -configuration Release ONLY_ACTIVE_ARCH=NO build | xcpretty;
+    fi
 
 # after_success:
 #   - bash <(curl -s https://codecov.io/bash)
-
 before_deploy:
   - brew update
   - brew outdated carthage || brew upgrade carthage
   - carthage version
   - carthage build --no-skip-current --verbose
   - carthage archive $PROJECTNAME
-  
+
 deploy:
   provider: releases
+  api_key: $GITHUBTOKEN
   file: $FRAMEWORK_NAME.zip
   skip_cleanup: true
   on:
-    repo: amosavian/FileProvider
+    repo: amosavian/$PROJECTNAME
     tags: true
