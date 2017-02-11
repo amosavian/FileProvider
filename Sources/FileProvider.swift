@@ -111,6 +111,7 @@ public extension FileProviderBasic {
     }
 }
 
+/// Cancels all active underlying tasks
 public var fileProviderCancelTasksOnInvalidating = true
 
 public protocol FileProviderBasicRemote: FileProviderBasic {
@@ -832,14 +833,14 @@ extension ExtendedFileProvider {
         let newSize = CGSize(width: width, height: height)
         
         #if os(macOS)
-            var imageRect = NSRect(origin: CGPoint.zero, size: image.size)
+            var imageRect = NSRect(origin: .zero, size: image.size)
             let imageRef = image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
             
             // Create NSImage from the CGImage using the new size
             return NSImage(cgImage: imageRef!, size: newSize)
         #else
             UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
-            image.draw(in: CGRect(origin: CGPoint.zero, size: newSize))
+            image.draw(in: CGRect(origin: .zero, size: newSize))
             let newImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
             UIGraphicsEndImageContext()
             return newImage
@@ -876,7 +877,7 @@ public enum FileOperationType: CustomStringConvertible {
         }
     }
     
-    /// present participle of action, like 'Copying`.
+    /// present participle of action, like `Copying`.
     public var actionDescription: String {
         return description.trimmingCharacters(in: CharacterSet(charactersIn: "e")) + "ing"
     }

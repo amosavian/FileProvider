@@ -141,11 +141,11 @@ let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example
 
 * In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
-* For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
+* For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
 	
 For interaction with UI, set delegate variable of `FileProvider` object
 
-You can use `absoluteURL()` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply wrapped in URL)
+You can use `url(of:)` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply wrapped in URL)
 
 ### Delegates
 
@@ -384,8 +384,7 @@ You can monitor updates in some file system (Local and SMB2), there is three met
 
 ```swift
 // to register a new notification handler
-documentsProvider.registerNotifcation(path: provider.currentPath)
-{
+documentsProvider.registerNotifcation(path: provider.currentPath) {
 	// calling functions to update UI 
 }
 	
@@ -408,7 +407,7 @@ To check either file thumbnail is supported or not and fetch thumbnail, use (and
 let path = "/newImage.jpg"
 let thumbSize = CGSize(width: 64, height: 64)
 if documentsProvider.thumbnailOfFileSupported(path: path {
-    documentsProvider..thumbnailOfFile(path: file.path, dimension: thumbSize, completionHandler: { (image, error) in
+    documentsProvider.thumbnailOfFile(path: file.path, dimension: thumbSize, completionHandler: { (image, error) in
         DispatchQueue.main.async {
             self.previewImage.image = image
         }
@@ -420,7 +419,7 @@ if documentsProvider.thumbnailOfFileSupported(path: path {
 
 ##### Meta-informations
 
-To get meta-information like image/video taken date, dimension, etc., use (and modify) these example code:
+To get meta-information like image/video taken date, location, dimension, etc., use (and modify) these example code:
 
 ```swift
 if documentsProvider..propertiesOfFile(path: file.path, completionHandler: { (propertiesDictionary, keys, error) in

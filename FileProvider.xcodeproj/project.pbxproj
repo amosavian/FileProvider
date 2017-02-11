@@ -162,14 +162,11 @@
 		79BD63A71E2CC2940035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63A91E2CC2BB0035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63AB1E2CC2C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
-		79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.sdk/System/Library/Frameworks/MediaPlayer.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63AF1E2CC3300035128C /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = usr/lib/libxml2.tbd; sourceTree = SDKROOT; };
 		79BD63B11E2CC3350035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
-		79BD63B31E2CC33D0035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		79BD63B51E2CC3860035128C /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		79BD63B71E2CC38D0035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		79BD63B91E2CC39B0035128C /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
-		79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/MediaPlayer.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63BD1E2CC3C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63C11E2CC3D30035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -221,14 +218,11 @@
 				79BD63C11E2CC3D30035128C /* AVFoundation.framework */,
 				79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */,
 				79BD63BD1E2CC3C20035128C /* ImageIO.framework */,
-				79BD63BB1E2CC3B90035128C /* MediaPlayer.framework */,
 				79BD63B91E2CC39B0035128C /* libxml2.tbd */,
 				79BD63B71E2CC38D0035128C /* AVFoundation.framework */,
 				79BD63B51E2CC3860035128C /* CoreFoundation.framework */,
-				79BD63B31E2CC33D0035128C /* MediaPlayer.framework */,
 				79BD63B11E2CC3350035128C /* ImageIO.framework */,
 				79BD63AF1E2CC3300035128C /* libxml2.tbd */,
-				79BD63AD1E2CC2EB0035128C /* MediaPlayer.framework */,
 				79BD63AB1E2CC2C20035128C /* ImageIO.framework */,
 				79BD63A91E2CC2BB0035128C /* AVFoundation.framework */,
 				79BD63A71E2CC2940035128C /* CoreGraphics.framework */,

@@ -166,7 +166,7 @@ public struct LocalFileInformationGenerator {
         let time = CMTimeMake(asset.duration.value / 3, asset.duration.timescale)
         if let cgImage = try? assetImgGenerate.copyCGImage(at: time, actualTime: nil) {
             #if os(macOS)
-            return ImageClass(cgImage: cgImage, size: NSSize.zero)
+            return ImageClass(cgImage: cgImage, size: .zero)
             #else
             return ImageClass(cgImage: cgImage)
             #endif

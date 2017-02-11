@@ -270,14 +270,14 @@ public struct FileObjectSorting {
 
 extension Array where Element: FileObject {
     /// Returns a sorted array of `FileObject`s by criterias set in properties.
-    public func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
+    public func sort(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
         let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
         return sorting.sort(self) as! [Element]
     }
     
     /// Sorts array of `FileObject`s by criterias set in properties
     public mutating func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) {
-        self = self.sorted(by: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
+        self = self.sort(by: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
     }
 }
 
