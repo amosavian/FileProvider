@@ -161,7 +161,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let opType = FileOperationType.move(source: path, destination: toPath)
 
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            completionHandler?(self.throwError(toPath, code: URLError.cannotMoveFile as FoundationErrorEnum))
+            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
             return nil
         }
         
@@ -173,7 +173,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let opType = FileOperationType.copy(source: path, destination: toPath)
         
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            completionHandler?(self.throwError(toPath, code: URLError.cannotWriteToFile as FoundationErrorEnum))
+            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
             return nil
         }
         

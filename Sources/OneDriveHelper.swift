@@ -8,14 +8,10 @@
 
 import Foundation
 
-public struct FileProviderOneDriveError: Error, CustomStringConvertible {
+public struct FileProviderOneDriveError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
     public let errorDescription: String?
-    
-    public var description: String {
-        return code.description
-    }
 }
 
 public final class OneDriveFileObject: FileObject {

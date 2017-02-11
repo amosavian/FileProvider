@@ -61,6 +61,20 @@ open class RemoteOperationHandle: OperationHandle {
     }
 }
 
+public protocol FileProviderHTTPError: Error, CustomStringConvertible {
+    var code: FileProviderHTTPErrorCode { get }
+    var path: String { get }
+    var errorDescription: String? { get }
+    
+    var description: String { get }
+}
+
+extension FileProviderHTTPError {
+    public var description: String {
+        return code.description
+    }
+}
+
 class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate {
     
     weak var fileProvider: FileProvider?
