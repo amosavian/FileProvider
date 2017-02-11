@@ -15,7 +15,7 @@ public final class LocalFileObject: FileObject {
     
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
         var fileURL: URL?
-        var rpath = path.replacingOccurrences(of: relativeURL?.absoluteString  ?? "", with: "", options: .anchored)
+        var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored)
         if path.hasPrefix("/") {
             rpath.remove(at: rpath.startIndex)
         }

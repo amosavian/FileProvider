@@ -73,7 +73,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         case .cachesDirectory:
             finalBaseURL = baseURL.appendingPathComponent("Library/Caches")
         case .applicationSupportDirectory:
-            finalBaseURL = baseURL.appendingPathComponent("Library/Application%20support")
+            finalBaseURL = baseURL.appendingPathComponent("Library/Application support")
         default:
             break
         }

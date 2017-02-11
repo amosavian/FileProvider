@@ -67,7 +67,8 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
        - cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
-        self.baseURL = (serverURL ?? URL(string: "https://api.onedrive.com/")!).appendingPathComponent("")
+        let baseURL = serverURL ?? URL(string: "https://api.onedrive.com/")!
+        self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
         self.drive = drive
         self.isPathRelative = true
         self.currentPath = ""

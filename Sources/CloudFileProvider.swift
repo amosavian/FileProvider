@@ -28,6 +28,7 @@ open class CloudFileProvider: LocalFileProvider {
     /// Scope of container, indicates user can manipulate data/files or not.
     open fileprivate(set) var scope: UbiquitousScope
     
+    static open var asserting: Bool = true
     /**
      Initializes the provider for the iCloud container associated with the specified identifier and 
      establishes access to that container.
@@ -40,8 +41,8 @@ open class CloudFileProvider: LocalFileProvider {
      - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a Documents subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
     */
     public init? (containerId: String?, scope: UbiquitousScope = .documents) {
-        assert(!Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
-        guard FileManager.default.ubiquityIdentityToken == nil else {
+        assert(!CloudFileProvider.asserting || !Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
+        guard FileManager.default.ubiquityIdentityToken != nil else {
             return nil
         }
         guard let ubiquityURL = FileManager.default.url(forUbiquityContainerIdentifier: containerId) else {
