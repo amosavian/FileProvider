@@ -106,6 +106,7 @@ extension SMB2 {
             let flags: WriteRequest.Flags
         }
         
+        // codebeat:disable[ARITY]
         init(fileId: FileId, offset: UInt64, remainingBytes: UInt32 = 0, data: Data, channel: Channel = .NONE, channelInfo: ChannelInfo? = nil, flags: WriteRequest.Flags = []) {
             var channelInfoOffset: UInt16 = 0
             var channelInfoLength: UInt16 = 0
@@ -118,6 +119,7 @@ extension SMB2 {
             self.channelInfo = channelInfo
             self.fileData = data
         }
+        // codebeat:enable[ARITY]
         
         func data() -> Data {
             var result = Data(value: self.header)

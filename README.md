@@ -1,4 +1,4 @@
-# FileProvider
+![File Provider](fileprovider.png)
 
 >This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
@@ -264,7 +264,13 @@ You can then pass "" (empty string) to `contentsOfDirectory` method to list file
 Creating new directory:
 
 ```swift
-documentsProvider.create(folder: "new folder", at: "/", completionHandler: nil)
+documentsProvider.create(folder: "new folder", at: "/", completionHandler: { error in
+    if let error = error {
+        // Error handling here
+    } else {
+        // The operation succeed
+    }
+})
 ```
 
 Creating new file from data:

@@ -548,7 +548,7 @@ public protocol FileProvider: FileProviderBasic, FileProviderOperations, FilePro
 internal let pathTrimSet = CharacterSet(charactersIn: " /")
 extension FileProviderBasic {
     public var type: String {
-        return Self.type
+        return type(of: self).type
     }
     
     /// path without heading and trailing slash
@@ -644,7 +644,7 @@ extension FileProviderBasic {
             }
             group.leave()
         }
-        _ = group.wait(timeout: DispatchTime.distantFuture)
+        _ = group.wait(timeout: DispatchTime.now() + 0.5)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
         return (dirPath as NSString).appendingPathComponent(finalFile)
     }

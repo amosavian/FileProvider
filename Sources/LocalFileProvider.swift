@@ -188,9 +188,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // TODO: Make use of overwrite parameter
+        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            return nil
+        }
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        return self.doOperation(opType, completionHandler: completionHandler)
+        return self.doOperation(opType, forUploading: true, completionHandler: completionHandler)
     }
     
     @discardableResult
@@ -207,14 +210,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let sourcePath = opType.source else { return nil }
         let destPath = opType.destination
-        let source: URL = sourcePath.hasPrefix("file://") ? URL(string: sourcePath)! : self.url(of: sourcePath)
+        let source: URL = sourcePath.hasPrefix("file://") ? URL(fileURLWithPath: sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)) : self.url(of: sourcePath)
         let dest: URL?
         
         if let destPath = destPath {
-            dest = destPath.hasPrefix("file://") ? URL(string: destPath)! : self.url(of: destPath)
+            dest = destPath.hasPrefix("file://") ? URL(fileURLWithPath: sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)) : self.url(of: destPath)
         } else {
             dest = nil
         }
@@ -277,7 +280,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forReplacing))
             case .copy:
                 guard let dest = dest else { return nil }
-                intents.append(NSFileAccessIntent.readingIntent(with: source, options: .withoutChanges))
+                intents.append(NSFileAccessIntent.readingIntent(with: source, options: forUploading ? .forUploading : .withoutChanges))
                 intents.append(NSFileAccessIntent.writingIntent(with: dest, options: .forReplacing))
             case .move:
                 guard let dest = dest else { return nil }

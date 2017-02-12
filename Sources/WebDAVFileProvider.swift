@@ -279,13 +279,15 @@ extension WebDAVFileProvider: FileProviderOperations {
     
     @discardableResult
     public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         let url = self.url(of:toPath)
         var request = URLRequest(url: url)
+        if !overwrite {
+            request.setValue("F", forHTTPHeaderField: "Overwrite")
+        }
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, fromFile: localFile, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
