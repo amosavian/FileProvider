@@ -97,7 +97,7 @@ public protocol FileProviderBasic: class {
     func url(of path: String?) -> URL
 }
 
-public extension FileProviderBasic {
+extension FileProviderBasic {
     /// The maximum number of queued operations that can execute at the same time.
     ///
     /// The default value of this property is `OperationQueue.defaultMaxConcurrentOperationCount`.
@@ -109,6 +109,11 @@ public extension FileProviderBasic {
             operation_queue.maxConcurrentOperationCount = newValue
         }
     }
+}
+
+func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
+    if lhs === rhs { return true }
+    return lhs.baseURL == rhs.baseURL && lhs.isPathRelative == rhs.isPathRelative && lhs.currentPath == rhs.currentPath && lhs.credential == rhs.credential
 }
 
 /// Cancels all active underlying tasks
