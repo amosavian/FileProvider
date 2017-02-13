@@ -18,6 +18,7 @@ open class CloudFileProvider: LocalFileProvider {
             return true
         }
         set {
+            assert(true, "CloudFileProvider.isCoorinating can't be set")
             return
         }
     }
@@ -52,9 +53,9 @@ open class CloudFileProvider: LocalFileProvider {
         self.scope = scope
         let baseURL: URL
         if scope == .documents {
-            baseURL = ubiquityURL.standardized.appendingPathComponent("Documents/")
+            baseURL = ubiquityURL.appendingPathComponent("Documents/")
         } else {
-            baseURL = ubiquityURL.standardized
+            baseURL = ubiquityURL
         }
         
         super.init(baseURL: baseURL)
@@ -107,11 +108,16 @@ open class CloudFileProvider: LocalFileProvider {
                 }
                 
                 query.stop()
-                completionHandler(contents, nil)
+                self.dispatch_queue.async {
+                    completionHandler(contents, nil)
+                }
+                
             })
             DispatchQueue.main.async {
                 if !query.start() {
-                    completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    self.dispatch_queue.async {
+                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    }
                 }
             }
         }
@@ -139,20 +145,28 @@ open class CloudFileProvider: LocalFileProvider {
                 
                 guard let result = (query.results as? [NSMetadataItem])?.first, let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
                     let error = self.throwError(path, code: CocoaError.fileNoSuchFile)
-                    completionHandler(nil, error)
+                    self.dispatch_queue.async {
+                        completionHandler(nil, error)
+                    }
                     return
                 }
                 
                 if let file = self.mapFileObject(attributes: attribs) {
-                    completionHandler(file, nil)
+                    self.dispatch_queue.async {
+                        completionHandler(file, nil)
+                    }
                 } else {
                     let noFileError = self.throwError(path, code: CocoaError.fileNoSuchFile)
-                    completionHandler(nil, noFileError)
+                    self.dispatch_queue.async {
+                        completionHandler(nil, noFileError)
+                    }
                 }
             })
             DispatchQueue.main.async {
                 if !query.start() {
-                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    self.dispatch_queue.async {
+                        completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    }
                 }
             }
         }
@@ -322,13 +336,16 @@ open class CloudFileProvider: LocalFileProvider {
                         contents.append(file)
                     }
                 }
-                
-                completionHandler(contents, nil)
+                self.dispatch_queue.async {
+                   completionHandler(contents, nil)
+                }
             })
             
             DispatchQueue.main.async {
                 if !query.start() {
-                    completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    self.dispatch_queue.async {
+                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    }
                 }
             }
         }
@@ -422,9 +439,13 @@ open class CloudFileProvider: LocalFileProvider {
             do {
                 var expiration: NSDate?
                 let url = try self.opFileManager.url(forPublishingUbiquitousItemAt: self.url(of: path), expiration: &expiration)
-                completionHandler(url, nil, expiration as Date?, nil)
+                self.dispatch_queue.async {
+                    completionHandler(url, nil, expiration as Date?, nil)
+                }
             } catch let e {
-                completionHandler(nil, nil, nil, e)
+                self.dispatch_queue.async {
+                    completionHandler(nil, nil, nil, e)
+                }
             }
         }
     }

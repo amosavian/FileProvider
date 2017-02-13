@@ -9,7 +9,7 @@
 import Foundation
 
 /// Containts path and attributes of a file or resource.
-open class FileObject {
+open class FileObject: Equatable {
     /// A `Dictionary` contains file information,  using `URLResourceKey` keys.
     open internal(set) var allValues: [URLResourceKey: Any]
     
@@ -141,6 +141,16 @@ open class FileObject {
     /// File is a Symbolic link
     open var isSymLink: Bool {
         return self.type == .symbolicLink
+    }
+    
+    public static func ==(rhs: FileObject, lhs: FileObject) -> Bool {
+        if rhs === lhs {
+            return true
+        }
+        if let rurl = rhs.url, let lurl = lhs.url {
+            return rurl == lurl
+        }
+        return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
     }
 }
 

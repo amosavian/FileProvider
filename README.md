@@ -24,8 +24,6 @@ This library provides implementaion of WebDav, Dropbox, OneDrive and SMB2 (incom
 
 All functions are async calls and it wont block your main thread.
 
-Local and WebDAV providers are fully tested and can be used in production environment.
-
 ## Features
 
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like searching and reading a portion of file.
@@ -125,7 +123,7 @@ let documentsProvider = LocalFileProvider(sharedContainerId: "group.yourcompany.
 
 You can't change the base url later. and all paths are related to this base url by default.
 
-To initialize an iCloud Container provider use below code, This will automatically manager creating Documents folder in container:
+To initialize an iCloud Container provider look at [here](https://medium.com/ios-os-x-development/icloud-drive-documents-1a46b5706fe1) to see how to update project settings then use below code, This will automatically manager creating Documents folder in container:
 
 ```swift
 let documentsProvider = CloudFileProvider(containerId: nil)
@@ -450,7 +448,9 @@ If you used this library in your project, you can open an issue to inform us.
 
 ## Meta
 
-Amir-Abbas Mousavian  – [@amosavian](https://twitter.com/amosavian)
+Amir-Abbas Mousavian – [@amosavian](https://twitter.com/amosavian)
+
+Thanks to [Hootan Moradi](https://github.com/hoootan) for designing logo.
 
 Distributed under the MIT license. See `LICENSE` for more information.
 
