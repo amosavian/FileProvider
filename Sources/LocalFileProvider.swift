@@ -213,11 +213,24 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let sourcePath = opType.source else { return nil }
         let destPath = opType.destination
-        let source: URL = sourcePath.hasPrefix("file://") ? URL(fileURLWithPath: sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)) : self.url(of: sourcePath)
-        let dest: URL?
+        let source: URL
+        if sourcePath.hasPrefix("file://") {
+            let removedSchemePath = sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)
+            let pDecodedPath = removedSchemePath.removingPercentEncoding ?? removedSchemePath
+            source = URL(fileURLWithPath: pDecodedPath)
+        } else {
+            source = self.url(of: sourcePath)
+        }
         
+        let dest: URL?
         if let destPath = destPath {
-            dest = destPath.hasPrefix("file://") ? URL(fileURLWithPath: sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)) : self.url(of: destPath)
+            if destPath.hasPrefix("file://") {
+                let removedSchemePath = destPath.replacingOccurrences(of: "file://", with: "", options: .anchored)
+                let pDecodedPath = removedSchemePath.removingPercentEncoding ?? removedSchemePath
+                dest = URL(fileURLWithPath: pDecodedPath)
+            } else {
+                dest = self.url(of: destPath)
+            }
         } else {
             dest = nil
         }
@@ -454,11 +467,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func copy(with zone: NSZone? = nil) -> Any {
         let copy = LocalFileProvider(baseURL: self.baseURL!)
         copy.currentPath = self.currentPath
-        copy.delegate = self.delegate
-        copy.fileOperationDelegate = self.fileOperationDelegate
         copy.isPathRelative = self.isPathRelative
         copy.undoManager = self.undoManager
         copy.isCoorinating = self.isCoorinating
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
         return copy
     }
 }
