@@ -156,6 +156,19 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
+    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        var request = URLRequest(url: baseURL!)
+        request.httpMethod = "PROPFIND"
+        request.setValue("0", forHTTPHeaderField: "Depth")
+        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
+        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
+        runDataTask(with: request, completionHandler: { (data, response, error) in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 400
+            completionHandler(status < 300)
+        })
+    }
+    
     open weak var fileOperationDelegate: FileOperationDelegate?
 }
 

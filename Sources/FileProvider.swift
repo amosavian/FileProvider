@@ -95,6 +95,9 @@ public protocol FileProviderBasic: class {
      - Returns: An url, can be used to access to file directly.
     */
     func url(of path: String?) -> URL
+    
+    /// Checks the connection to server or permission on local
+    func isReachable(completionHandler: @escaping(_ success: Bool) -> Void)
 }
 
 extension FileProviderBasic {

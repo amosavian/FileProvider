@@ -139,6 +139,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
+    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        dispatch_queue.async {
+            completionHandler(self.fileManager.isReadableFile(atPath: self.baseURL!.path))
+        }
+    }
+    
     open weak var fileOperationDelegate : FileOperationDelegate?
     
     @discardableResult
@@ -247,8 +253,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             undoManager.endUndoGrouping()
         }
         
+        var successfulSecurityScopedResourceAccess = false
+        
         let operationHandler: (URL, URL?) -> Void = { source, dest in
-            let successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             do {
                 switch opType {
                 case .create:
@@ -295,9 +302,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         if isCoorinating {
             var intents = [NSFileAccessIntent]()
-            
+            successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             switch opType {
-            case .create, .remove, .modify:
+            case .create, .modify:
                 intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forReplacing))
             case .copy:
                 guard let dest = dest else { return nil }
@@ -305,8 +312,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 intents.append(NSFileAccessIntent.writingIntent(with: dest, options: .forReplacing))
             case .move:
                 guard let dest = dest else { return nil }
-                intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forDeleting))
+                intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forMoving))
                 intents.append(NSFileAccessIntent.writingIntent(with: dest, options: .forReplacing))
+            case .remove:
+                intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forDeleting))
             default:
                 return nil
             }

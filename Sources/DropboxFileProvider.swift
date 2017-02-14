@@ -129,6 +129,12 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
+    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        self.storageProperties { total, _ in
+            completionHandler(total > 0)
+        }
+    }
+    
     open weak var fileOperationDelegate: FileOperationDelegate?
 }
 

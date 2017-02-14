@@ -44,6 +44,10 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         NotImplemented()
     }
     
+    func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        NotImplemented()
+    }
+    
     open weak var fileOperationDelegate: FileOperationDelegate?
     
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {

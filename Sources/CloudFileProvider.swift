@@ -197,6 +197,12 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
+    open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        dispatch_queue.async {
+            completionHandler(self.fileManager.ubiquityIdentityToken != nil)
+        }
+    }
+    
     /**
      Creates a new directory at the specified path asynchronously.
      This will create any necessary intermediate directories.
@@ -609,7 +615,7 @@ open class CloudFileProvider: LocalFileProvider {
     }
     
     /// Returns a pulic url with expiration date, can be shared with other people.
-    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {
                 var expiration: NSDate?

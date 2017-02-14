@@ -132,6 +132,18 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
+    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+        let url = URL(string: "/drive/root", relativeTo: baseURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 400
+            completionHandler(status == 200)
+        })
+        task.resume()
+    }
+    
     open weak var fileOperationDelegate: FileOperationDelegate?
 }
 
