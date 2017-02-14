@@ -143,9 +143,12 @@ open class FileObject: Equatable {
         return self.type == .symbolicLink
     }
     
-    public static func ==(rhs: FileObject, lhs: FileObject) -> Bool {
+    public static func ==(lhs: FileObject, rhs: FileObject) -> Bool {
         if rhs === lhs {
             return true
+        }
+        if type(of: lhs) != type(of: rhs) {
+            return false
         }
         if let rurl = rhs.url, let lurl = lhs.url {
             return rurl == lurl

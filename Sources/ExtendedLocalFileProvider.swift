@@ -17,7 +17,6 @@ import Cocoa
 #endif
 
 extension LocalFileProvider: ExtendedFileProvider {
-    
     public func thumbnailOfFileSupported(path: String) -> Bool {
         switch (path as NSString).pathExtension.lowercased() {
         case LocalFileInformationGenerator.imageThumbnailExtensions:
@@ -126,26 +125,80 @@ extension LocalFileProvider: ExtendedFileProvider {
     }
 }
 
+/// Holds supported file types and thumbnail/properties generator for specefied type of file
 public struct LocalFileInformationGenerator {
+    /// Image extensions supportes for thumbnail.
+    ///
+    /// Default: `["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]`
     static public var imageThumbnailExtensions: [String]  = ["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]
-    static public var audioThumbnailExtensions: [String]  = ["mp3", "aac", "m4a"]
-    static public var videoThumbnailExtensions: [String]  = ["mov", "mp4", "m4v", "mpg", "mpeg"]
-    static public var pdfThumbnailExtensions: [String]    = ["pdf"]
-    static public var officeThumbnailExtensions: [String] = []
-    static public var customThumbnailExtensions: [String] = []
     
+    /// Audio and music extensions supportes for thumbnail.
+    ///
+    /// Default: `["mp3", "aac", "m4a"]`
+    static public var audioThumbnailExtensions: [String]  = ["mp3", "aac", "m4a"]
+    
+    /// Video extensions supportes for thumbnail.
+    ///
+    /// Default: `["mov", "mp4", "m4v", "mpg", "mpeg"]`
+    static public var videoThumbnailExtensions: [String]  = ["mov", "mp4", "m4v", "mpg", "mpeg"]
+    
+    /// Portable document file extensions supportes for thumbnail.
+    ///
+    /// Default: `["pdf"]`
+    static public var pdfThumbnailExtensions: [String]    = ["pdf"]
+    
+    /// Office document extensions supportes for thumbnail.
+    ///
+    /// Default: `empty`
+    static public var officeThumbnailExtensions: [String] = []
+    
+    /// Custom document extensions supportes for thumbnail.
+    ///
+    /// Default: `empty`
+    static public var customThumbnailExtensions: [String] = []
+
+    
+    /// Image extensions supportes for properties.
+    ///
+    /// Default: `["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff"]`
     static public var imagePropertiesExtensions: [String]   = ["jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff"]
+    
+    /// Audio and music extensions supportes for properties.
+    ///
+    /// Default: `["mp3", "aac", "m4a", "caf"]`
     static public var audioPropertiesExtensions: [String]   = ["mp3", "aac", "m4a", "caf"]
+    
+    /// Video extensions supportes for properties.
+    ///
+    /// Default: `["mp4", "mpg", "3gp", "mov", "avi"]`
     static public var videoPropertiesExtensions: [String]   = ["mp4", "mpg", "3gp", "mov", "avi"]
+    
+    /// Portable document file extensions supportes for properties.
+    ///
+    /// Default: `["pdf"]`
     static public var pdfPropertiesExtensions: [String]     = ["pdf"]
+    
+    /// Archive extensions (like zip) supportes for properties.
+    ///
+    /// Default: `empty`
     static public var archivePropertiesExtensions: [String] = []
+    
+    /// Office document extensions supportes for properties.
+    ///
+    /// Default: `empty`
     static public var officePropertiesExtensions: [String]  = []
+    
+    /// Custom document extensions supportes for properties.
+    ///
+    /// Default: `empty`
     static public var customPropertiesExtensions: [String]  = []
     
+    /// Thumbnail generator closure for image files.
     static public var imageThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         return ImageClass(contentsOfFile: fileURL.path)
     }
     
+    /// Thumbnail generator closure for audio and music files.
     static public var audioThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         let playerItem = AVPlayerItem(url: fileURL)
         let metadataList = playerItem.asset.commonMetadata
@@ -159,6 +212,7 @@ public struct LocalFileInformationGenerator {
         return nil
     }
     
+    /// Thumbnail generator closure for video files.
     static public var videoThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         let asset = AVAsset(url: fileURL)
         let assetImgGenerate = AVAssetImageGenerator(asset: asset)
@@ -174,19 +228,25 @@ public struct LocalFileInformationGenerator {
         return nil
     }
     
+    /// Thumbnail generator closure for portable document files files.
     static public var pdfThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         return LocalFileProvider.convertToImage(pdfData: data)
     }
     
+    /// Thumbnail generator closure for office document files.
+    /// - Note: No default implementation is avaiable
     static public var officeThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         return nil
     }
     
+    /// Thumbnail generator closure for custom type of files.
+    /// - Note: No default implementation is avaiable
     static public var customThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         return nil
     }
     
+    /// Properties generator closure for image files.
     static public var imageProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
         var dic = [String: Any]()
         var keys = [String]()
@@ -252,6 +312,7 @@ public struct LocalFileInformationGenerator {
         return (dic, keys)
     }
     
+    /// Properties generator closure for audio and music files.
     static var audioProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
         var dic = [String: Any]()
         var keys = [String]()
@@ -293,6 +354,7 @@ public struct LocalFileInformationGenerator {
         return (dic, keys)
     }
     
+    /// Properties generator closure for video files.
     static public var videoProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
         var dic = [String: Any]()
         var keys = [String]()
@@ -337,6 +399,7 @@ public struct LocalFileInformationGenerator {
         return (dic, keys)
     }
     
+    /// Properties generator closure for protable documents files.
     static public var pdfProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = { fileURL in
         var dic = [String: Any]()
         var keys = [String]()
@@ -411,10 +474,16 @@ public struct LocalFileInformationGenerator {
         return (dic, keys)
     }
     
+    /// Properties generator closure for video files.
+    /// - Note: No default implementation is avaiable
     static public var archiveProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
     
+    /// Properties generator closure for office doument files.
+    /// - Note: No default implementation is avaiable
     static public var officeProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
     
+    /// Properties generator closure for custom type of files.
+    /// - Note: No default implementation is avaiable
     static public var customProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
 }
 

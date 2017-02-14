@@ -13,13 +13,13 @@ env:
   - TVOS_SDK=appletvsimulator
   matrix:
     - DESTINATION="OS=10.2,name=iPad Air 2"        SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="YES" CARTHAGEDEPLOY="NO"
-    - DESTINATION="OS=9.0,name=iPhone 6"           SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="NO"
+    - DESTINATION="OS=9.0,name=iPhone 6"           SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="YES"
     - DESTINATION="OS=8.1,name=iPhone 4S"          SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="NO"
 
     - DESTINATION="OS=10.1,name=Apple TV 1080p"    SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"    RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="NO"
     - DESTINATION="OS=10.0,name=Apple TV 1080p"    SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"    RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="NO"
 
-    - DESTINATION="arch=x86_64"                    SCHEME="$MACOS_FRAMEWORK_SCHEME"   SDK="$MACOS_SDK"   RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="YES"
+    - DESTINATION="arch=x86_64"                    SCHEME="$MACOS_FRAMEWORK_SCHEME"   SDK="$MACOS_SDK"   RUN_TESTS="NO" BUILD_EXAMPLE="NO" POD="NO"  CARTHAGEDEPLOY="NO"
 before_install:
   - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
   - gem install cocoapods --no-rdoc --no-ri --no-document --quiet
@@ -61,11 +61,13 @@ after_success:
 
 #   - bash <(curl -s https://codecov.io/bash)
 before_deploy:
-  - brew update
-  - brew outdated carthage || brew upgrade carthage
-  - carthage version
-  - carthage build --no-skip-current --verbose
-  - carthage archive $PROJECTNAME
+  - if [ $CARTHAGEDEPLOY == "YES" ] && [ -n "$TRAVIS_TAG" ]; then
+      brew update;
+      brew outdated carthage || brew upgrade carthage;
+      carthage version;
+      carthage build --no-skip-current --verbose;
+      carthage archive $PROJECTNAME;
+    fi
 
 deploy:
   provider: releases

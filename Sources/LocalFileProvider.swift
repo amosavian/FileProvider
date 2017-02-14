@@ -173,7 +173,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let opType = FileOperationType.copy(source: path, destination: toPath)
         
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            self.dispatch_queue.async {
+                completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            }
             return nil
         }
         
@@ -189,7 +191,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            self.dispatch_queue.async {
+                completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            }
             return nil
         }
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
@@ -270,7 +274,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     source.stopAccessingSecurityScopedResource()
                 }
                 
-                completionHandler?(nil)
+                self.dispatch_queue.async {
+                    completionHandler?(nil)
+                }
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderSucceed(self, operation: opType)
                 }
@@ -278,7 +284,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
                 }
-                completionHandler?(e)
+                self.dispatch_queue.async {
+                    completionHandler?(e)
+                }
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderFailed(self, operation: opType)
                 }
@@ -303,7 +311,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 return nil
             }
             self.coordinated(intents: intents, completionHandler: operationHandler, errorHandler: { error in
-                completionHandler?(error)
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderFailed(self, operation: opType)
                 }
@@ -325,16 +335,22 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operationHandler: (URL) -> Void = { url in
             do {
                 let data = try Data(contentsOf: url)
-                completionHandler(data, nil)
+                self.dispatch_queue.async {
+                    completionHandler(data, nil)
+                }
             } catch let e {
-                completionHandler(nil, e)
+                self.dispatch_queue.async {
+                    completionHandler(nil, e)
+                }
             }
         }
         
         if isCoorinating {
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
             coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
-                completionHandler(nil, error)
+                self.dispatch_queue.async {
+                    completionHandler(nil, error)
+                }
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderFailed(self, operation: opType)
                 }
@@ -366,7 +382,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         let operationHandler: (URL) -> Void = { url in
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
+                self.dispatch_queue.async {
+                    completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
+                }
                 return
             }
             
@@ -376,18 +394,24 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             
             let size = LocalFileObject(fileWithURL: url)?.size ?? -1
             guard size > offset else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                self.dispatch_queue.async {
+                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                }
                 return
             }
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
-                completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                self.dispatch_queue.async {
+                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                }
                 return
             }
             
             let data = handle.readData(ofLength: length)
             
-            completionHandler(data, nil)
+            self.dispatch_queue.async {
+                completionHandler(data, nil)
+            }
         }
         
         if isCoorinating {

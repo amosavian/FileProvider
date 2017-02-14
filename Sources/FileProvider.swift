@@ -85,7 +85,7 @@ public protocol FileProviderBasic: class {
     func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
     
-    /// Returns total and used space in provider container asynchronously.
+    /// Returns total and used capacity in provider container asynchronously.
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
     
     /**
@@ -111,9 +111,12 @@ extension FileProviderBasic {
     }
 }
 
-func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
+public func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
     if lhs === rhs { return true }
-    return lhs.baseURL == rhs.baseURL && lhs.isPathRelative == rhs.isPathRelative && lhs.currentPath == rhs.currentPath && lhs.credential == rhs.credential
+    if type(of: lhs) != type(of: rhs) {
+        return false
+    }
+    return lhs.type == rhs.type && lhs.baseURL == rhs.baseURL && lhs.isPathRelative == rhs.isPathRelative && lhs.credential == rhs.credential
 }
 
 /// Cancels all active underlying tasks
@@ -196,6 +199,7 @@ public protocol FileProviderOperations: FileProviderBasic {
        - folder: Directory name.
        - at: Parent path of new directory.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
     func create(folder: String, at: String, completionHandler: SimpleCompletionHandler) -> OperationHandle?
@@ -604,7 +608,9 @@ extension FileProviderBasic {
         
         // resolve url string against baseurl
         guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
-        return url.standardizedFileURL.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").removingPercentEncoding!
+        let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+        let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+        return standardPath.replacingOccurrences(of: standardBase, with: "/").removingPercentEncoding!
     }
     
     internal func correctPath(_ path: String?) -> String? {

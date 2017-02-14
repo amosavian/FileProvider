@@ -29,7 +29,9 @@ open class CloudFileProvider: LocalFileProvider {
     /// Scope of container, indicates user can manipulate data/files or not.
     open fileprivate(set) var scope: UbiquitousScope
     
+    /// Set this property to ignore initiations asserting to be on secondary thread
     static open var asserting: Bool = true
+    
     /**
      Initializes the provider for the iCloud container associated with the specified identifier and 
      establishes access to that container.
@@ -71,13 +73,24 @@ open class CloudFileProvider: LocalFileProvider {
         try? fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
     
-    // FIXME: create runloop for dispatch_queue, start query on it
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter completionHandler: a block with result of directory entries or error.
+         `contents`: An array of `FileObject` identifying the the directory entries.
+         `error`: Error returned by system.
+     */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+        // FIXME: create runloop for dispatch_queue, start query on it
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemPathKey, pathURL.path)
+            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
             finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
@@ -123,16 +136,28 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
+    /// Please don't rely this function to get iCloud drive total and remaining capacity
     /// - Important: iCloud Storage size and free space is unavailable, it returns local space
     open override func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
         super.storageProperties(completionHandler: completionHandler)
     }
     
+    /**
+     Returns a `FileObject` containing the attributes of the item (file, directory, symlink, etc.) at the path in question via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter completionHandler: a block with result of directory entries or error.
+         `attributes`: A `FileObject` containing the attributes of the item.
+         `error`: Error returned by system.
+     */
     open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
             query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
+            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
             finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
@@ -172,36 +197,105 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
+    /**
+     Creates a new directory at the specified path asynchronously.
+     This will create any necessary intermediate directories.
+     
+     - Parameters:
+       - folder: Directory name.
+       - at: Parent path of new directory.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
+     */
     @discardableResult
     open override func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.create(folder: folderName, at: atPath, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Creates an new file with data passed to method asynchronously.
+     Returns error via completionHandler if file is already exists.
+     
+     - Parameters:
+       - file: New file name with extension separated by period.
+       - at: Parent path of new file.
+       - data: Data of new files. Pass nil or `Data()` to create empty file.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
+     */
     @discardableResult
     open override func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.create(file: fileName, at: atPath, contents: data, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Moves a file or directory from `path` to designated path asynchronously.
+     When you want move a file, destination path should also consists of file name.
+     Either a new name or the old one.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
+     */
     @discardableResult
     open override func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Copies a file or directory from `path` to designated path asynchronously.
+     When want copy a file, destination path should also consists of file name.
+     Either a new name or the old one.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - to: destination path of file or directory, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
+     */
     @discardableResult
     open override func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Removes the file or directory at the specified path.
+     
+     - Important: Due to a bug (race condition?) in Apple API, it takes about 3-5 seconds to update containing folder
+       list and triggering notification registered for directory while completion handler will run almost immediately.
+       It's your responsibility to workaourd this bug/feature and mark file as deleted in your software.
+     
+     - Parameters:
+       - path: file or directory path.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
+     
+     */
     @discardableResult
     open override func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.removeItem(path: path, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Uploads a file from local file url to designated path asynchronously.
+     Method will fail if source is not a local url with `file://` scheme.
+     
+     - Parameters:
+       - localFile: a file url to file.
+       - to: destination path of file, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // TODO: Make use of overwrite parameter
@@ -236,6 +330,16 @@ open class CloudFileProvider: LocalFileProvider {
         return CloudOperationHandle(operationType: opType, baseURL: self.baseURL)
     }
     
+    /**
+     Download a file from `path` to designated local file url asynchronously.
+     Method will fail if destination is not a local url with `file://` scheme.
+     
+     - Parameters:
+       - path: original file or directory path.
+       - toLocalURL: destination local url of file, including file/directory name.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
@@ -254,24 +358,71 @@ open class CloudFileProvider: LocalFileProvider {
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Retreives a `Data` object with the contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - completionHandler: a block with result of file contents or error.
+         `contents`: contents of file in a `Data` object.
+         `error`: Error returned by system.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         guard let r = super.contents(path: path, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Retreives a `Data` object with a portion contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - offset: First byte index which should be read. **Starts from 0.**
+       - length: Bytes count of data. Pass `-1` to read until the end of file.
+       - completionHandler: a block with result of file contents or error.
+         `contents`: contents of file in a `Data` object.
+         `error`: Error returned by system.
+     - Returns: An `OperationHandle` to get progress or cancel progress.
+     */
     @discardableResult
     open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         guard let r = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     
+     - Parameters:
+       - path: Path of target file.
+       - contents: Data to be written into file.
+       - overwrite: Destination file should be overwritten if file is already exists. Default is `false`.
+       - atomically: data will be written to a temporary file before writing to final location. Default is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
     @discardableResult
     open override func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: Simple string of file name to be search (for now).
+       - foundItemHandler: Block which is called when a file is found
+     - completionHandler: Block which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     */
     open override func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
@@ -284,6 +435,7 @@ open class CloudFileProvider: LocalFileProvider {
             if let foundItemHandler = foundItemHandler {
                 var updateObserver: NSObjectProtocol?
                 
+                // FIXME: Remove this section as it won't work as expected on iCloud
                 updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: query, queue: nil, using: { (notification) in
                     
                     query.disableUpdates()
@@ -353,11 +505,27 @@ open class CloudFileProvider: LocalFileProvider {
     
     fileprivate var monitors = [String: (NSMetadataQuery, NSObjectProtocol)]()
     
+    /**
+     Starts monitoring a path and its subpaths, including files and folders, for any change,
+     including copy, move/rename, content changes, etc.
+     To avoid thread congestion, `evetHandler` will be triggered with 0.2 seconds interval,
+     and has a 0.25 second delay, to ensure it's called after updates.
+     
+     - Note: this functionality is available only in `LocalFileProvider` and `CloudFileProvider`.
+     - Note: `eventHandler` is not called on main thread, for updating UI. dispatch routine to main thread.
+     - Important: `eventHandler` may be called if file is changed in recursive subpaths of registered path.
+     This may cause negative impact on performance if a root path is being monitored.
+     
+     - Parameters:
+       - path: path of directory.
+       - eventHandler: Block executed after change, on a secondary thread.
+     */
     open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let pathURL = self.url(of: path)
         let query = NSMetadataQuery()
         query.predicate = NSPredicate(format: "(%K BEGINSWITH %@)", NSMetadataItemPathKey, pathURL.path)
+        query.valueListAttributes = []
         query.searchScopes = [self.scope.rawValue]
         
         let updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: nil, using: { (notification) in
@@ -376,6 +544,9 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
+    /// Stops monitoring the path.
+    ///
+    /// - Parameter path: path of directory.
     open override func unregisterNotifcation(path: String) {
         guard let (query, observer) = monitors[path] else {
             return
@@ -386,6 +557,10 @@ open class CloudFileProvider: LocalFileProvider {
         monitors.removeValue(forKey: path)
     }
     
+    /// Investigate either the path is registered for change notification or not.
+    ///
+    /// - Parameter path: path of directory.
+    /// - Returns: Directory is being monitored or not.
     open override func isRegisteredForNotification(path: String) -> Bool {
         return monitors[path] != nil
     }
@@ -400,7 +575,7 @@ open class CloudFileProvider: LocalFileProvider {
     }
     
     fileprivate func mapFileObject(attributes attribs: [String: Any]) -> FileObject? {
-        guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, let name = attribs[NSMetadataItemFSNameKey] as? String else {
+        guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardizedFileURL, let name = attribs[NSMetadataItemFSNameKey] as? String else {
             return nil
         }
         
