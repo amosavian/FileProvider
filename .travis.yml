@@ -77,4 +77,4 @@ deploy:
   on:
     repo: amosavian/$PROJECTNAME
     tags: true
-    comdition: "$CARTHAGEDEPLOY = YES"
+    condition: "$CARTHAGEDEPLOY = YES"

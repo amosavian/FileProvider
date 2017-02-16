@@ -42,7 +42,7 @@ All functions are async calls and it wont block your main thread.
 
 ## Requirements
 
-- **Swift 3**
+- **Swift 3.0 +**
 - iOS 8.0 , OSX 10.10
 - XCode 8.0
 
@@ -93,7 +93,7 @@ Then you can do either:
 
 * Copy Source folder to your project and Voila!
 
-* Drop FileProvider.xcodeproj to you Xcode workspace and add the framework to your Embeded Binaries in target.
+* Drop `FileProvider.xcodeproj` to you Xcode workspace and add the framework to your Embeded Binaries in target.
 
 ## Usage
 
@@ -118,7 +118,7 @@ Also for using group shared container:
 
 ```swift
 let documentsProvider = LocalFileProvider(sharedContainerId: "group.yourcompany.appContainer")
-// Replace your group identifier with string above
+// Replace your group identifier
 ```
 
 You can't change the base url later. and all paths are related to this base url by default.
@@ -438,6 +438,12 @@ if documentsProvider..propertiesOfFile(path: file.path, completionHandler: { (pr
 ## Contribute
 
 We would love for you to contribute to **FileProvider**, check the `LICENSE` file for more info.
+
+Things to do:
+
+- [ ] Implement Test-case (XCTest)
+- [ ] Add Sample project for iOS
+- [ ] Add Sample project for macOS
 
 ## Projects in use
 
