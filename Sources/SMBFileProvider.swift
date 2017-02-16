@@ -126,7 +126,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
 }
 
 // MARK: basic CIFS interactivity
-public enum SMBFileProviderError: Int, Error, CustomStringConvertible {
+enum SMBFileProviderError: Int, Error, CustomStringConvertible {
     case badHeader
     case incompatibleHeader
     case incorrectParamsLength

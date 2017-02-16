@@ -14,7 +14,7 @@ private var lasttaskIdAssociated = 1_000_000_000
 /// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
 /// while it will fallback to NSURLSessionStreamTask in iOS 9.
 @objc
-open class FPSStreamTask: URLSessionTask, StreamDelegate {
+internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     
@@ -449,23 +449,23 @@ open class FPSStreamTask: URLSessionTask, StreamDelegate {
     }
 }
 
-extension URLSession {
+internal extension URLSession {
     /* Creates a bidirectional stream task to a given host and port.
      */
-    public func fpstreamTaskWithHostName(_ hostname: String, port: Int) -> FPSStreamTask {
+    func fpstreamTaskWithHostName(_ hostname: String, port: Int) -> FPSStreamTask {
         return FPSStreamTask(session: self, host: hostname, port: port)
     }
     
     /* Creates a bidirectional stream task with an NSNetService to identify the endpoint.
      * The NSNetService will be resolved before any IO completes.
      */
-    public func fpstreamTaskWithNetService(_ service: NetService) -> FPSStreamTask {
+    func fpstreamTaskWithNetService(_ service: NetService) -> FPSStreamTask {
         return fpstreamTaskWithNetService(service)
     }
 }
 
 @objc
-public protocol FPSStreamDelegate : URLSessionTaskDelegate {
+internal protocol FPSStreamDelegate : URLSessionTaskDelegate {
     
     
     /* Indiciates that the read side of a connection has been closed.  Any

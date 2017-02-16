@@ -8,7 +8,15 @@
 
 import Foundation
 
+/**
+ Allows accessing to iCloud Drive stored files. Determine scope when initializing,to either access 
+ to public documents folder or files stored as data.
+ 
+ To setup a functional iCloud container, please
+ [read this page](https://medium.com/ios-os-x-development/icloud-drive-documents-1a46b5706fe1).
+ */
 open class CloudFileProvider: LocalFileProvider {
+    /// An string to identify type of provider.
     open override class var type: String { return "iCloudDrive" }
     
     /// Forces file operations to use `NSFileCoordinating`,

@@ -10,6 +10,12 @@
 import Foundation
 import CoreGraphics
 
+/**
+ Allows accessing to Dropbox stored files. This provider doesn't cache or save files internally, however you can
+ set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
+ 
+ - Note: Uploading files and data are limited to 150MB, for now.
+ */
 open class DropboxFileProvider: FileProviderBasicRemote {
     open class var type: String { return "DropBox" }
     open let isPathRelative: Bool
@@ -299,6 +305,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         })
     }
     
+    /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is two ways to monitor folders changing in Dropbox. Either using webooks
          * which means you have to implement a server to translate it to push notifications
@@ -311,7 +318,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
     fileprivate func unregisterNotifcation(path: String) {
         NotImplemented()
     }
-    
+    */
     // TODO: Implement /get_account & /get_current_account
 }
 

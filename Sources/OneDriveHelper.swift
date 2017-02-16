@@ -8,12 +8,14 @@
 
 import Foundation
 
+/// Error returned by OneDrive server when trying to access or do operations on a file or folder.
 public struct FileProviderOneDriveError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
     public let errorDescription: String?
 }
 
+/// Containts path, url and attributes of a OneDrive file or resource.
 public final class OneDriveFileObject: FileObject {
     internal init(baseURL: URL?, name: String, path: String) {
         var rpath = path
@@ -42,6 +44,9 @@ public final class OneDriveFileObject: FileObject {
         self.entryTag = json["eTag"] as? String
     }
     
+    /// The document identifier is a value assigned by the OneDrive to a file.
+    /// This value is used to identify the document regardless of where it is moved on a volume.
+    /// The identifier persists across system restarts.
     open internal(set) var id: String? {
         get {
             return allValues[.documentIdentifierKey] as? String
@@ -51,6 +56,7 @@ public final class OneDriveFileObject: FileObject {
         }
     }
     
+    /// MIME type of file contents returned by OneDrive server.
     open internal(set) var contentType: String {
         get {
             return allValues[.mimeType] as? String ?? ""
@@ -60,6 +66,7 @@ public final class OneDriveFileObject: FileObject {
         }
     }
     
+    /// HTTP E-Tag, can be used to mark changed files.
     open internal(set) var entryTag: String? {
         get {
             return allValues[.entryTag] as? String

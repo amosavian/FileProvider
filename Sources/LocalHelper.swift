@@ -8,15 +8,17 @@
 
 import Foundation
 
+/// Containts path, url and attributes of a local file or resource.
 public final class LocalFileObject: FileObject {
     internal override init(url: URL, name: String, path: String) {
         super.init(url: url, name: name, path: path)
     }
     
+    /// Initiates a `LocalFileObject` with attributes of file in path.
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
         var fileURL: URL?
         var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored)
-        if path.hasPrefix("/") {
+        if relativeURL != nil && rpath.hasPrefix("/") {
             rpath.remove(at: rpath.startIndex)
         }
         if rpath.isEmpty {
@@ -35,6 +37,7 @@ public final class LocalFileObject: FileObject {
         }
     }
     
+    /// Initiates a `LocalFileObject` with attributes of file in url.
     public convenience init?(fileWithURL fileURL: URL) {
         do {
             let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey, .documentIdentifierKey])
@@ -49,6 +52,7 @@ public final class LocalFileObject: FileObject {
         }
     }
     
+    /// The total size allocated on disk for the file
     open internal(set) var allocatedSize: Int64 {
         get {
             return allValues[.fileAllocatedSizeKey] as? Int64 ?? 0
@@ -58,6 +62,9 @@ public final class LocalFileObject: FileObject {
         }
     }
     
+    /// The document identifier is a value assigned by the kernel/system to a file or directory. 
+    /// This value is used to identify the document regardless of where it is moved on a volume. 
+    /// The identifier persists across system restarts.
     open internal(set) var id: Int? {
         get {
             return allValues[.documentIdentifierKey] as? Int
@@ -67,6 +74,8 @@ public final class LocalFileObject: FileObject {
         }
     }
     
+    /// The revision of file, which changes when a file contents are modified. 
+    /// Changes to attributes or other file metadata do not change the identifier.
     open var rev: String? {
         get {
             let data = allValues[.generationIdentifierKey] as? Data
@@ -207,6 +216,7 @@ internal class LocalFileProviderManagerDelegate: NSObject, FileManagerDelegate {
     }
 }
 
+/// Local operation handling is limited. Please don't use as much as possible.
 open class LocalOperationHandle: OperationHandle {
     public let baseURL: URL
     public let operationType: FileOperationType

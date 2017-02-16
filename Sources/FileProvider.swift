@@ -15,8 +15,10 @@ import Cocoa
 public typealias ImageClass = NSImage
 #endif
 
+/// Completion handler type with an error argument
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
+/// This protocol defines FileProvider neccesary functions and properties to connect and get contents list
 public protocol FileProviderBasic: class {
     /// An string to identify type of provider.
     static var type: String { get }
@@ -114,6 +116,7 @@ extension FileProviderBasic {
     }
 }
 
+/// Checking equality of two file provider, regardless of current path queues and delegates.
 public func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
     if lhs === rhs { return true }
     if type(of: lhs) != type(of: rhs) {
@@ -125,6 +128,7 @@ public func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
 /// Cancels all active underlying tasks
 public var fileProviderCancelTasksOnInvalidating = true
 
+/// Extending `FileProviderBasic` for web-based file providers
 public protocol FileProviderBasicRemote: FileProviderBasic {
     /// Underlying URLSession instance used for HTTP/S requests
     var session: URLSession { get }
@@ -190,6 +194,7 @@ internal extension FileProviderBasicRemote {
     }
 }
 
+/// Defines methods for common file operaions including create, copy/move and delete
 public protocol FileProviderOperations: FileProviderBasic {
     /// Delgate for managing operations involving the copying, moving, linking, or removal of files and directories. When you use an FileManager object to initiate a copy, move, link, or remove operation, the file provider asks its delegate whether the operation should begin at all and whether it should proceed when an error occurs.
     var fileOperationDelegate : FileOperationDelegate? { get set }
@@ -350,6 +355,7 @@ extension FileProviderOperations {
     }
 }
 
+/// Defines method for fetching and modifying file contents
 public protocol FileProviderReadWrite: FileProviderBasic {
     /**
      Retreives a `Data` object with the contents of the file asynchronously vis contents argument of completion handler.
@@ -474,6 +480,7 @@ extension FileProviderReadWrite {
     }
 }
 
+/// Allows a file provider to notify changes occured
 public protocol FileProviderMonitor: FileProviderBasic {
     
     /**
@@ -505,6 +512,7 @@ public protocol FileProviderMonitor: FileProviderBasic {
     func isRegisteredForNotification(path: String) -> Bool
 }
 
+/// Allows undo file operations done by provider
 public protocol FileProvideUndoable: FileProviderOperations {
     /// To initialize undo manager either call `setupUndoManager()` or set it manually.
     ///
@@ -554,6 +562,7 @@ public extension FileProvideUndoable {
     }
 }
 
+/// Defines protocol for provider allows all common operations.
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 
@@ -658,7 +667,7 @@ extension FileProviderBasic {
             }
             group.leave()
         }
-        _ = group.wait(timeout: DispatchTime.now() + 0.5)
+        _ = group.wait(timeout: DispatchTime.now() + 5)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
         return (dirPath as NSString).appendingPathComponent(finalFile)
     }
@@ -680,6 +689,7 @@ extension FileProviderBasic {
     }
 }
 
+/// Define methods to get preview and thumbnail for files or folders
 public protocol ExtendedFileProvider: FileProviderBasic {
     /// Returuns true if thumbnail preview is supported by provider and file type accordingly.
     ///
@@ -923,7 +933,7 @@ public enum FileOperationType: CustomStringConvertible {
     }
 }
 
-
+/// Allows to get progress or cancel an in-progress operation, useful for remote providers
 public protocol OperationHandle {
     /// Operation supposed to be done on files. Contains file paths as associated value.
     var operationType: FileOperationType { get }
@@ -952,6 +962,9 @@ public extension OperationHandle {
     }
 }
 
+/// Delegate methods for reporting provider's operation result and progress, when it's ready to update
+/// user interface.
+/// All methods are called in main thread to avoids UI bugs.
 public protocol FileProviderDelegate: class {
     /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation finished with success.
     /// This method is called in main thread to avoids UI bugs.
@@ -965,6 +978,7 @@ public protocol FileProviderDelegate: class {
     func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperationType, progress: Float)
 }
 
+/// The `FileOperationDelegate` protocol defines methods for managing operations involving the copying, moving, linking, or removal of files and directories. When you use an `FileProvider` object to initiate a copy, move, link, or remove operation, the file provider asks its delegate whether the operation should begin at all and whether it should proceed when an error occurs.
 public protocol FileOperationDelegate: class {
     
     /// fileProvider(_:shouldOperate:) gives the delegate an opportunity to filter the file operation. Returning true from this method will allow the copy to happen. Returning false from this method causes the item in question to be skipped. If the item skipped was a directory, no children of that directory will be subject of the operation, nor will the delegate be notified of those children.
@@ -981,6 +995,7 @@ internal class Weak<T: AnyObject> {
     }
 }
 
+/// For internal use in `FileProvider` framework
 public protocol FoundationErrorEnum {
     init? (rawValue: Int)
     var rawValue: Int { get }

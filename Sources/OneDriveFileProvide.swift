@@ -10,6 +10,13 @@
 import Foundation
 import CoreGraphics
 
+/**
+ Allows accessing to OneDrive stored files, either hosted on Microsoft servers or business coprporate one.
+ This provider doesn't cache or save files internally, however you can set `useCache` and `cache` properties
+ to use Foundation `NSURLCache` system.
+ 
+ - Note: Uploading files and data are limited to 100MB, for now.
+ */
 open class OneDriveFileProvider: FileProviderBasicRemote {
     open class var type: String { return "OneDrive" }
     open let isPathRelative: Bool

@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// Allows to get progress or cancel an in-progress operation, for remote -URLSession based- providers.
 open class RemoteOperationHandle: OperationHandle {
     
     internal var tasks: [Weak<URLSessionTask>]
@@ -61,9 +62,14 @@ open class RemoteOperationHandle: OperationHandle {
     }
 }
 
+/// A protocol defines properties for errors returned by HTTP/S based providers.
+/// Including Dropbox, OneDrive and WebDAV.
 public protocol FileProviderHTTPError: Error, CustomStringConvertible {
+    /// HTTP status code returned for error by server.
     var code: FileProviderHTTPErrorCode { get }
+    /// Path of file/folder casued that error
     var path: String { get }
+    /// Contents returned by server as error description
     var errorDescription: String? { get }
     
     var description: String { get }
@@ -152,67 +158,129 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     }
 }
 
-public enum FileProviderHTTPErrorCode: Int {
+/// HTTP status codes as an enum.
+public enum FileProviderHTTPErrorCode: Int, CustomStringConvertible {
+    /// `Continue` informational status with HTTP code 100
     case `continue` = 100
+    /// `Switching Protocols` informational status with HTTP code 101
     case switchingProtocols = 101
+    /// `Processing` informational status with HTTP code 102
     case processing = 102
+    /// `OK` success status with HTTP code 200
     case ok = 200
+    /// `Created` success status with HTTP code 201
     case created = 201
+    /// `Accepted` success status with HTTP code 202
     case accepted = 202
+    /// `Non Authoritative Information` success status with HTTP code 203
     case nonAuthoritativeInformation = 203
+    /// `No Content` success status with HTTP code 204
     case noContent = 204
+    /// `ResetcContent` success status with HTTP code 205
     case resetContent = 205
+    /// `Partial Content` success status with HTTP code 206
     case partialContent = 206
+    /// `Multi Status` success status with HTTP code 207
     case multiStatus = 207
+    /// `Already Reported` success status with HTTP code 208
     case alreadyReported = 208
+    /// `IM Used` success status with HTTP code 226
     case imUsed = 226
+    /// `Multiple Choices` redirection status with HTTP code 300
     case multipleChoices = 300
+    /// `Moved Permanently` redirection status with HTTP code 301
     case movedPermanently = 301
+    /// `Found` redirection status with HTTP code 302
     case found = 302
+    /// `See Other` redirection status with HTTP code 303
     case seeOther = 303
+    /// `Not Modified` redirection status with HTTP code 304
     case notModified = 304
+    /// `Use Proxy` redirection status with HTTP code 305
     case useProxy = 305
+    /// `Switch Proxy` redirection status with HTTP code 306
     case switchProxy = 306
+    /// `Temporary Redirect` redirection status with HTTP code 307
     case temporaryRedirect = 307
+    /// `Permanent Redirect` redirection status with HTTP code 308
     case permanentRedirect = 308
+    /// `Bad Request` client error status with HTTP code 400
     case badRequest = 400
+    /// `Unauthorized` client error status with HTTP code 401
     case unauthorized = 401
+    /// `Payment Required` client error status with HTTP code 402
     case paymentRequired = 402
+    /// `Forbidden` client error status with HTTP code 403
     case forbidden = 403
+    /// `Not Found` client error status with HTTP code 404
     case notFound = 404
+    /// `Method Not Allowed` client error status with HTTP code 405
     case methodNotAllowed = 405
+    /// `Not Acceptable` client error status with HTTP code 406
     case notAcceptable = 406
+    /// `Proxy Authentication Required` client error status with HTTP code 407
     case proxyAuthenticationRequired = 407
+    /// `Request Timeout` client error status with HTTP code 408
     case requestTimeout = 408
+    /// `Conflict` client error status with HTTP code 409
     case conflict = 409
+    /// `Gone` client error status with HTTP code 410
     case gone = 410
+    /// `Length Required` client error status with HTTP code 411
     case lengthRequired = 411
+    /// `Precondition Failed` client error status with HTTP code 412
     case preconditionFailed = 412
+    /// `Payload Too Large` client error status with HTTP code 413
     case payloadTooLarge = 413
+    /// `URI Too Long` client error status with HTTP code 414
     case uriTooLong = 414
+    /// `Unsupported Media Type` status with HTTP code 415
     case unsupportedMediaType = 415
+    /// `Range Not Satisfiable` client error status with HTTP code 416
     case rangeNotSatisfiable = 416
+    /// `Expectation Failed` client error status with HTTP code 417
     case expectationFailed = 417
+    /// `Misdirected Request` client error status with HTTP code 421
     case misdirectedRequest = 421
+    /// `Unprocessable Entity` client error status with HTTP code 422
     case unprocessableEntity = 422
+    /// `Locked` client error status with HTTP code 423
     case locked = 423
+    /// `Failed Dependency` client error status with HTTP code 424
     case failedDependency = 424
+    /// `Unordered Collection` client error status with HTTP code 425
     case unorderedCollection = 425
+    /// `Upgrade Required` client error status with HTTP code 426
     case upgradeRequired = 426
+    /// `Precondition Required` client error status with HTTP code 428
     case preconditionRequired = 428
+    /// `Too Many Requests` client error status with HTTP code 429
     case tooManyRequests = 429
+    /// `Request Header Fields Too Large` client error status with HTTP code 431
     case requestHeaderFieldsTooLarge = 431
+    /// `Unavailable For Legal Reasons` client error status with HTTP code 451
     case unavailableForLegalReasons = 451
+    /// `Internal Server Error` server error status with HTTP code 500
     case internalServerError = 500
+    /// `Bad Gateway` server error status with HTTP code 502
     case badGateway = 502
+    /// `Service Unavailable` server error status with HTTP code 503
     case serviceUnavailable = 503
+    /// `Gateway Timeout` server error status with HTTP code 504
     case gatewayTimeout = 504
+    /// `HTTP Version Not Supported` server error status with HTTP code 505
     case httpVersionNotSupported = 505
-    case variantlsoNegotiates = 506
+    /// `Variant Also Negotiates` server error status with HTTP code 506
+    case variantAlsoNegotiates = 506
+    /// `Insufficient Storage` server error status with HTTP code 507
     case insufficientStorage = 507
+    /// `Loop Detected` server error status with HTTP code 508
     case loopDetected = 508
+    /// `Bandwidth Limit Exceeded` server error status with HTTP code 509
     case bandwidthLimitExceeded = 509
+    /// `Not Extended` server error status with HTTP code 510
     case notExtended = 510
+    /// `Network Authentication Required` server error status with HTTP code 511
     case networkAuthenticationRequired = 511
     
     fileprivate static let status1xx: [Int: String] = [100: "Continue", 101: "Switching Protocols", 102: "Processing"]
@@ -233,6 +301,7 @@ public enum FileProviderHTTPErrorCode: Int {
         }
     }
     
+    /// Description of status based on first digit which indicated fail or success.
     public var typeDescription: String {
         switch self.rawValue {
         case 100...199: return "Informational"

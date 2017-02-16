@@ -8,9 +8,17 @@
 
 import Foundation
 
-/// Because this class uses NSURLSession, it's necessary to disable App Transport Security
-/// in case of using this class with unencrypted HTTP connection.
-
+/**
+ Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
+ set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
+ 
+ WebDAV system supported by many cloud services including [Box.net](https://www.box.com/home) 
+ and [Yandex disk](https://disk.yandex.com).
+ 
+ - Important: Because this class uses `URLSession`, it's necessary to disable App Transport Security
+     in case of using this class with unencrypted HTTP connection.
+     [Read this to know how](http://iosdevtips.co/post/121756573323/ios-9-xcode-7-http-connect-server-error).
+*/
 open class WebDAVFileProvider: FileProviderBasicRemote {
     open class var type: String { return "WebDAV" }
     open let isPathRelative: Bool
@@ -441,6 +449,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         })
     }
     
+    /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is no unified api for monitoring WebDAV server content change/update
          * Microsoft Exchange uses SUBSCRIBE method, Apple uses push notification system.
@@ -452,7 +461,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     fileprivate func unregisterNotifcation(path: String) {
         NotImplemented()
-    }
+    }*/
     // TODO: implements methods for lock mechanism
 }
 
@@ -580,6 +589,7 @@ struct DavResponse {
     }
 }
 
+/// Containts path, url and attributes of a WebDAV file or resource.
 public final class WebDavFileObject: FileObject {
     internal init(_ davResponse: DavResponse) {
         let href = davResponse.href
@@ -596,7 +606,7 @@ public final class WebDavFileObject: FileObject {
         self.entryTag = davResponse.prop["getetag"]
     }
     
-    /// MIME type of the file
+    /// MIME type of the file.
     open internal(set) var contentType: String {
         get {
             return allValues[.mimeType] as? String ?? ""
@@ -606,7 +616,7 @@ public final class WebDavFileObject: FileObject {
         }
     }
     
-    /// HTTP E-Tag, can be used to mark changed files
+    /// HTTP E-Tag, can be used to mark changed files.
     open internal(set) var entryTag: String? {
         get {
             return allValues[.entryTag] as? String
@@ -617,9 +627,11 @@ public final class WebDavFileObject: FileObject {
     }
 }
 
+/// Error returned by WebDAV server when trying to access or do operations on a file or folder.
 public struct FileProviderWebDavError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
     public let errorDescription: String?
+    /// URL of resource caused error.
     public let url: URL
 }

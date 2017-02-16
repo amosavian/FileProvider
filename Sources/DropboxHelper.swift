@@ -8,12 +8,14 @@
 
 import Foundation
 
+/// Error returned by Dropbox server when trying to access or do operations on a file or folder.
 public struct FileProviderDropboxError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
     public let errorDescription: String?
 }
 
+/// Containts path, url and attributes of a Dropbox file or resource.
 public final class DropboxFileObject: FileObject {
     internal init(name: String, path: String) {
         super.init(url: URL(string: path) ?? URL(string: "/")!, name: name, path: path)
@@ -37,6 +39,7 @@ public final class DropboxFileObject: FileObject {
         self.rev = json["rev"] as? String
     }
     
+    /// The time contents of file has been modified on server, returns nil if not set
     open internal(set) var serverTime: Date? {
         get {
             return allValues[.serverDate] as? Date
@@ -46,6 +49,9 @@ public final class DropboxFileObject: FileObject {
         }
     }
     
+    /// The document identifier is a value assigned by the Dropbox to a file.
+    /// This value is used to identify the document regardless of where it is moved on a volume.
+    /// The identifier persists across system restarts.
     open internal(set) var id: String? {
         get {
             return allValues[.documentIdentifierKey] as? String
@@ -55,6 +61,8 @@ public final class DropboxFileObject: FileObject {
         }
     }
     
+    /// The revision of file, which changes when a file contents are modified.
+    /// Changes to attributes or other file metadata do not change the identifier.
     open internal(set) var rev: String? {
         get {
             return allValues[.generationIdentifierKey] as? String

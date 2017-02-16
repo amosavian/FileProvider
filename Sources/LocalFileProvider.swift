@@ -8,6 +8,12 @@
 
 import Foundation
 
+/**
+ This provider class allows interacting with local files placed in user disk. It also allows an
+ easy way to use `NSFileCoordintaing` to coordinate read and write when neccessary.
+ 
+ it uses `FileManager` foundation class with some additions like searching and reading a portion of file.
+ */
 open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
     open class var type: String { return "Local" }
     open var isPathRelative: Bool
