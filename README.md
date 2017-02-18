@@ -158,7 +158,7 @@ override func viewDidLoad() {
 	documentsProvider.delegate = self as FileProviderDelegate
 }
 	
-func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
+func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperationType) {
 	switch operation {
 	case .copy(source: let source, destination: let dest):
 		print("\(source) copied to \(dest).")
@@ -169,7 +169,7 @@ func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: File
 	}
 }
 
-func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperation) {
+func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType) {
     switch operation {
 	case .copy(source: let source, destination: let dest):
 		print("copy of \(source) failed.")
@@ -180,7 +180,7 @@ func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileO
 	}
 }
 	
-func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperation, progress: Float) {
+func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperationType, progress: Float) {
 	switch operation {
 	case .copy(source: let source, destination: let dest):
 		print("Copy\(source) to \(dest): \(progress * 100) completed.")
