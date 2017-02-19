@@ -616,7 +616,6 @@ open class CloudFileProvider: LocalFileProvider {
         copy?.currentPath = self.currentPath
         copy?.delegate = self.delegate
         copy?.fileOperationDelegate = self.fileOperationDelegate
-        copy?.isPathRelative = self.isPathRelative
         return copy as Any
     }
     

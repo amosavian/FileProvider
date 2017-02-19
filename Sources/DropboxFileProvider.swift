@@ -18,7 +18,6 @@ import CoreGraphics
  */
 open class DropboxFileProvider: FileProviderBasicRemote {
     open class var type: String { return "DropBox" }
-    open let isPathRelative: Bool
     open let baseURL: URL?
     open var currentPath: String
     
@@ -65,7 +64,6 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     */
     public init(credential: URLCredential?, cache: URLCache? = nil) {
         self.baseURL = nil
-        self.isPathRelative = true
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true

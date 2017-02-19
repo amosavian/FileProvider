@@ -19,7 +19,6 @@ import CoreGraphics
  */
 open class OneDriveFileProvider: FileProviderBasicRemote {
     open class var type: String { return "OneDrive" }
-    open let isPathRelative: Bool
     open let baseURL: URL?
     /// OneDrive server url, equals with unwrapped `baseURL`
     open var serverURL: URL { return baseURL! }
@@ -77,7 +76,6 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         let baseURL = serverURL ?? URL(string: "https://api.onedrive.com/")!
         self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
         self.drive = drive
-        self.isPathRelative = true
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true

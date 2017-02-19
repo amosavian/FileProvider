@@ -101,13 +101,16 @@ internal final class LocalFolderMonitor {
         // We have a 0.2 second delay to ensure we wont call handler 1000s times when there is
         // a huge file operation. This ensures app will work smoothly while this 250 milisec won't
         // affect user experince much
-        let main_handler: ()->Void = {
+        let main_handler: ()->Void = { [weak self] in
+            guard let `self` = self else { return }
             if Date().timeIntervalSinceReferenceDate < self.monitoredTime + 0.2 {
                 return
             }
             self.monitoredTime = Date().timeIntervalSinceReferenceDate
+            self.source.suspend()
             DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.25, execute: {
                 handler()
+                self.source.resume()
             })
         }
         source.setEventHandler(handler: main_handler)

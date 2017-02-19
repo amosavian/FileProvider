@@ -26,9 +26,6 @@ public protocol FileProviderBasic: class {
     /// An string to identify type of provider.
     var type: String { get }
     
-    /// The paths in arguments should resolved against base url.
-    var isPathRelative: Bool { get }
-    
     /// The url of which paths should resolve against.
     var baseURL: URL? { get }
     
@@ -116,6 +113,8 @@ public protocol FileProviderBasic: class {
      
      - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
      
+     - Important: A file name criteria should be provided for Dropbox.
+     
      - Parameters:
        - path: location of directory to start search
        - recursive: Searching subdirectories of path
@@ -138,6 +137,11 @@ public protocol FileProviderBasic: class {
 }
 
 extension FileProviderBasic {
+    /// **DEPRECATED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
+    /// To simulate `false` value, assign `URL(fileURLWithPath: "/") to `baseURL`.
+    @available(*, deprecated, message: "Redundant property, now is always true.")
+    var isPathRelative: Bool { return true }
+    
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         let predicate = NSPredicate(format: "name CONTAINS[c] %@", query)
         self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
@@ -210,7 +214,7 @@ public func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
     if type(of: lhs) != type(of: rhs) {
         return false
     }
-    return lhs.type == rhs.type && lhs.baseURL == rhs.baseURL && lhs.isPathRelative == rhs.isPathRelative && lhs.credential == rhs.credential
+    return lhs.type == rhs.type && lhs.baseURL == rhs.baseURL && lhs.credential == rhs.credential
 }
 
 /// Cancels all active underlying tasks
@@ -677,7 +681,7 @@ extension FileProviderBasic {
         }
         rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
         if let baseURL = baseURL {
-            if isPathRelative && rpath.hasPrefix("/") {
+            if rpath.hasPrefix("/") {
                 rpath.remove(at: rpath.startIndex)
             }
             return URL(string: rpath, relativeTo: baseURL) ?? baseURL

@@ -10,7 +10,6 @@ import Foundation
 
 class SMBFileProvider: FileProvider, FileProviderMonitor {
     open class var type: String { return "SMB" }
-    open var isPathRelative: Bool = true
     open var baseURL: URL?
     open var currentPath: String = ""
     open var dispatch_queue: DispatchQueue

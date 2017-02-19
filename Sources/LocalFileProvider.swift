@@ -16,7 +16,6 @@ import Foundation
  */
 open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
     open class var type: String { return "Local" }
-    open var isPathRelative: Bool
     open fileprivate(set) var baseURL: URL?
     open var currentPath: String
     open var dispatch_queue: DispatchQueue
@@ -100,7 +99,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             fatalError("Cannot initialize a Local provider from remote URL.")
         }
         self.baseURL = baseURL
-        self.isPathRelative = true
         self.currentPath = ""
         self.credential = nil
         self.isCoorinating = false
@@ -505,7 +503,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func copy(with zone: NSZone? = nil) -> Any {
         let copy = LocalFileProvider(baseURL: self.baseURL!)
         copy.currentPath = self.currentPath
-        copy.isPathRelative = self.isPathRelative
         copy.undoManager = self.undoManager
         copy.isCoorinating = self.isCoorinating
         copy.delegate = self.delegate

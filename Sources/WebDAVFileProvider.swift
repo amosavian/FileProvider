@@ -21,7 +21,6 @@ import Foundation
 */
 open class WebDAVFileProvider: FileProviderBasicRemote {
     open class var type: String { return "WebDAV" }
-    open let isPathRelative: Bool
     open let baseURL: URL?
     open var currentPath: String
     
@@ -66,7 +65,6 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
             return nil
         }
         self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
-        self.isPathRelative = true
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
