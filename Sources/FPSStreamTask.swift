@@ -13,7 +13,6 @@ private var lasttaskIdAssociated = 1_000_000_000
 
 /// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
 /// while it will fallback to NSURLSessionStreamTask in iOS 9.
-@objc
 internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?

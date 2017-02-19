@@ -13,7 +13,7 @@ import Foundation
  set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
  
  WebDAV system supported by many cloud services including [Box.net](https://www.box.com/home) 
- and [Yandex disk](https://disk.yandex.com).
+ and [Yandex disk](https://disk.yandex.com) and [ownCloud](https://owncloud.org).
  
  - Important: Because this class uses `URLSession`, it's necessary to disable App Transport Security
      in case of using this class with unencrypted HTTP connection.
@@ -59,7 +59,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
      - Parameters:
        - baseURL: Location of WebDAV server.
        - credential: An `URLCredential` object with `user` and `password`.
-       - cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
+       - cache: A URLCache to cache downloaded files and contents.
     */
     public init? (baseURL: URL, credential: URLCredential?, cache: URLCache? = nil) {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
@@ -164,6 +164,38 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+        let url = self.url(of: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PROPFIND"
+        //request.setValue("1", forHTTPHeaderField: "Depth")
+        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
+        runDataTask(with: request, completionHandler: { (data, response, error) in
+            // FIXME: paginating results
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+            }
+            if let data = data {
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+                var fileObjects = [WebDavFileObject]()
+                for attr in xresponse {
+                    let fileObject = WebDavFileObject(attr)
+                    if !query.evaluate(with: fileObject.mapPredicate()) {
+                        continue
+                    }
+                    
+                    fileObjects.append(fileObject)
+                    foundItemHandler?(fileObject)
+                }
+                completionHandler(fileObjects, responseError ?? error)
+                return
+            }
+            completionHandler([], responseError ?? error)
+        })
+    }
+    
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
@@ -182,7 +214,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
 
 extension WebDAVFileProvider: FileProviderOperations {
     @discardableResult
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -204,7 +236,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.create(path: (path as NSString).appendingPathComponent(fileName))
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -226,7 +258,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.move(source: path, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -235,7 +267,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -244,7 +276,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.remove(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -299,7 +331,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -324,7 +356,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    public func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -355,7 +387,7 @@ extension WebDAVFileProvider: FileProviderOperations {
 
 extension WebDAVFileProvider: FileProviderReadWrite {
     @discardableResult
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -384,7 +416,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
     }
     
     @discardableResult
-    public func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -415,38 +447,6 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         task.taskDescription = opType.json
         task.resume()
         return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        let url = self.url(of: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "PROPFIND"
-        //request.setValue("1", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
-        runDataTask(with: request, completionHandler: { (data, response, error) in
-            // FIXME: paginating results
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
-            }
-            if let data = data {
-                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                var fileObjects = [WebDavFileObject]()
-                for attr in xresponse {
-                    let path = attr.href.path
-                    if !((path as NSString).lastPathComponent.contains(query)) {
-                        continue
-                    }
-                    let fileObject = WebDavFileObject(attr)
-                    fileObjects.append(fileObject)
-                    foundItemHandler?(fileObject)
-                }
-                completionHandler(fileObjects, responseError ?? error)
-                return
-            }
-            completionHandler([], responseError ?? error)
-        })
     }
     
     /*

@@ -61,7 +61,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
      The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
      
      - Parameter credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
-     - Parameter cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
+     - Parameter cache: A URLCache to cache downloaded files and contents.
     */
     public init(credential: URLCredential?, cache: URLCache? = nil) {
         self.baseURL = nil
@@ -135,6 +135,19 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+        var foundFiles = [DropboxFileObject]()
+        guard let queryStr = self.findNameQuery(query, key: "name") as? String else { return }
+        search(path, query: queryStr, foundItem: { (file) in
+            if query.evaluate(with: file.mapPredicate()) {
+                foundFiles.append(file)
+                foundItemHandler?(file)
+            }
+        }, completionHandler: { (error) in
+            completionHandler(foundFiles, error)
+        })
+    }
+    
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         self.storageProperties { total, _ in
             completionHandler(total > 0)
@@ -145,25 +158,25 @@ open class DropboxFileProvider: FileProviderBasicRemote {
 }
 
 extension DropboxFileProvider: FileProviderOperations {
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    public func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let filePath = (path as NSString).appendingPathComponent(fileName)
         return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
-    public func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
@@ -211,7 +224,7 @@ extension DropboxFileProvider: FileProviderOperations {
         return RemoteOperationHandle(operationType: operation, tasks: [task])
     }
     
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -219,7 +232,7 @@ extension DropboxFileProvider: FileProviderOperations {
         return upload_simple(toPath, localFile: localFile, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -253,7 +266,7 @@ extension DropboxFileProvider: FileProviderOperations {
 }
 
 extension DropboxFileProvider: FileProviderReadWrite {
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -293,16 +306,6 @@ extension DropboxFileProvider: FileProviderReadWrite {
         }
         // FIXME: remove 150MB restriction
         return upload_simple(path, data: data, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
-    }
-    
-    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        var foundFiles = [DropboxFileObject]()
-        search(path, query: query, foundItem: { (file) in
-            foundFiles.append(file)
-            foundItemHandler?(file)
-            }, completionHandler: { (error) in
-                completionHandler(foundFiles, error)
-        })
     }
     
     /*
@@ -346,7 +349,7 @@ extension DropboxFileProvider {
      
      - Parameters:
        - to: path of file, including file/directory name.
-       - completionHandler: a block with result of directory entries or error.
+       - completionHandler: a closure with result of directory entries or error.
          `link`: a url returned by Dropbox to share.
          `attribute`: a `FileObject` containing the attributes of the item.
          `expiration`: a `Date` object, determines when the public url will expires.
@@ -389,7 +392,7 @@ extension DropboxFileProvider {
      - Parameters:
        - remoteURL: a valid remote url to file.
        - to: Destination path of file, including file/directory name.
-       - completionHandler: a block with result of directory entries or error.
+       - completionHandler: a closure with result of directory entries or error.
          `jobId`: Job ID returned by Dropbox to monitor the copy/download progress.
          `attribute`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by Dropbox.
@@ -454,7 +457,7 @@ extension DropboxFileProvider {
 }
 
 extension DropboxFileProvider: ExtendedFileProvider {
-    public func thumbnailOfFileSupported(path: String) -> Bool {
+    open func thumbnailOfFileSupported(path: String) -> Bool {
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             return true
@@ -469,7 +472,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         }
     }
     
-    public func propertiesOfFileSupported(path: String) -> Bool {
+    open func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
@@ -484,7 +487,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
         
     /// Default value for dimension is 64x64, according to Dropbox documentation
-    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
@@ -527,7 +530,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         task.resume()
     }
     
-    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

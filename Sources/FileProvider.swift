@@ -68,7 +68,7 @@ public protocol FileProviderBasic: class {
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
-     - Parameter completionHandler: a block with result of directory entries or error.
+     - Parameter completionHandler: a closure with result of directory entries or error.
         `contents`: An array of `FileObject` identifying the the directory entries.
         `error`: Error returned by system.
      */
@@ -80,7 +80,7 @@ public protocol FileProviderBasic: class {
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
-     - Parameter completionHandler: a block with result of directory entries or error.
+     - Parameter completionHandler: a closure with result of directory entries or error.
         `attributes`: A `FileObject` containing the attributes of the item.
         `error`: Error returned by system.
      */
@@ -89,6 +89,41 @@ public protocol FileProviderBasic: class {
     
     /// Returns total and used capacity in provider container asynchronously.
     func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
+    
+    /**
+     Search files inside directory using query asynchronously.
+     
+     - Note: Query string is limited to file name, to search based on other file properties, use NSPredicate version.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: Simple string that file name contains to be search, case-insensitive.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     */
+    func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
+    
+    /**
+     Search files inside directory using query asynchronously.
+     
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     */
+    func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
     
     /**
      Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
@@ -103,6 +138,39 @@ public protocol FileProviderBasic: class {
 }
 
 extension FileProviderBasic {
+    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+        let predicate = NSPredicate(format: "name CONTAINS[c] %@", query)
+        self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
+    }
+    
+    /// Converts Spotlight search predicate to `FileProvider.searchFiles()` method usable predicate.
+    public func convertSpotlightPredicateTo(_ query: NSPredicate) -> NSPredicate {
+        let mapDict: [String: URLResourceKey] = [NSMetadataItemURLKey: .fileURL, NSMetadataItemFSNameKey: .nameKey, NSMetadataItemPathKey: .pathKey,
+                                                 NSMetadataItemFSSizeKey: .fileSizeKey, NSMetadataItemFSCreationDateKey: .creationDateKey,
+                                                 NSMetadataItemFSContentChangeDateKey: .contentModificationDateKey, "kMDItemFSInvisible": .isHiddenKey, "kMDItemFSIsWriteable": .isWritableKey, "kMDItemKind": .mimeType]
+        
+        if let cQuery = query as? NSCompoundPredicate {
+            let newSub = cQuery.subpredicates.map { convertSpotlightPredicateTo($0 as! NSPredicate) }
+            switch cQuery.compoundPredicateType {
+            case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
+            case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
+            case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+            }
+        } else if let cQuery = query as? NSComparisonPredicate {
+            var newLeft = cQuery.leftExpression
+            var newRight = cQuery.rightExpression
+            if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
+                newLeft = NSExpression(forKeyPath: newKey.rawValue)
+            }
+            if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
+                newRight = NSExpression(forKeyPath: newKey.rawValue)
+            }
+            return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
+        } else {
+            return query
+        }
+    }
+    
     /// The maximum number of queued operations that can execute at the same time.
     ///
     /// The default value of this property is `OperationQueue.defaultMaxConcurrentOperationCount`.
@@ -112,6 +180,26 @@ extension FileProviderBasic {
         }
         set {
             operation_queue.maxConcurrentOperationCount = newValue
+        }
+    }
+    
+    internal func findNameQuery(_ query: NSPredicate, key: String?) -> Any? {
+        if let cQuery = query as? NSCompoundPredicate {
+            let find = cQuery.subpredicates.flatMap { findNameQuery($0 as! NSPredicate, key: key) }
+            if find.count > 0 {
+                return find[0]
+            }
+            return nil
+        } else if let cQuery = query as? NSComparisonPredicate {
+            if cQuery.leftExpression.expressionType == .keyPath, key == nil || cQuery.leftExpression.keyPath == key! {
+                return cQuery.rightExpression.constantValue
+            }
+            if cQuery.rightExpression.expressionType == .keyPath, key == nil || cQuery.rightExpression.keyPath == key! {
+                return cQuery.leftExpression.constantValue
+            }
+            return nil
+        } else {
+            return nil
         }
     }
 }
@@ -133,10 +221,18 @@ public protocol FileProviderBasicRemote: FileProviderBasic {
     /// Underlying URLSession instance used for HTTP/S requests
     var session: URLSession { get }
     
-    /// A `URLCache` to cache downloaded files and contents.
-    ///
-    /// If set to nil, `URLCache.shared` object will be used.
-    /// - Note: It has no effect unless setting `useCache` property to `true`.
+    /**
+     A `URLCache` to cache downloaded files and contents.
+     
+     - Note: It has no effect unless setting `useCache` property to `true`.
+     
+     - Warning: FileProvider doesn't manage/free `URLCache` object in a memory pressure scenario. It's upon you to clear
+     cache memory when receiving `didReceiveMemoryWarning` or via observing `.UIApplicationDidReceiveMemoryWarning` notification.
+     To clear memory usage use this code:
+     ```
+     provider.cache?.removeAllCachedResponses()
+     ```
+     */
     var cache: URLCache? { get }
     
     /// Determine to use `cache` property to cache downloaded file objects. Doesn't have effect on query type methods.
@@ -224,7 +320,6 @@ public protocol FileProviderOperations: FileProviderBasic {
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
-    
     func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle?
     
     /**
@@ -363,7 +458,7 @@ public protocol FileProviderReadWrite: FileProviderBasic {
      
      - Parameters:
        - path: Path of file.
-       - completionHandler: a block with result of file contents or error.
+       - completionHandler: a closure with result of file contents or error.
          `contents`: contents of file in a `Data` object.
          `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
@@ -379,7 +474,7 @@ public protocol FileProviderReadWrite: FileProviderBasic {
        - path: Path of file.
        - offset: First byte index which should be read. **Starts from 0.**
        - length: Bytes count of data. Pass `-1` to read until the end of file.
-       - completionHandler: a block with result of file contents or error.
+       - completionHandler: a closure with result of file contents or error.
          `contents`: contents of file in a `Data` object.
          `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
@@ -442,20 +537,6 @@ public protocol FileProviderReadWrite: FileProviderBasic {
      */
     @discardableResult
     func writeContents(path: String, contents: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle?
-    
-    /**
-     Search files inside directory using query asynchronously.
-     
-     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
-     
-     - Parameters:
-       - path: location of directory to start search
-       - recursive: Searching subdirectories of path
-       - query: Simple string of file name to be search (for now).
-       - foundItemHandler: Block which is called when a file is found
-       - completionHandler: Block which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
-     */
-    func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void))
 }
 
 extension FileProviderReadWrite {
@@ -496,7 +577,7 @@ public protocol FileProviderMonitor: FileProviderBasic {
     
      - Parameters:
        - path: path of directory.
-       - eventHandler: Block executed after change, on a secondary thread.
+       - eventHandler: Closure executed after change, on a secondary thread.
      */
     func registerNotifcation(path: String, eventHandler: @escaping (() -> Void))
     
@@ -614,7 +695,7 @@ extension FileProviderBasic {
     /// - Returns: A `String` contains relative path of url against base url.
     public func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
-        if url.relativeString.isEmpty, url.baseURL == self.baseURL {
+        if !url.relativePath.isEmpty, url.baseURL == self.baseURL {
             return url.relativePath.removingPercentEncoding!
         }
         
@@ -710,7 +791,7 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      
      - Parameters:
        - path: path of file.
-       - completionHandler: a block with result of preview image or error.
+       - completionHandler: a closure with result of preview image or error.
          `image`: `NSImage`/`UIImage` object contains preview.
          `error`: Error returned by system.
     */
@@ -726,7 +807,7 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      - Parameters:
        - path: path of file.
        - dimension: width and height of result preview image.
-       - completionHandler: a block with result of preview image or error.
+       - completionHandler: a closure with result of preview image or error.
          `image`: `NSImage`/`UIImage` object contains preview.
      `error`: Error returned by system.
      */
@@ -741,7 +822,7 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      
      - Parameters:
        - path: path of file.
-       - completionHandler: a block with result of preview image or error.
+       - completionHandler: a closure with result of preview image or error.
          `propertiesDictionary`: A `Dictionary` of proprty keys and values.
          `keys`: An `Array` contains ordering of keys.
          `error`: Error returned by system.

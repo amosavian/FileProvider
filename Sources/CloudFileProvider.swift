@@ -9,7 +9,7 @@
 import Foundation
 
 /**
- Allows accessing to iCloud Drive stored files. Determine scope when initializing,to either access 
+ Allows accessing to iCloud Drive stored files. Determine scope when initializing, to either access
  to public documents folder or files stored as data.
  
  To setup a functional iCloud container, please
@@ -87,7 +87,7 @@ open class CloudFileProvider: LocalFileProvider {
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
-     - Parameter completionHandler: a block with result of directory entries or error.
+     - Parameter completionHandler: a closure with result of directory entries or error.
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
      */
@@ -156,7 +156,7 @@ open class CloudFileProvider: LocalFileProvider {
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
-     - Parameter completionHandler: a block with result of directory entries or error.
+     - Parameter completionHandler: a closure with result of directory entries or error.
          `attributes`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by system.
      */
@@ -199,6 +199,130 @@ open class CloudFileProvider: LocalFileProvider {
                 if !query.start() {
                     self.dispatch_queue.async {
                         completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission))
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     Search files inside directory using query asynchronously.
+     
+     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
+     
+     - Parameters:
+     - path: location of directory to start search
+     - recursive: Searching subdirectories of path
+     - query: Simple string of file name to be search (for now).
+     - foundItemHandler: Closure which is called when a file is found
+     - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     */
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+        
+        let mapDict: [String: String] = ["url": NSMetadataItemURLKey, "name": NSMetadataItemFSNameKey, "path": NSMetadataItemPathKey, "filesize": NSMetadataItemFSSizeKey, "modifiedDate": NSMetadataItemFSContentChangeDateKey, "creationDate": NSMetadataItemFSCreationDateKey, "contentType": NSMetadataItemContentTypeKey]
+        
+        func updateQueryKeys(_ queryComponent: NSPredicate) -> NSPredicate {
+            if let cQuery = queryComponent as? NSCompoundPredicate {
+                let newSub = cQuery.subpredicates.map { updateQueryKeys($0 as! NSPredicate) }
+                switch cQuery.compoundPredicateType {
+                case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
+                case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
+                case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+                }
+            } else if let cQuery = queryComponent as? NSComparisonPredicate {
+                var newLeft = cQuery.leftExpression
+                var newRight = cQuery.rightExpression
+                if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
+                    newLeft = NSExpression(forKeyPath: newKey)
+                }
+                if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
+                    newRight = NSExpression(forKeyPath: newKey)
+                }
+                if newLeft.expressionType == .keyPath, newLeft.keyPath == "type" {
+                    newRight = NSExpression(forConstantValue: newRight.constantValue as? String == "directory" ? "public.directory": "public.data")
+                }
+                if newRight.expressionType == .keyPath, newRight.keyPath == "type" {
+                    newLeft = NSExpression(forConstantValue: newLeft.constantValue as? String == "directory" ? "public.directory": "public.data")
+                }
+                return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
+            } else {
+                return queryComponent
+            }
+        }
+        
+        dispatch_queue.async {
+            let pathURL = self.url(of: path)
+            let mdquery = NSMetadataQuery()
+            mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (\(updateQueryKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
+            mdquery.searchScopes = [self.scope.rawValue]
+            
+            var lastReportedCount = 0
+            
+            if let foundItemHandler = foundItemHandler {
+                var updateObserver: NSObjectProtocol?
+                
+                // FIXME: Remove this section as it won't work as expected on iCloud
+                updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: mdquery, queue: nil, using: { (notification) in
+                    
+                    mdquery.disableUpdates()
+                    
+                    guard mdquery.resultCount > lastReportedCount else { return }
+                    
+                    for index in lastReportedCount..<mdquery.resultCount {
+                        guard let attribs = (mdquery.result(at: index) as? NSMetadataItem)?.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
+                            continue
+                        }
+                        
+                        guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
+                            continue
+                        }
+                        
+                        if let file = self.mapFileObject(attributes: attribs) {
+                            foundItemHandler(file)
+                        }
+                    }
+                    lastReportedCount = mdquery.resultCount
+                    
+                    mdquery.enableUpdates()
+                })
+            }
+            
+            var finishObserver: NSObjectProtocol?
+            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: mdquery, queue: nil, using: { (notification) in
+                defer {
+                    mdquery.stop()
+                    NotificationCenter.default.removeObserver(finishObserver!)
+                }
+                
+                guard let results = mdquery.results as? [NSMetadataItem] else {
+                    return
+                }
+                
+                mdquery.disableUpdates()
+                
+                var contents = [FileObject]()
+                for result in results {
+                    guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
+                        continue
+                    }
+                    
+                    guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
+                        continue
+                    }
+                    
+                    if let file = self.mapFileObject(attributes: attribs) {
+                        contents.append(file)
+                    }
+                }
+                self.dispatch_queue.async {
+                    completionHandler(contents, nil)
+                }
+            })
+            
+            DispatchQueue.main.async {
+                if !mdquery.start() {
+                    self.dispatch_queue.async {
+                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
                     }
                 }
             }
@@ -378,7 +502,7 @@ open class CloudFileProvider: LocalFileProvider {
      
      - Parameters:
        - path: Path of file.
-       - completionHandler: a block with result of file contents or error.
+       - completionHandler: a closure with result of file contents or error.
          `contents`: contents of file in a `Data` object.
          `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress.
@@ -397,7 +521,7 @@ open class CloudFileProvider: LocalFileProvider {
        - path: Path of file.
        - offset: First byte index which should be read. **Starts from 0.**
        - length: Bytes count of data. Pass `-1` to read until the end of file.
-       - completionHandler: a block with result of file contents or error.
+       - completionHandler: a closure with result of file contents or error.
          `contents`: contents of file in a `Data` object.
          `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress.
@@ -425,98 +549,6 @@ open class CloudFileProvider: LocalFileProvider {
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }
     
-    /**
-     Search files inside directory using query asynchronously.
-     
-     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
-     
-     - Parameters:
-       - path: location of directory to start search
-       - recursive: Searching subdirectories of path
-       - query: Simple string of file name to be search (for now).
-       - foundItemHandler: Block which is called when a file is found
-     - completionHandler: Block which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
-     */
-    open override func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        dispatch_queue.async {
-            let pathURL = self.url(of: path)
-            let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (%K LIKE %@)", NSMetadataItemPathKey, pathURL.path, NSMetadataItemFSNameKey, query)
-            query.searchScopes = [self.scope.rawValue]
-            
-            var lastReportedCount = 0
-            
-            if let foundItemHandler = foundItemHandler {
-                var updateObserver: NSObjectProtocol?
-                
-                // FIXME: Remove this section as it won't work as expected on iCloud
-                updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: query, queue: nil, using: { (notification) in
-                    
-                    query.disableUpdates()
-                    
-                    guard query.resultCount > lastReportedCount else { return }
-                    
-                    for index in lastReportedCount..<query.resultCount {
-                        guard let attribs = (query.result(at: index) as? NSMetadataItem)?.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                            continue
-                        }
-                        
-                        guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
-                            continue
-                        }
-                        
-                        if let file = self.mapFileObject(attributes: attribs) {
-                            foundItemHandler(file)
-                        }
-                    }
-                    lastReportedCount = query.resultCount
-                    
-                    query.enableUpdates()
-                })
-            }
-            
-            var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
-                defer {
-                    query.stop()
-                    NotificationCenter.default.removeObserver(finishObserver!)
-                }
-                
-                guard let results = query.results as? [NSMetadataItem] else {
-                    return
-                }
-                
-                query.disableUpdates()
-                
-                var contents = [FileObject]()
-                for result in results {
-                    guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                        continue
-                    }
-                    
-                    guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
-                        continue
-                    }
-                    
-                    if let file = self.mapFileObject(attributes: attribs) {
-                        contents.append(file)
-                    }
-                }
-                self.dispatch_queue.async {
-                   completionHandler(contents, nil)
-                }
-            })
-            
-            DispatchQueue.main.async {
-                if !query.start() {
-                    self.dispatch_queue.async {
-                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
-                    }
-                }
-            }
-        }
-    }
-    
     fileprivate var monitors = [String: (NSMetadataQuery, NSObjectProtocol)]()
     
     /**
@@ -532,7 +564,7 @@ open class CloudFileProvider: LocalFileProvider {
      
      - Parameters:
        - path: path of directory.
-       - eventHandler: Block executed after change, on a secondary thread.
+       - eventHandler: Closure executed after change, on a secondary thread.
      */
     open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
@@ -622,7 +654,19 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
-    /// Returns a pulic url with expiration date, can be shared with other people.
+    /**
+     Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
+     
+     - Important: URL will be available for a limitied time, determined in `expiration` argument.
+     
+     - Parameters:
+     - to: path of file, including file/directory name.
+     - completionHandler: a closure with result of directory entries or error.
+     `link`: a url returned by Dropbox to share.
+     `attribute`: a `FileObject` containing the attributes of the item.
+     `expiration`: a `Date` object, determines when the public url will expires.
+     `error`: Error returned by Dropbox.
+     */
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {

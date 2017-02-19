@@ -23,8 +23,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open var operation_queue: OperationQueue
     open weak var delegate: FileProviderDelegate?
     open internal(set) var credential: URLCredential?
-        
+    
+    /// Underlying `FileManager` object for listing and metadata fetching.
     open private(set) var fileManager = FileManager()
+    /// Underlying `FileManager` object for operationa like copying, moving, etc.
     open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
@@ -61,7 +63,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
      default values are `directory: .documentDirectory`.
     
      - Parameters:
-       - sharedContainerId: Same  with `App Group` identifier defined in project settings.
+       - sharedContainerId: Same with `App Group` identifier defined in project settings.
        - directory: The search path directory. The supported values are described in `FileManager.SearchPathDirectory`.
     */
     public convenience init? (sharedContainerId: String, directory: FileManager.SearchPathDirectory = .documentDirectory) {
@@ -85,6 +87,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         
         self.init(baseURL: finalBaseURL)
+        self.isCoorinating = true
         
         try? fileManager.createDirectory(at: finalBaseURL, withIntermediateDirectories: true)
     }
@@ -132,6 +135,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
+    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+        dispatch_queue.async {
+            completionHandler(LocalFileObject(fileWithPath: path, relativeTo: self.baseURL), nil)
+        }
+    }
+    
     open func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
         let values = try? baseURL?.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityKey])
         let totalSize = Int64(values??.volumeTotalCapacity ?? -1)
@@ -139,9 +148,21 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         completionHandler(totalSize, totalSize - freeSize)
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
-            completionHandler(LocalFileObject(fileWithPath: path, relativeTo: self.baseURL), nil)
+            let iterator = self.fileManager.enumerator(at: self.url(of: path), includingPropertiesForKeys: nil, options: recursive ? [] : [.skipsSubdirectoryDescendants, .skipsPackageDescendants]) { (url, e) -> Bool in
+                completionHandler([], e)
+                return true
+            }
+            var result = [LocalFileObject]()
+            while let fileURL = iterator?.nextObject() as? URL {
+                let path = self.relativePathOf(url: fileURL)
+                if let fileObject = LocalFileObject(fileWithPath: path, relativeTo: self.baseURL), query.evaluate(with: fileObject.mapPredicate()) {
+                    result.append(fileObject)
+                    foundItemHandler?(fileObject)
+                }
+            }
+            completionHandler(result, nil)
         }
     }
     
@@ -227,26 +248,24 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        
+        func urlofpath(path: String) -> URL {
+            if path.hasPrefix("file://") {
+                let removedSchemePath = path.replacingOccurrences(of: "file://", with: "", options: .anchored)
+                let pDecodedPath = removedSchemePath.removingPercentEncoding ?? removedSchemePath
+                return URL(fileURLWithPath: pDecodedPath)
+            } else {
+                return self.url(of: path)
+            }
+        }
+        
         guard let sourcePath = opType.source else { return nil }
         let destPath = opType.destination
-        let source: URL
-        if sourcePath.hasPrefix("file://") {
-            let removedSchemePath = sourcePath.replacingOccurrences(of: "file://", with: "", options: .anchored)
-            let pDecodedPath = removedSchemePath.removingPercentEncoding ?? removedSchemePath
-            source = URL(fileURLWithPath: pDecodedPath)
-        } else {
-            source = self.url(of: sourcePath)
-        }
+        let source: URL = urlofpath(path: sourcePath)
         
         let dest: URL?
         if let destPath = destPath {
-            if destPath.hasPrefix("file://") {
-                let removedSchemePath = destPath.replacingOccurrences(of: "file://", with: "", options: .anchored)
-                let pDecodedPath = removedSchemePath.removingPercentEncoding ?? removedSchemePath
-                dest = URL(fileURLWithPath: pDecodedPath)
-            } else {
-                dest = self.url(of: destPath)
-            }
+            dest = urlofpath(path: destPath)
         } else {
             dest = nil
         }
@@ -307,8 +326,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         
         if isCoorinating {
-            var intents = [NSFileAccessIntent]()
             successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
+            var intents = [NSFileAccessIntent]()
             switch opType {
             case .create, .modify:
                 intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forReplacing))
@@ -452,26 +471,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return self.doOperation(opType, data: data, atomically: atomically, completionHandler: completionHandler)
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        dispatch_queue.async { 
-            let iterator = self.fileManager.enumerator(at: self.url(of: path), includingPropertiesForKeys: nil, options: recursive ? [] : [.skipsSubdirectoryDescendants, .skipsPackageDescendants]) { (url, e) -> Bool in
-                completionHandler([], e)
-                return true
-            }
-            var result = [LocalFileObject]()
-            while let fileURL = iterator?.nextObject() as? URL {
-                if fileURL.lastPathComponent.lowercased().contains(query.lowercased()) {
-                    let path = self.relativePathOf(url: fileURL)
-                    if let fileObject = LocalFileObject(fileWithPath: path, relativeTo: self.baseURL) {
-                        result.append(fileObject)
-                        foundItemHandler?(fileObject)
-                    }
-                }
-            }
-            completionHandler(result, nil)
-        }
-    }
-    
     fileprivate var monitors = [LocalFolderMonitor]()
     
     open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
@@ -500,7 +499,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     open func isRegisteredForNotification(path: String) -> Bool {
-        return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path)
+        return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
     }
     
     open func copy(with zone: NSZone? = nil) -> Any {

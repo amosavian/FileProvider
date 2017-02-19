@@ -156,6 +156,25 @@ open class FileObject: Equatable {
         }
         return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
     }
+    
+    internal  func mapPredicate() -> [String: Any] {
+        let mapDict: [URLResourceKey: String] = [.fileURL: "url", .nameKey: "name", .pathKey: "path", .fileSizeKey: "filesize", .creationDateKey: "creationDate",
+                                                 .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden", .isWritableKey: "isWritable", .serverDate: "serverDate", .entryTag: "entryTag", .mimeType: "mimeType"]
+        let typeDict: [URLFileResourceType: String] = [.directory: "directory", .regular: "regular", .symbolicLink: "symbolicLink", .unknown: "unknown"]
+        var result = [String: Any]()
+        for (key, value) in allValues {
+            if let convertkey = mapDict[key] {
+                result[convertkey] = value
+            }
+        }
+        result["eTag"] = result["entryTag"]
+        result["isReadOnly"] = self.isReadOnly
+        result["isDirectory"] = self.isDirectory
+        result["isRegularFile"] = self.isRegularFile
+        result["isSymLink"] = self.isSymLink
+        result["type"] = typeDict[self.type ?? .unknown] ?? "unknown"
+        return result
+    }
 }
 
 internal func resolve(dateString: String) -> Date? {

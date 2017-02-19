@@ -8,7 +8,7 @@
 
 import Foundation
 
-/// Allows to get progress or cancel an in-progress operation, for remote -URLSession based- providers.
+/// Allows to get progress or cancel an in-progress operation, for remote, `URLSession` based providers.
 open class RemoteOperationHandle: OperationHandle {
     
     internal var tasks: [Weak<URLSessionTask>]
@@ -43,7 +43,7 @@ open class RemoteOperationHandle: OperationHandle {
             if let task = $1.value as? URLSessionUploadTask {
                 return $0 + task.countOfBytesExpectedToSend
             } else {
-                return $0 + ($1.value?.countOfBytesExpectedToSend ?? 0)
+                return $0 + ($1.value?.countOfBytesExpectedToReceive ?? 0)
             }
         }
     }
@@ -71,8 +71,6 @@ public protocol FileProviderHTTPError: Error, CustomStringConvertible {
     var path: String { get }
     /// Contents returned by server as error description
     var errorDescription: String? { get }
-    
-    var description: String { get }
 }
 
 extension FileProviderHTTPError {
@@ -309,7 +307,7 @@ public enum FileProviderHTTPErrorCode: Int, CustomStringConvertible {
         case 300...399: return "Redirection"
         case 400...499: return "Client Error"
         case 500...599: return "Server Error"
-        default: return "Server Error"
+        default: return "Unknown Error"
         }
     }
 }

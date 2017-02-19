@@ -100,7 +100,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) {
         NotImplemented()
     }
     

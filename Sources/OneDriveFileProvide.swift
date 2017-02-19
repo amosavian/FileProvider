@@ -71,7 +71,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
        - serverURL: server url, Set it if you are trying to connect OneDrive Business server, otherwise leave it
          `nil` to connect to OneDrive Personal uses.
        - drive: drive name for user on server, default value is `root`.
-       - cache: A URLCache to cache downloaded files and contents. If set to nil, URLCache.shared object will be used.
+       - cache: A URLCache to cache downloaded files and contents.
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
         let baseURL = serverURL ?? URL(string: "https://api.onedrive.com/")!
@@ -139,6 +139,21 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+        var foundFiles = [OneDriveFileObject]()
+        var queryStr: String?
+        queryStr = self.findNameQuery(query, key: "name") as? String ?? self.findNameQuery(query, key: nil) as? String
+        guard let finalQueryStr = queryStr else { return }
+        search(path, query: finalQueryStr, foundItem: { (file) in
+            if query.evaluate(with: file.mapPredicate()) {
+                foundFiles.append(file)
+                foundItemHandler?(file)
+            }
+        }, completionHandler: { (error) in
+            completionHandler(foundFiles, error)
+        })
+    }
+    
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         let url = URL(string: "/drive/root", relativeTo: baseURL)!
         var request = URLRequest(url: url)
@@ -157,25 +172,25 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
 extension OneDriveFileProvider: FileProviderOperations {
     
     
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    public func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let filePath = (path as NSString).appendingPathComponent(fileName)
         return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
-    public func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
@@ -220,7 +235,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         return RemoteOperationHandle(operationType: operation, tasks: [task])
     }
     
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -228,7 +243,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         return upload_simple(toPath, localFile: localFile, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
-    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -259,7 +274,7 @@ extension OneDriveFileProvider: FileProviderOperations {
 }
 
 extension OneDriveFileProvider: FileProviderReadWrite {
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -290,23 +305,13 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
-    public func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         // FIXME: remove 150MB restriction
         return upload_simple(path, data: data, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
-    }
-    
-    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        var foundFiles = [OneDriveFileObject]()
-        search(path, query: query, foundItem: { (file) in
-            foundFiles.append(file)
-            foundItemHandler?(file)
-            }, completionHandler: { (error) in
-                completionHandler(foundFiles, error)
-        })
     }
     
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
@@ -327,7 +332,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
      
      - Parameters:
        - to: path of file, including file/directory name.
-       - completionHandler: a block with result of directory entries or error.
+       - completionHandler: a closure with result of directory entries or error.
          `link`: a url returned by OneDrive to share.
          `attribute`: `nil` for OneDrive.
          `expiration`: `nil` for OneDrive, as it doesn't expires.
@@ -360,11 +365,11 @@ extension OneDriveFileProvider: FileProviderReadWrite {
 
 
 extension OneDriveFileProvider: ExtendedFileProvider {
-    public func thumbnailOfFileSupported(path: String) -> Bool {
+    open func thumbnailOfFileSupported(path: String) -> Bool {
         return true
     }
     
-    public func propertiesOfFileSupported(path: String) -> Bool {
+    open func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
@@ -378,7 +383,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         }
     }
     
-    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
         if let dimension = dimension {
             url = URL(string: escaped(path: path) + ":/thumbnails/0/=c\(dimension.width)x\(dimension.height)/content", relativeTo: driveURL)!
@@ -403,7 +408,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         task.resume()
     }
     
-    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
         let url = URL(string: escaped(path: path), relativeTo: driveURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

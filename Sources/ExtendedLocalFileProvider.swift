@@ -10,11 +10,6 @@ import Foundation
 import ImageIO
 import CoreGraphics
 import AVFoundation
-#if os(iOS) || os(tvOS)
-import UIKit
-#elseif os(macOS)
-import Cocoa
-#endif
 
 extension LocalFileProvider: ExtendedFileProvider {
     public func thumbnailOfFileSupported(path: String) -> Bool {
