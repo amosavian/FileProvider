@@ -566,7 +566,7 @@ internal extension LocalFileProvider {
                 errorHandler?(error)
                 return
             }
-            completionHandler(intents[0].url)
+            completionHandler(intents.first!.url)
         }
     }
     
@@ -577,8 +577,8 @@ internal extension LocalFileProvider {
                 errorHandler?(error)
                 return
             }
-            let newSource: URL = intents[0].url
-            let newDest: URL? = intents.count > 1 ? intents[1].url : nil
+            guard let newSource: URL = intents.first?.url else { return }
+            let newDest: URL? = intents.dropFirst().first?.url
             if moving, let newDest = newDest {
                 coordinator.item(at: newSource, willMoveTo: newDest)
             }

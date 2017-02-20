@@ -226,7 +226,7 @@ open class CloudFileProvider: LocalFileProvider {
                 let newSub = cQuery.subpredicates.map { updateQueryKeys($0 as! NSPredicate) }
                 switch cQuery.compoundPredicateType {
                 case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
-                case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
+                case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub.first!)
                 case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
                 }
             } else if let cQuery = queryComponent as? NSComparisonPredicate {

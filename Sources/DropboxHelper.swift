@@ -75,7 +75,7 @@ public final class DropboxFileObject: FileObject {
 
 // codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
-    func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
+    func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, session: URLSession? = nil, progressHandler: ((_ contents: [FileObject], _ nextCursor: String?, _ error: Error?) -> Void)? = nil, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
         var requestDictionary = [String: AnyObject]()
         let url: URL
         if let cursor = cursor {
@@ -91,15 +91,16 @@ internal extension DropboxFileProvider {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+        let task = (session ?? self.session).dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
-            var files = prevContents
+            var files = [DropboxFileObject]()
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderDropboxError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             if let data = data, let jsonStr = String(data: data, encoding: .utf8) {
                 let json = jsonToDictionary(jsonStr)
                 if let entries = json?["entries"] as? [AnyObject] , entries.count > 0 {
+                    files.reserveCapacity(entries.count)
                     for entry in entries {
                         if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
                             files.append(file)
@@ -108,12 +109,14 @@ internal extension DropboxFileProvider {
                     let ncursor = json?["cursor"] as? String
                     let hasmore = (json?["has_more"] as? NSNumber)?.boolValue ?? false
                     if hasmore {
-                        self.list(path, cursor: ncursor, prevContents: files, completionHandler: completionHandler)
+                        progressHandler?(files, ncursor, responseError ?? error)
+                        self.list(path, cursor: ncursor, prevContents: prevContents + files, completionHandler: completionHandler)
                         return
                     }
                 }
             }
-            completionHandler(files, nil, responseError ?? error)
+            progressHandler?(files, nil, responseError ?? error)
+            completionHandler(prevContents + files, nil, responseError ?? error)
         })
         task.taskDescription = FileOperationType.fetch(path: path).json
         task.resume()

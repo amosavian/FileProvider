@@ -90,7 +90,7 @@ public protocol FileProviderBasic: class {
     /**
      Search files inside directory using query asynchronously.
      
-     - Note: Query string is limited to file name, to search based on other file properties, use NSPredicate version.
+     - Note: Query string is limited to file name, to search based on other file attributes, use NSPredicate version.
      
      - Parameters:
        - path: location of directory to start search
@@ -137,42 +137,15 @@ public protocol FileProviderBasic: class {
 }
 
 extension FileProviderBasic {
-    /// **DEPRECATED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
-    /// To simulate `false` value, assign `URL(fileURLWithPath: "/") to `baseURL`.
-    @available(*, deprecated, message: "Redundant property, now is always true.")
-    var isPathRelative: Bool { return true }
-    
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         let predicate = NSPredicate(format: "name CONTAINS[c] %@", query)
         self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
     /// Converts Spotlight search predicate to `FileProvider.searchFiles()` method usable predicate.
+    @available(*, obsoleted: 1.0, renamed: "FileObject.convertProdicate(fromSpotlight:)", message: "Use FileObject.convertProdicate(fromSpotlight:) instead.")
     public func convertSpotlightPredicateTo(_ query: NSPredicate) -> NSPredicate {
-        let mapDict: [String: URLResourceKey] = [NSMetadataItemURLKey: .fileURL, NSMetadataItemFSNameKey: .nameKey, NSMetadataItemPathKey: .pathKey,
-                                                 NSMetadataItemFSSizeKey: .fileSizeKey, NSMetadataItemFSCreationDateKey: .creationDateKey,
-                                                 NSMetadataItemFSContentChangeDateKey: .contentModificationDateKey, "kMDItemFSInvisible": .isHiddenKey, "kMDItemFSIsWriteable": .isWritableKey, "kMDItemKind": .mimeType]
-        
-        if let cQuery = query as? NSCompoundPredicate {
-            let newSub = cQuery.subpredicates.map { convertSpotlightPredicateTo($0 as! NSPredicate) }
-            switch cQuery.compoundPredicateType {
-            case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
-            case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
-            case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
-            }
-        } else if let cQuery = query as? NSComparisonPredicate {
-            var newLeft = cQuery.leftExpression
-            var newRight = cQuery.rightExpression
-            if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
-                newLeft = NSExpression(forKeyPath: newKey.rawValue)
-            }
-            if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
-                newRight = NSExpression(forKeyPath: newKey.rawValue)
-            }
-            return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
-        } else {
-            return query
-        }
+        return FileObject.convertPredicate(fromSpotlight: query)
     }
     
     /// The maximum number of queued operations that can execute at the same time.
@@ -184,26 +157,6 @@ extension FileProviderBasic {
         }
         set {
             operation_queue.maxConcurrentOperationCount = newValue
-        }
-    }
-    
-    internal func findNameQuery(_ query: NSPredicate, key: String?) -> Any? {
-        if let cQuery = query as? NSCompoundPredicate {
-            let find = cQuery.subpredicates.flatMap { findNameQuery($0 as! NSPredicate, key: key) }
-            if find.count > 0 {
-                return find[0]
-            }
-            return nil
-        } else if let cQuery = query as? NSComparisonPredicate {
-            if cQuery.leftExpression.expressionType == .keyPath, key == nil || cQuery.leftExpression.keyPath == key! {
-                return cQuery.rightExpression.constantValue
-            }
-            if cQuery.rightExpression.expressionType == .keyPath, key == nil || cQuery.rightExpression.keyPath == key! {
-                return cQuery.leftExpression.constantValue
-            }
-            return nil
-        } else {
-            return nil
         }
     }
 }
@@ -657,28 +610,13 @@ extension FileProviderBasic {
         return type(of: self).type
     }
     
-    /// path without heading and trailing slash
-    public var bareCurrentPath: String {
-        return currentPath.trimmingCharacters(in: pathTrimSet)
-    }
-    
-    func escaped(path: String) -> String {
-        return path.trimmingCharacters(in: pathTrimSet).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
-    }
-    
-    /// **OBSOLETED:** Use `url(of:).absoluteURL` instead.
-    @available(*, obsoleted: 1.0, renamed: "url(of:)", message: "Use url(of:).absoluteURL instead.")
-    public func absoluteURL(_ path: String? = nil) -> URL {
-        return url(of: path).absoluteURL
-    }
+    /// **DEPRECATED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
+    /// To simulate `false` value, assign `URL(fileURLWithPath: "/")` to `baseURL`.
+    @available(*, deprecated, message: "Redundant property, now is always true.")
+    var isPathRelative: Bool { return true }
     
     public func url(of path: String? = nil) -> URL {
-        var rpath: String
-        if let path = path {
-            rpath = path
-        } else {
-            rpath = self.currentPath
-        }
+        var rpath: String = path ?? self.currentPath
         rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
         if let baseURL = baseURL {
             if rpath.hasPrefix("/") {
@@ -1084,6 +1022,30 @@ internal class Weak<T: AnyObject> {
 public protocol FoundationErrorEnum {
     init? (rawValue: Int)
     var rawValue: Int { get }
+}
+
+extension NSPredicate {
+    func findValue(forKey key: String?, operator op: NSComparisonPredicate.Operator? = nil) -> Any? {
+        let val = findAllValues(forKey: key).lazy.filter { op == nil || $0.operator == op! }
+        return val.first?.value
+    }
+    
+    func findAllValues(forKey key: String?) -> [(value: Any, operator: NSComparisonPredicate.Operator)] {
+        if let cQuery = self as? NSCompoundPredicate {
+            let find = cQuery.subpredicates.flatMap { ($0 as! NSPredicate).findAllValues(forKey: key) }
+            return find
+        } else if let cQuery = self as? NSComparisonPredicate {
+            if cQuery.leftExpression.expressionType == .keyPath, key == nil || cQuery.leftExpression.keyPath == key!, let const = cQuery.rightExpression.constantValue {
+                return [(value: const, operator: cQuery.predicateOperatorType)]
+            }
+            if cQuery.rightExpression.expressionType == .keyPath, key == nil || cQuery.rightExpression.keyPath == key!, let const = cQuery.leftExpression.constantValue {
+                return [(value: const, operator: cQuery.predicateOperatorType)]
+            }
+            return []
+        } else {
+            return []
+        }
+    }
 }
 
 extension URLError.Code: FoundationErrorEnum {}

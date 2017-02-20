@@ -52,6 +52,16 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         return _session!
     }
     
+    fileprivate var _longpollSession: URLSession?
+    internal var longpollSession: URLSession {
+        if _longpollSession == nil {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 600
+            _longpollSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        }
+        return _longpollSession!
+    }
+    
     /**
      Initializer for Dropbox provider with given client ID and Token.
      These parameters must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide).
@@ -135,15 +145,29 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         var foundFiles = [DropboxFileObject]()
-        guard let queryStr = self.findNameQuery(query, key: "name") as? String else { return }
-        search(path, query: queryStr, foundItem: { (file) in
-            if query.evaluate(with: file.mapPredicate()) {
-                foundFiles.append(file)
-                foundItemHandler?(file)
-            }
-        }, completionHandler: { (error) in
-            completionHandler(foundFiles, error)
-        })
+        if let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String {
+            // Dropbox only support searching for file names begin with query in non-enterprise accounts.
+            // We will use it if there is a `name BEGINSWITH[c] "query"` in predicate, then filter to form final result.
+            search(path, query: queryStr, foundItem: { (file) in
+                if query.evaluate(with: file.mapPredicate()) {
+                    foundFiles.append(file)
+                    foundItemHandler?(file)
+                }
+            }, completionHandler: { (error) in
+                completionHandler(foundFiles, error)
+            })
+        } else {
+            // Dropbox doesn't support searching attributes natively. The workaround is to fallback to listing all files
+            // and filter it locally. It may have a network burden in case there is many files in Dropbox, so please use it concisely.
+            list(path, recursive: true, progressHandler: { (files, _, error) in
+                for file in files where query.evaluate(with: file.mapPredicate()) {
+                    foundItemHandler?(file)
+                }
+            }, completionHandler: { (files, _, error) in
+                let predicatedFiles = files.filter { query.evaluate(with: $0.mapPredicate()) }
+                completionHandler(predicatedFiles, error)
+            })
+        }
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {

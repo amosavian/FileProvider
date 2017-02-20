@@ -301,9 +301,7 @@ public struct LocalFileInformationGenerator {
             let expfrac = simplify(Int64(exp.doubleValue * 10_000_000_000_000), 10_000_000_000_000)
             add(key: "Exposure time", value: "\(expfrac.newTop)/\(expfrac.newBottom)")
         }
-        if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? NSArray , iso.count > 0 {
-            add(key: "ISO speed", value: iso[0])
-        }
+        add(key: "ISO speed", value: (exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? NSArray)?.first)
         return (dic, keys)
     }
     
@@ -371,10 +369,10 @@ public struct LocalFileInformationGenerator {
         }
         let asset = AVURLAsset(url: fileURL, options: nil)
         let videoTracks = asset.tracks(withMediaType: AVMediaTypeVideo)
-        if videoTracks.count > 0 {
+        if let videoTrack = videoTracks.first {
             var bitrate: Float = 0
-            let width = Int(videoTracks[0].naturalSize.width)
-            let height = Int(videoTracks[0].naturalSize.height)
+            let width = Int(videoTrack.naturalSize.width)
+            let height = Int(videoTrack.naturalSize.height)
             add(key: "Dimensions", value: "\(width)x\(height)")
             var duration: Int64 = 0
             for track in videoTracks {

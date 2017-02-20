@@ -101,12 +101,6 @@ open class FileObject: Equatable {
         }
     }
     
-    /// **OBSOLETED:** Use `type` property instead.
-    @available(*, obsoleted: 1.0, renamed: "type", message: "Use type property instead.")
-    open var fileType: URLFileResourceType? {
-        return self.type
-    }
-    
     /// File is hidden either because begining with dot or filesystem flags
     /// Setting this value on a file begining with dot has no effect
     open internal(set) var isHidden: Bool {
@@ -157,7 +151,7 @@ open class FileObject: Equatable {
         return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
     }
     
-    internal  func mapPredicate() -> [String: Any] {
+    internal func mapPredicate() -> [String: Any] {
         let mapDict: [URLResourceKey: String] = [.fileURL: "url", .nameKey: "name", .pathKey: "path", .fileSizeKey: "filesize", .creationDateKey: "creationDate",
                                                  .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden", .isWritableKey: "isWritable", .serverDate: "serverDate", .entryTag: "entryTag", .mimeType: "mimeType"]
         let typeDict: [URLFileResourceType: String] = [.directory: "directory", .regular: "regular", .symbolicLink: "symbolicLink", .unknown: "unknown"]
@@ -174,6 +168,33 @@ open class FileObject: Equatable {
         result["isSymLink"] = self.isSymLink
         result["type"] = typeDict[self.type ?? .unknown] ?? "unknown"
         return result
+    }
+    
+    static public func convertPredicate(fromSpotlight query: NSPredicate) -> NSPredicate {
+        let mapDict: [String: URLResourceKey] = [NSMetadataItemURLKey: .fileURL, NSMetadataItemFSNameKey: .nameKey, NSMetadataItemPathKey: .pathKey,
+                                                 NSMetadataItemFSSizeKey: .fileSizeKey, NSMetadataItemFSCreationDateKey: .creationDateKey,
+                                                 NSMetadataItemFSContentChangeDateKey: .contentModificationDateKey, "kMDItemFSInvisible": .isHiddenKey, "kMDItemFSIsWriteable": .isWritableKey, "kMDItemKind": .mimeType]
+        
+        if let cQuery = query as? NSCompoundPredicate {
+            let newSub = cQuery.subpredicates.map { convertPredicate(fromSpotlight: $0 as! NSPredicate) }
+            switch cQuery.compoundPredicateType {
+            case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
+            case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
+            case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+            }
+        } else if let cQuery = query as? NSComparisonPredicate {
+            var newLeft = cQuery.leftExpression
+            var newRight = cQuery.rightExpression
+            if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
+                newLeft = NSExpression(forKeyPath: newKey.rawValue)
+            }
+            if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
+                newRight = NSExpression(forKeyPath: newKey.rawValue)
+            }
+            return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
+        } else {
+            return query
+        }
     }
 }
 
@@ -264,7 +285,7 @@ public struct FileObjectSorting {
         self.isDirectoriesFirst = isDirectoriesFirst
     }
     
-    /// Sorts array of `FileObject`s by criterias set in properties
+    /// Sorts array of `FileObject`s by criterias set in attributes.
     public func sort(_ files: [FileObject]) -> [FileObject] {
         return files.sorted {
             if isDirectoriesFirst {
@@ -302,13 +323,13 @@ public struct FileObjectSorting {
 }
 
 extension Array where Element: FileObject {
-    /// Returns a sorted array of `FileObject`s by criterias set in properties.
+    /// Returns a sorted array of `FileObject`s by criterias set in attributes.
     public func sort(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
         let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
         return sorting.sort(self) as! [Element]
     }
     
-    /// Sorts array of `FileObject`s by criterias set in properties
+    /// Sorts array of `FileObject`s by criterias set in attributes.
     public mutating func sorted(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) {
         self = self.sort(by: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
     }

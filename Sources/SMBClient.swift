@@ -68,11 +68,8 @@ class SMB2ProtocolClient: FPSStreamTask {
         }
         let mId = messageId()
         let smbHeader = SMB2.Header(command: .TREE_CONNECT, creditRequestResponse: 123, messageId: mId, treeId: 0, sessionId: sessionId)
-        var share = ""
         let cmp = url.pathComponents
-        if cmp.count > 0 {
-            share = cmp[0]
-        }
+        let share = cmp.first ?? ""
         let tcHeader = SMB2.TreeConnectRequest.Header(flags: [])
         let msg = SMB2.TreeConnectRequest(header: tcHeader, host: host, share: share)
         let data = createSMB2Message(header: smbHeader, message: msg!)

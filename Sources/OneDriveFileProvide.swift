@@ -20,14 +20,9 @@ import CoreGraphics
 open class OneDriveFileProvider: FileProviderBasicRemote {
     open class var type: String { return "OneDrive" }
     open let baseURL: URL?
-    /// OneDrive server url, equals with unwrapped `baseURL`
-    open var serverURL: URL { return baseURL! }
     /// Drive name for user, default is `root`. Changing its value will effect on new operations.
     open var drive: String
     /// Generated storage url from server url and drive name
-    open var driveURL: URL {
-        return URL(string: "/drive/\(drive):/", relativeTo: baseURL)!
-    }
     open var currentPath: String
     
     open var dispatch_queue: DispatchQueue
@@ -101,8 +96,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
-        let url = URL(string: escaped(path: path), relativeTo: driveURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -121,8 +115,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     }
     
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        let url = URL(string: "/drive/root", relativeTo: baseURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url())
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -140,7 +133,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
         var foundFiles = [OneDriveFileObject]()
         var queryStr: String?
-        queryStr = self.findNameQuery(query, key: "name") as? String ?? self.findNameQuery(query, key: nil) as? String
+        queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         guard let finalQueryStr = queryStr else { return }
         search(path, query: finalQueryStr, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {
@@ -152,9 +145,34 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         })
     }
     
+    open func url(of path: String? = nil, modifier: String? = nil) -> URL {
+        var rpath: String
+        if let path = path {
+            rpath = path
+        } else {
+            rpath = self.currentPath
+        }
+        
+        if rpath.hasPrefix("/") {
+            rpath.remove(at: rpath.startIndex)
+        }
+        if rpath.isEmpty {
+            if let modifier = modifier {
+                return baseURL!.appendingPathComponent("drive/\(drive)/\(modifier)")
+            }
+            return baseURL!.appendingPathComponent("drive/\(drive)")
+        }
+        let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
+        rpath = (rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath)
+        rpath = rpath.trimmingCharacters(in: pathTrimSet)
+        if let modifier = modifier {
+            rpath = rpath + ":/" + modifier
+        }
+        return URL(string: rpath, relativeTo: driveURL) ?? driveURL
+    }
+    
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
-        let url = URL(string: "/drive/root", relativeTo: baseURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url())
         request.httpMethod = "HEAD"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -198,7 +216,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         }
         guard let sourcePath = operation.source else { return nil }
         let destPath = operation.destination
-        var request = URLRequest(url: URL(string: sourcePath, relativeTo: driveURL)!)
+        var request = URLRequest(url: url(of: sourcePath))
         switch operation {
         case .create:
             request.httpMethod = "CREATE"
@@ -246,8 +264,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = URL(string: escaped(path: path) + ":/content", relativeTo: driveURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.downloadTask(with: request, completionHandler: { (cacheURL, response, error) in
@@ -281,8 +298,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         }
         
         let opType = FileOperationType.fetch(path: path)
-        let url =  URL(string: escaped(path: path) + ":/content", relativeTo: driveURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
@@ -337,8 +353,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
          `error`: Error returned by OneDrive.
      */
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: OneDriveFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
-        let url =  URL(string: escaped(path: path) + ":/action.createLink", relativeTo: driveURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
         request.httpMethod = "POST"
         let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
         request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
@@ -384,9 +399,9 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
         if let dimension = dimension {
-            url = URL(string: escaped(path: path) + ":/thumbnails/0/=c\(dimension.width)x\(dimension.height)/content", relativeTo: driveURL)!
+            url = self.url(of: path, modifier: "thumbnails/0/=c\(dimension.width)x\(dimension.height)/content")
         } else {
-            url = URL(string: escaped(path: path) + ":/thumbnails/0/small/content", relativeTo: driveURL)!
+            url =  self.url(of: path, modifier: "thumbnails/0/small/content")
         }
         
         var request = URLRequest(url: url)
@@ -407,8 +422,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     }
     
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
-        let url = URL(string: escaped(path: path), relativeTo: driveURL)!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in

@@ -34,7 +34,9 @@ public final class OneDriveFileObject: FileObject {
     internal convenience init? (baseURL: URL?, drive: String, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
-        let lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
+        var lPath = path.replacingOccurrences(of: "/drive/\(drive)", with: "/", options: .anchored, range: nil)
+        lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
+        lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
         self.init(baseURL: baseURL, name: name, path: lPath)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         self.modifiedDate = resolve(dateString: json["lastModifiedDateTime"] as? String ?? "")
@@ -79,13 +81,8 @@ public final class OneDriveFileObject: FileObject {
 
 // codebeat:disable[ARITY]
 internal extension OneDriveFileProvider {
-    func list(_ path: String, cursor: String? = nil, prevContents: [OneDriveFileObject] = [], completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
-        let url: URL
-        if let cursor = cursor {
-            url = URL(string: cursor)!
-        } else {
-            url = URL(string: escaped(path: path), relativeTo: driveURL)!
-        }
+    func list(_ path: String, cursor: URL? = nil, prevContents: [OneDriveFileObject] = [], completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
+        let url = cursor ?? self.url(of: path, modifier: "children")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -103,7 +100,7 @@ internal extension OneDriveFileProvider {
                             files.append(file)
                         }
                     }
-                    let ncursor = json?["@odata.nextLink"] as? String
+                    let ncursor: URL? = (json?["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
                     let hasmore = ncursor != nil
                     if hasmore {
                         self.list(path, cursor: ncursor, prevContents: files, completionHandler: completionHandler)
@@ -125,7 +122,7 @@ internal extension OneDriveFileProvider {
             return nil
         }
         let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-        let url = URL(string: escaped(path: targetPath) + ":/content" + queryStr, relativeTo: driveURL)!
+        let url = self.url(of: targetPath, modifier: "content\(queryStr)")
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -153,7 +150,7 @@ internal extension OneDriveFileProvider {
             return nil
         }
         let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-        let url = URL(string: escaped(path: targetPath) + ":/content" + queryStr, relativeTo: driveURL)!
+        let url = self.url(of: targetPath, modifier: "content\(queryStr)")
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -171,15 +168,10 @@ internal extension OneDriveFileProvider {
         return RemoteOperationHandle(operationType: operation, tasks: [task])
     }
     
-    func search(_ startPath: String = "", query: String, next: String? = nil, foundItem:@escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
+    func search(_ startPath: String = "", query: String, next: URL? = nil, foundItem:@escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
         let url: URL
-        if let next = next {
-            url = URL(string: next)!
-        } else if self.escaped(path: startPath) == "" {
-            url = URL(string: "/drive/\(drive)/view.search?q=\(query)", relativeTo: baseURL)!
-        } else {
-            url = URL(string: "\(escaped(path: startPath))/view.search?q=\(query)", relativeTo: driveURL)!
-        }
+        let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -197,9 +189,8 @@ internal extension OneDriveFileProvider {
                             foundItem(file)
                         }
                     }
-                    let next = json?["@odata.nextLink"] as? String
-                    let hasmore = next != nil
-                    if hasmore, let next = next {
+                    let next: URL? = (json?["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
+                    if let next = next {
                         self.search(startPath, query: query, next: next, foundItem: foundItem, completionHandler: completionHandler)
                     } else {
                         completionHandler(responseError ?? error)
