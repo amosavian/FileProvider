@@ -102,57 +102,44 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
         self.didSendDataHandler?(session, task, bytesSent, totalBytesSent, totalBytesExpectedToSend)
         
-        guard let desc = task.taskDescription, let json = jsonToDictionary(desc) else {
-            return
-        }
-        guard let type = json["type"] as? String, let source = json["source"] as? String else {
-            return
-        }
-        let dest = json["dest"] as? String
-        let op : FileOperationType
-        switch type {
-        case "Create":
-            op = .create(path: source)
-        case "Copy":
-            guard let dest = dest else { return }
-            op = .copy(source: source, destination: dest)
-        case "Move":
-            guard let dest = dest else { return }
-            op = .move(source: source, destination: dest)
-        case "Modify":
-            op = .modify(path: source)
-        case "Remove":
-            op = .remove(path: source)
-        case "Link":
-            guard let dest = dest else { return }
-            op = .link(link: source, target: dest)
-        default:
+        guard let desc = task.taskDescription, let json = jsonToDictionary(desc),
+              let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
         }
         
         let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
         
-        fileProvider?.delegate?.fileproviderProgress(fileProvider!, operation: op, progress: progress)
+        fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: progress)
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         self.didReceivedData?(session, downloadTask, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite)
         
-        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc), let source = json["source"] as? String, let dest = json["dest"] as? String else {
+        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc),
+              let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
         }
         
-        fileProvider?.delegate?.fileproviderProgress(fileProvider!, operation: .copy(source: source, destination: dest), progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
+        fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        let deposition: Foundation.URLSession.AuthChallengeDisposition = credential != nil ? .useCredential : .performDefaultHandling
-        completionHandler(deposition, credential)
+        authenticate(didReceive: challenge, completionHandler: completionHandler)
     }
     
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        let deposition: Foundation.URLSession.AuthChallengeDisposition = credential != nil ? .useCredential : .performDefaultHandling
-        completionHandler(deposition, credential)
+        authenticate(didReceive: challenge, completionHandler: completionHandler)
+    }
+    
+    func authenticate(didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        switch (challenge.previousFailureCount, credential != nil) {
+        case (0...1, true):
+            completionHandler(.useCredential, credential)
+        case (0, false):
+            completionHandler(.useCredential, challenge.proposedCredential)
+        default:
+            completionHandler(.performDefaultHandling, nil)
+        }
     }
 }
 

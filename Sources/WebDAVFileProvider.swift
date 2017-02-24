@@ -564,24 +564,21 @@ struct DavResponse {
     }
     
     static func parse(xmlResponse: Data, baseURL: URL?) -> [DavResponse] {
+        guard let xml = try? AEXMLDocument(xml: xmlResponse) else { return [] }
         var result = [DavResponse]()
-        do {
-            let xml = try AEXMLDocument(xml: xmlResponse)
-            var rootnode = xml.root
-            var responsetag = "response"
-            for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus") {
-                rootnode = node
+        var rootnode = xml.root
+        var responsetag = "response"
+        for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("response") {
+            responsetag = node.name
+            break
+        }
+        for responseNode in rootnode[responsetag].all ?? [] {
+            if let davResponse = DavResponse(responseNode, baseURL: baseURL) {
+                result.append(davResponse)
             }
-            for node in rootnode.children where node.name.lowercased().hasSuffix("response") {
-                responsetag = node.name
-                break
-            }
-            for responseNode in rootnode[responsetag].all ?? [] {
-                if let davResponse = DavResponse(responseNode, baseURL: baseURL) {
-                    result.append(davResponse)
-                }
-            }
-        } catch _ {
         }
         return result
     }

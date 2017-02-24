@@ -95,7 +95,7 @@ public protocol FileProviderBasic: class {
      - Parameters:
        - path: location of directory to start search
        - recursive: Searching subdirectories of path
-       - query: Simple string that file name contains to be search, case-insensitive.
+       - query: Simple string that file name begins with to be search, case-insensitive.
        - foundItemHandler: Closure which is called when a file is found
        - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
      */
@@ -138,7 +138,7 @@ public protocol FileProviderBasic: class {
 
 extension FileProviderBasic {
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        let predicate = NSPredicate(format: "name CONTAINS[c] %@", query)
+        let predicate = NSPredicate(format: "name BEHINSWITH[c] %@", query)
         self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
@@ -946,6 +946,32 @@ public enum FileOperationType: CustomStringConvertible {
         guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
         let mirror = Mirror(reflecting: reflect)
         return mirror.children.dropFirst().first?.value as? String
+    }
+    
+    init? (json: [String: AnyObject]) {
+        guard let type = json["type"] as? String, let source = json["source"] as? String else {
+            return nil
+        }
+        let dest = json["dest"] as? String
+        switch type {
+        case "Create":
+            self = .create(path: source)
+        case "Modify":
+            self = .modify(path: source)
+        case "Remove":
+            self = .remove(path: source)
+        case "Copy":
+            guard let dest = dest else { return nil }
+            self = .copy(source: source, destination: dest)
+        case "Move":
+            guard let dest = dest else { return nil }
+            self = .move(source: source, destination: dest)
+        case "Link":
+            guard let dest = dest else { return nil }
+            self = .link(link: source, target: dest)
+        default:
+            return nil
+        }
     }
     
     internal var json: String? {

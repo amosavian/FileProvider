@@ -299,18 +299,15 @@ open class LocalOperationHandle: OperationHandle {
         let fp = FileManager()
         let filesList = fp.enumerator(at: pathURL, includingPropertiesForKeys: keys, options: enumOpt, errorHandler: nil)
         while let fileURL = filesList?.nextObject() as? URL {
-            do {
-                let values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
-                let isdir = values.isDirectory ?? false
-                let size = Int64(values.fileSize ?? 0)
-                if isdir {
-                    folders += 1
-                } else {
-                    files += 1
-                }
-                totalsize += size
-            } catch _ {
+            guard let values = try? fileURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]) else { continue }
+            let isdir = values.isDirectory ?? false
+            let size = Int64(values.fileSize ?? 0)
+            if isdir {
+                folders += 1
+            } else {
+                files += 1
             }
+            totalsize += size
         }
         
         return (folders, files, totalsize)

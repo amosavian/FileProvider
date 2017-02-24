@@ -42,15 +42,21 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     */
     open var isCoorinating: Bool
     
+    /// **OBSOLETED**: Use FileProvider.init(for:in:) instead.
+    @available(*, obsoleted: 1.0, renamed: "init(for:in:)", message: "Use FileProvider.init(for:in:) instead.")
+    public convenience init (directory: FileManager.SearchPathDirectory = .documentDirectory, domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
+        self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
+    }
+    
     /**
      Initializes provider for the specified common directory in the requested domains.
      default values are `directory: .documentDirectory, domainMask: .userDomainMask`.
      
      - Parameters:
-       - directory: The search path directory. The supported values are described in `FileManager.SearchPathDirectory`.
-       - domainMask: The file system domain to search. The value for this parameter is one or more of the constants described in `FileManager.SearchPathDomainMask`.
-    */
-    public convenience init (directory: FileManager.SearchPathDirectory = .documentDirectory, domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
+     - for: The search path directory. The supported values are described in `FileManager.SearchPathDirectory`.
+     - in: Base locations for directory to search. The value for this parameter is one or more of the constants described in `FileManager.SearchPathDomainMask`.
+     */
+    public convenience init (for directory: FileManager.SearchPathDirectory = .documentDirectory, in domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
         self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
     }
     

@@ -134,7 +134,7 @@ internal extension OneDriveFileProvider {
                 responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
+            self.delegateNotify(operation, error: responseError ?? error)
         })
         task.taskDescription = operation.json
         task.resume()
@@ -161,7 +161,7 @@ internal extension OneDriveFileProvider {
                 responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
             completionHandler?(responseError ?? error)
-            self.delegateNotify(.create(path: targetPath), error: responseError ?? error)
+            self.delegateNotify(operation, error: responseError ?? error)
         })
         task.taskDescription = operation.json
         task.resume()

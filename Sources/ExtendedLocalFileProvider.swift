@@ -247,7 +247,7 @@ public struct LocalFileInformationGenerator {
         var keys = [String]()
         
         func add(key: String, value: Any?) {
-            if let value = value {
+            if let value = value, !((value as? String)?.isEmpty ?? false) {
                 keys.append(key)
                 dic[key] = value
             }
@@ -282,16 +282,15 @@ public struct LocalFileInformationGenerator {
         add(key: "Device model", value: tiffDict[kCGImagePropertyTIFFModel as String])
         add(key: "Lens model", value: exifDict[kCGImagePropertyExifLensModel as String])
         add(key: "Artist", value: tiffDict[kCGImagePropertyTIFFArtist as String] as? String)
-        if let cr = tiffDict[kCGImagePropertyTIFFCopyright as String] as? String , !cr.isEmpty {
-            add(key: "Copyright", value: cr)
-
-        }
-        if let date = tiffDict[kCGImagePropertyTIFFDateTime as String] as? String , !date.isEmpty {
-            add(key: "Date taken", value: date)
-        }
+        add(key: "Copyright", value: tiffDict[kCGImagePropertyTIFFCopyright as String] as? String)
+        add(key: "Date taken", value: tiffDict[kCGImagePropertyTIFFDateTime as String] as? String)
+        
         if let latitude = tiffDict[kCGImagePropertyGPSLatitude as String] as? NSNumber, let longitude = tiffDict[kCGImagePropertyGPSLongitude as String] as? NSNumber {
             add(key: "Location", value: "\(latitude), \(longitude)")
         }
+        add(key: "Altitude", value: tiffDict[kCGImagePropertyGPSAltitude as String] as? NSNumber)
+        add(key: "Area", value: tiffDict[kCGImagePropertyGPSAreaInformation as String] as? NSNumber)
+        
         add(key: "Color space", value: imageDict[kCGImagePropertyColorModel as String])
         add(key: "Focal length", value: exifDict[kCGImagePropertyExifFocalLength as String])
         add(key: "F number", value: exifDict[kCGImagePropertyExifFNumber as String])
@@ -398,7 +397,7 @@ public struct LocalFileInformationGenerator {
         var keys = [String]()
         
         func add(key: String, value: Any?) {
-            if let value = value {
+            if let value = value, !((value as? String)?.isEmpty ?? false) {
                 keys.append(key)
                 dic[key] = value
             }
@@ -412,7 +411,8 @@ public struct LocalFileInformationGenerator {
             return nil
         }
         
-        func convertDate(_ date: String) -> Date? {
+        func convertDate(_ date: String?) -> Date? {
+            guard let date = date else { return nil }
             var dateStr = date
             if dateStr.hasPrefix("D:") {
                 dateStr = date.substring(from: date.characters.index(date.startIndex, offsetBy: 2))
@@ -430,15 +430,9 @@ public struct LocalFileInformationGenerator {
         }
         
         if let data = try? Data(contentsOf: fileURL), let provider = CGDataProvider(data: data as CFData), let reference = CGPDFDocument(provider), let dict = reference.info {
-            if let title = getKey("Title", from: dict), !title.isEmpty {
-                add(key: "Title", value: title)
-            }
-            if let author = getKey("Author", from: dict), !author.isEmpty {
-                add(key: "Author", value: author)
-            }
-            if let subject = getKey("Subject", from: dict), !subject.isEmpty {
-                add(key: "Subject", value: subject)
-            }
+            add(key: "Title", value: getKey("Title", from: dict))
+            add(key: "Author", value: getKey("Author", from: dict))
+            add(key: "Subject", value: getKey("Subject", from: dict))
             var majorVersion: Int32 = 0
             var minorVersion: Int32 = 0
             reference.getVersion(majorVersion: &majorVersion, minorVersion: &minorVersion)
@@ -451,15 +445,9 @@ public struct LocalFileInformationGenerator {
                 let size = pageRef.getBoxRect(CGPDFBox.mediaBox).size
                 add(key: "Resolution", value: "\(Int(size.width))x\(Int(size.height))")
             }
-            if let creator = getKey("Creator", from: dict), !creator.isEmpty {
-                add(key: "Content creator", value: creator)
-            }
-            if let creationDateString = getKey("CreationDate", from: dict) {
-                add(key: "Creation date", value: convertDate(creationDateString))
-            }
-            if let modifiedDateString = getKey("ModDate", from: dict) {
-                add(key: "Modified date", value: convertDate(modifiedDateString))
-            }
+            add(key: "Content creator", value: getKey("Creator", from: dict))
+            add(key: "Creation date", value: convertDate(getKey("CreationDate", from: dict)))
+            add(key: "Modified date", value: convertDate(getKey("ModDate", from: dict)))
             add(key: "Security", value: reference.isEncrypted ? "Present" : "None")
             add(key: "Allows printing", value: reference.allowsPrinting ? "Yes" : "No")
             add(key: "Allows copying", value: reference.allowsCopying ? "Yes" : "No")
