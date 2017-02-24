@@ -138,7 +138,7 @@ public protocol FileProviderBasic: class {
 
 extension FileProviderBasic {
     public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        let predicate = NSPredicate(format: "name BEHINSWITH[c] %@", query)
+        let predicate = NSPredicate(format: "name BEGINSWITH[c] %@", query)
         self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
