@@ -225,8 +225,7 @@ public struct LocalFileInformationGenerator {
     
     /// Thumbnail generator closure for portable document files files.
     static public var pdfThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
-        guard let data = try? Data(contentsOf: fileURL) else { return nil }
-        return LocalFileProvider.convertToImage(pdfData: data)
+        return LocalFileProvider.convertToImage(pdfURL: fileURL)
     }
     
     /// Thumbnail generator closure for office document files.
@@ -289,7 +288,7 @@ public struct LocalFileInformationGenerator {
             add(key: "Location", value: "\(latitude), \(longitude)")
         }
         add(key: "Altitude", value: tiffDict[kCGImagePropertyGPSAltitude as String] as? NSNumber)
-        add(key: "Area", value: tiffDict[kCGImagePropertyGPSAreaInformation as String] as? NSNumber)
+        add(key: "Area", value: tiffDict[kCGImagePropertyGPSAreaInformation as String])
         
         add(key: "Color space", value: imageDict[kCGImagePropertyColorModel as String])
         add(key: "Focal length", value: exifDict[kCGImagePropertyExifFocalLength as String])
@@ -300,7 +299,7 @@ public struct LocalFileInformationGenerator {
             let expfrac = simplify(Int64(exp.doubleValue * 10_000_000_000_000), 10_000_000_000_000)
             add(key: "Exposure time", value: "\(expfrac.newTop)/\(expfrac.newBottom)")
         }
-        add(key: "ISO speed", value: (exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? NSArray)?.first)
+        add(key: "ISO speed", value: (exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [NSNumber])?.first)
         return (dic, keys)
     }
     
@@ -429,7 +428,7 @@ public struct LocalFileInformationGenerator {
             return nil
         }
         
-        if let data = try? Data(contentsOf: fileURL), let provider = CGDataProvider(data: data as CFData), let reference = CGPDFDocument(provider), let dict = reference.info {
+        if let provider = CGDataProvider(url: fileURL as CFURL), let reference = CGPDFDocument(provider), let dict = reference.info {
             add(key: "Title", value: getKey("Title", from: dict))
             add(key: "Author", value: getKey("Author", from: dict))
             add(key: "Subject", value: getKey("Subject", from: dict))

@@ -96,7 +96,7 @@ internal final class LocalFolderMonitor {
     init(url: URL, handler: @escaping ()->Void) {
         self.url = url
         descriptor = open((url as NSURL).fileSystemRepresentation, O_EVTONLY)
-        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: DispatchSource.FileSystemEvent.write, queue: qq)
+        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: .write, queue: qq)
         // Folder monitoring is recursive and deep. Monitoring a root folder may be very costly
         // We have a 0.2 second delay to ensure we wont call handler 1000s times when there is
         // a huge file operation. This ensures app will work smoothly while this 250 milisec won't

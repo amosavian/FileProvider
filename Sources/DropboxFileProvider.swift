@@ -539,8 +539,8 @@ extension DropboxFileProvider: ExtendedFileProvider {
                 }
             }
             if let data = data {
-                if DropboxFileProvider.dataIsPDF(data) {
-                    image = DropboxFileProvider.convertToImage(pdfData: data)
+                if DropboxFileProvider.dataIsPDF(data), let pageImage = DropboxFileProvider.convertToImage(pdfData: data) {
+                    image = pageImage
                 } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
                      // TODO: Implement converting html returned type of get_preview to image
                 } else {

@@ -810,61 +810,75 @@ extension ExtendedFileProvider {
         
         let cfPDFData: CFData = pdfData as CFData
         if let provider = CGDataProvider(data: cfPDFData), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: page) {
-            let frame = pageRef.getBoxRect(CGPDFBox.mediaBox)
-            var size = frame.size
-            let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
-            
-            #if os(macOS)
-                let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
-                
-                size.width  *= CGFloat(ppp)
-                size.height *= CGFloat(ppp)
-                
-                let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
-                    bytesPerRow: 0, bitsPerPixel: 0)
-                
-                guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
-                    return nil
-                }
-                
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.setCurrent(context)
-                
-                let transform = pageRef.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
-                context.cgContext.concatenate(transform)
-                
-                context.cgContext.translateBy(x: 0, y: size.height)
-                context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
-                context.cgContext.drawPDFPage(pageRef)
-                
-                let resultingImage = NSImage(size: size)
-                resultingImage.addRepresentation(rep!)
-                return resultingImage
-            #else
-                let ppp = Int(UIScreen.main.scale) // fetch device is retina or not
-                guard let context = UIGraphicsGetCurrentContext() else {
-                    return nil
-                }
-                size.width  *= CGFloat(ppp)
-                size.height *= CGFloat(ppp)
-                UIGraphicsBeginImageContext(size)
-                
-                context.saveGState()
-                let transform = pageRef.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
-                context.concatenate(transform)
-                
-                context.translateBy(x: 0, y: size.height)
-                context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
-                context.drawPDFPage(pageRef)
-                
-                context.restoreGState()
-                let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
-                UIGraphicsEndImageContext()
-                return resultingImage
-            #endif
+            return self.convertToImage(pdfPage: pageRef)
         }
         return nil
+    }
+    
+    internal static func convertToImage(pdfURL: URL, page: Int = 1) -> ImageClass? {
+        // To accelerate, supporting only local file URL
+        guard pdfURL.isFileURL else { return nil }
+        
+        if let provider = CGDataProvider(url: pdfURL as CFURL), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: page) {
+            return self.convertToImage(pdfPage: pageRef)
+        }
+        return nil
+    }
+    
+    private static func convertToImage(pdfPage: CGPDFPage) -> ImageClass? {
+        let frame = pdfPage.getBoxRect(CGPDFBox.mediaBox)
+        var size = frame.size
+        let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        
+        #if os(macOS)
+            let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            
+            size.width  *= CGFloat(ppp)
+            size.height *= CGFloat(ppp)
+            
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
+                                       bytesPerRow: 0, bitsPerPixel: 0)
+            
+            guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
+                return nil
+            }
+            
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.setCurrent(context)
+            
+            let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
+            context.cgContext.concatenate(transform)
+            
+            context.cgContext.translateBy(x: 0, y: size.height)
+            context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+            context.cgContext.drawPDFPage(pdfPage)
+            
+            let resultingImage = NSImage(size: size)
+            resultingImage.addRepresentation(rep!)
+            return resultingImage
+        #else
+            let ppp = Int(UIScreen.main.scale) // fetch device is retina or not
+            guard let context = UIGraphicsGetCurrentContext() else {
+                return nil
+            }
+            size.width  *= CGFloat(ppp)
+            size.height *= CGFloat(ppp)
+            UIGraphicsBeginImageContext(size)
+            
+            context.saveGState()
+            let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
+            context.concatenate(transform)
+            
+            context.translateBy(x: 0, y: size.height)
+            context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+            context.drawPDFPage(pdfPage)
+            
+            context.restoreGState()
+            let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            return resultingImage
+        #endif
     }
     
     internal static func scaleDown(image: ImageClass, toSize maxSize: CGSize) -> ImageClass {
@@ -1052,20 +1066,23 @@ public protocol FoundationErrorEnum {
 
 extension NSPredicate {
     func findValue(forKey key: String?, operator op: NSComparisonPredicate.Operator? = nil) -> Any? {
-        let val = findAllValues(forKey: key).lazy.filter { op == nil || $0.operator == op! }
+        let val = findAllValues(forKey: key).lazy.filter { (op == nil || $0.operator == op!) && !$0.not }
         return val.first?.value
     }
     
-    func findAllValues(forKey key: String?) -> [(value: Any, operator: NSComparisonPredicate.Operator)] {
+    func findAllValues(forKey key: String?) -> [(value: Any, operator: NSComparisonPredicate.Operator, not: Bool)] {
         if let cQuery = self as? NSCompoundPredicate {
             let find = cQuery.subpredicates.flatMap { ($0 as! NSPredicate).findAllValues(forKey: key) }
+            if cQuery.compoundPredicateType == .not {
+                return find.map { return ($0.value, $0.operator, !$0.not) }
+            }
             return find
         } else if let cQuery = self as? NSComparisonPredicate {
             if cQuery.leftExpression.expressionType == .keyPath, key == nil || cQuery.leftExpression.keyPath == key!, let const = cQuery.rightExpression.constantValue {
-                return [(value: const, operator: cQuery.predicateOperatorType)]
+                return [(value: const, operator: cQuery.predicateOperatorType, false)]
             }
             if cQuery.rightExpression.expressionType == .keyPath, key == nil || cQuery.rightExpression.keyPath == key!, let const = cQuery.leftExpression.constantValue {
-                return [(value: const, operator: cQuery.predicateOperatorType)]
+                return [(value: const, operator: cQuery.predicateOperatorType, false)]
             }
             return []
         } else {

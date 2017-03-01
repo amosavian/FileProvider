@@ -107,7 +107,7 @@ For LocalFileProvider if you want to deal with `Documents` folder
 let documentsProvider = LocalFileProvider()
 
 // Equals with:
-let documentsProvider = LocalFileProvider(directory: .documentDirectory, domainMask: = .userDomainMask)
+let documentsProvider = LocalFileProvider(for: .documentDirectory, in: .userDomainMask)
 
 // Equals with:
 let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
