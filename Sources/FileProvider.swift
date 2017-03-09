@@ -819,7 +819,7 @@ extension ExtendedFileProvider {
         // To accelerate, supporting only local file URL
         guard pdfURL.isFileURL else { return nil }
         
-        if let provider = CGDataProvider(url: pdfURL as CFURL), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: page) {
+        if let reference = CGPDFDocument(pdfURL as CFURL), let pageRef = reference.page(at: page) {
             return self.convertToImage(pdfPage: pageRef)
         }
         return nil

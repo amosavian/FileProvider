@@ -21,15 +21,12 @@ public final class LocalFileObject: FileObject {
         if relativeURL != nil && rpath.hasPrefix("/") {
             rpath.remove(at: rpath.startIndex)
         }
-        if rpath.isEmpty {
-            fileURL = relativeURL
+        if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
+            fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
         } else {
-            if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
-                fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
-            } else {
-                fileURL = URL(string: rpath, relativeTo: relativeURL)
-            }
+            fileURL = URL(string: rpath.isEmpty ? "./" : rpath, relativeTo: relativeURL)
         }
+        
         if let fileURL = fileURL {
             self.init(fileWithURL: fileURL)
         } else {
