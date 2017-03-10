@@ -105,7 +105,7 @@ internal final class LocalFolderMonitor {
             }
             self.monitoredTime = Date().timeIntervalSinceReferenceDate
             self.source.suspend()
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.25, execute: {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: {
                 handler()
                 self.source.resume()
             })

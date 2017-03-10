@@ -239,10 +239,10 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             var timedOut: Bool = false
             dispatch_queue.async {
                 if timeout > 0 {
-                    self.dispatch_queue.asyncAfter(deadline: DispatchTime.now() + Double(Int64(timeout * 1_000_000_000)) / Double(NSEC_PER_SEC), execute: {
+                    self.dispatch_queue.asyncAfter(deadline: .now() + 1) {
                         timedOut = true
                         completionHandler(nil, inputStream.streamStatus == .atEnd, inputStream.streamError as NSError?)
-                    })
+                    }
                 }
                 while (self.dataReceived.length == 0 || self.dataReceived.length < minBytes) && !timedOut {
                     RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
@@ -277,10 +277,10 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             var timedOut: Bool = false
             dispatch_queue.async {
                 if timeout > 0 {
-                    self.dispatch_queue.asyncAfter(deadline: DispatchTime.now() + Double(Int64(timeout * 1_000_000_000)) / Double(NSEC_PER_SEC), execute: {
+                    self.dispatch_queue.asyncAfter(deadline: .now() + 1) {
                         timedOut = true
                         completionHandler(self._error)
-                    })
+                    }
                 }
                 
                 self.dataToBeSent.append(data)

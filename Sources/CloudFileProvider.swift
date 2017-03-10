@@ -797,7 +797,7 @@ open class CloudOperationHandle: OperationHandle {
         DispatchQueue.main.async {
             query.start()
         }
-        _ = group.wait(timeout: DispatchTime.now() + 30)
+        _ = group.wait(timeout: .now() + 30)
         return item
     }
 }

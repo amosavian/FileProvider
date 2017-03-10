@@ -296,7 +296,7 @@ public struct LocalFileInformationGenerator {
         add(key: "Exposure program", value: exifDict[kCGImagePropertyExifExposureProgram as String])
         
         if let exp = exifDict[kCGImagePropertyExifExposureTime as String] as? NSNumber {
-            let expfrac = simplify(Int64(exp.doubleValue * 10_000_000_000_000), 10_000_000_000_000)
+            let expfrac = simplify(Int64(exp.doubleValue * 1_163_962_800_000), 1_163_962_800_000)
             add(key: "Exposure time", value: "\(expfrac.newTop)/\(expfrac.newBottom)")
         }
         add(key: "ISO speed", value: (exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [NSNumber])?.first)

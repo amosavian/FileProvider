@@ -220,7 +220,7 @@ internal extension FileProviderBasicRemote {
                     }
                     group.leave()
                 }).resume()
-                _ = group.wait(timeout: DispatchTime.now() + self.session.configuration.timeoutIntervalForRequest)
+                _ = group.wait(timeout: .now() + self.session.configuration.timeoutIntervalForRequest)
             }
             if validatedCache {
                 completionHandler(response.data, response.response, nil)
@@ -690,7 +690,7 @@ extension FileProviderBasic {
             }
             group.leave()
         }
-        _ = group.wait(timeout: DispatchTime.now() + 5)
+        _ = group.wait(timeout: .now() + 5)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
         return (dirPath as NSString).appendingPathComponent(finalFile)
     }
