@@ -47,6 +47,9 @@
 		794C220E1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
 		794C220F1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
 		794C22101D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */; };
+		796807551E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
+		796807561E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
+		796807571E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
 		799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
@@ -134,6 +137,7 @@
 		794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DropboxHelper.swift; sourceTree = "<group>"; };
 		794C22091D5893F800EC49B8 /* SMB2Notification.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Notification.swift; sourceTree = "<group>"; };
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
+		796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileProviderExtensions.swift; sourceTree = "<group>"; };
 		799396671D48B7F600086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396751D48B80D00086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396821D48B82700086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -281,6 +285,7 @@
 				799396991D48C02300086753 /* SMBTypes */,
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
+				796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */,
 				79F5745A1DFDB10A00179ABF /* FileObject.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
 				792572401DF23BDA006A1526 /* LocalHelper.swift */,
@@ -475,6 +480,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				796807551E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B31D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
@@ -515,6 +521,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				796807561E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B41D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
@@ -555,6 +562,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				796807571E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B51D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,

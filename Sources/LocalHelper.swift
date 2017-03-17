@@ -323,17 +323,3 @@ class UndoBox: NSObject {
         self.undoOperation = undoOperation
     }
 }
-
-internal extension URL {
-    var fileIsDirectory: Bool {
-        return (try? self.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-    }
-    
-    var fileSize: Int64 {
-        return Int64((try? self.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1)
-    }
-    
-    var fileExists: Bool {
-        return self.isFileURL && FileManager.default.fileExists(atPath: self.path)
-    }
-}

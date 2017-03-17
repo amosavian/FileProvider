@@ -102,7 +102,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
         self.didSendDataHandler?(session, task, bytesSent, totalBytesSent, totalBytesExpectedToSend)
         
-        guard let desc = task.taskDescription, let json = jsonToDictionary(desc),
+        guard let json = task.taskDescription?.deserializeJSON(),
               let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
         }
@@ -115,7 +115,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         self.didReceivedData?(session, downloadTask, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite)
         
-        guard let desc = downloadTask.taskDescription, let json = jsonToDictionary(desc),
+        guard let json = downloadTask.taskDescription?.deserializeJSON(),
               let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
         }

@@ -170,7 +170,7 @@ public func ==(lhs: FileProviderBasic, rhs: FileProviderBasic) -> Bool {
     return lhs.type == rhs.type && lhs.baseURL == rhs.baseURL && lhs.credential == rhs.credential
 }
 
-/// Cancels all active underlying tasks
+/// Cancels all active underlying tasks when deallocating remote providers
 public var fileProviderCancelTasksOnInvalidating = true
 
 /// Extending `FileProviderBasic` for web-based file providers
@@ -777,34 +777,6 @@ extension ExtendedFileProvider {
         self.thumbnailOfFile(path: path, dimension: nil, completionHandler: completionHandler)
     }
     
-    internal static func formatshort(interval: TimeInterval) -> String {
-        var result = "0:00"
-        if interval < TimeInterval(Int32.max) {
-            result = ""
-            var time = DateComponents()
-            time.hour   = Int(interval / 3600)
-            time.minute = Int((interval.truncatingRemainder(dividingBy: 3600)) / 60)
-            time.second = Int(interval.truncatingRemainder(dividingBy: 60))
-            let formatter = NumberFormatter()
-            formatter.paddingCharacter = "0"
-            formatter.minimumIntegerDigits = 2
-            formatter.maximumFractionDigits = 0
-            let formatterFirst = NumberFormatter()
-            formatterFirst.maximumFractionDigits = 0
-            if time.hour! > 0 {
-                result = "\(formatterFirst.string(from: NSNumber(value: time.hour!))!):\(formatter.string(from: NSNumber(value: time.minute!))!):\(formatter.string(from: NSNumber(value: time.second!))!)"
-            } else {
-                result = "\(formatterFirst.string(from: NSNumber(value: time.minute!))!):\(formatter.string(from: NSNumber(value: time.second!))!)"
-            }
-        }
-        result = result.trimmingCharacters(in: CharacterSet(charactersIn: ": "))
-        return result
-    }
-    
-    internal static func dataIsPDF(_ data: Data) -> Bool {
-        return data.count > 4 && data.scanString(length: 4, encoding: .ascii) == "%PDF"
-    }
-    
     internal static func convertToImage(pdfData: Data?, page: Int = 1) -> ImageClass? {
         guard let pdfData = pdfData else { return nil }
         
@@ -992,7 +964,7 @@ public enum FileOperationType: CustomStringConvertible {
         var dictionary: [String: AnyObject] = ["type": self.description as NSString]
         dictionary["source"] = source as NSString?
         dictionary["dest"] = destination as NSString?
-        return dictionaryToJSON(dictionary)
+        return String(jsonDictionary: dictionary)
     }
 }
 
@@ -1064,32 +1036,3 @@ public protocol FoundationErrorEnum {
     var rawValue: Int { get }
 }
 
-extension NSPredicate {
-    func findValue(forKey key: String?, operator op: NSComparisonPredicate.Operator? = nil) -> Any? {
-        let val = findAllValues(forKey: key).lazy.filter { (op == nil || $0.operator == op!) && !$0.not }
-        return val.first?.value
-    }
-    
-    func findAllValues(forKey key: String?) -> [(value: Any, operator: NSComparisonPredicate.Operator, not: Bool)] {
-        if let cQuery = self as? NSCompoundPredicate {
-            let find = cQuery.subpredicates.flatMap { ($0 as! NSPredicate).findAllValues(forKey: key) }
-            if cQuery.compoundPredicateType == .not {
-                return find.map { return ($0.value, $0.operator, !$0.not) }
-            }
-            return find
-        } else if let cQuery = self as? NSComparisonPredicate {
-            if cQuery.leftExpression.expressionType == .keyPath, key == nil || cQuery.leftExpression.keyPath == key!, let const = cQuery.rightExpression.constantValue {
-                return [(value: const, operator: cQuery.predicateOperatorType, false)]
-            }
-            if cQuery.rightExpression.expressionType == .keyPath, key == nil || cQuery.rightExpression.keyPath == key!, let const = cQuery.leftExpression.constantValue {
-                return [(value: const, operator: cQuery.predicateOperatorType, false)]
-            }
-            return []
-        } else {
-            return []
-        }
-    }
-}
-
-extension URLError.Code: FoundationErrorEnum {}
-extension CocoaError.Code: FoundationErrorEnum {}

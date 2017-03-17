@@ -105,7 +105,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr), let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: json) {
+                if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: json) {
                     fileObject = file
                 }
             }
@@ -121,7 +121,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var totalSize: Int64 = -1
             var usedSize: Int64 = 0
-            if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+            if let json = data?.deserializeJSON() {
                 totalSize = (json["total"] as? NSNumber)?.int64Value ?? -1
                 usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
             }
@@ -236,7 +236,7 @@ extension OneDriveFileProvider: FileProviderOperations {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             requestDictionary["parentReference"] = ("/drive/\(drive):" + dest.deletingLastPathComponent) as NSString
             requestDictionary["name"] = dest.lastPathComponent as NSString
-            request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+            request.httpBody = Data(jsonDictionary: requestDictionary)
         }
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderOneDriveError?
@@ -356,14 +356,14 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
         request.httpMethod = "POST"
         let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
-        request.httpBody = dictionaryToJSON(requestDictionary)?.data(using: .utf8)
+        request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderOneDriveError?
             var link: URL?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                if let json = data?.deserializeJSON() {
                     if let linkDic = json["link"] as? NSDictionary, let linkStr = linkDic["webUrl"] as? String {
                         link = URL(string: linkStr)
                     }
@@ -432,7 +432,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let data = data, let jsonStr = String(data: data, encoding: .utf8), let json = jsonToDictionary(jsonStr) {
+                if let json = data?.deserializeJSON() {
                     (dic, keys) = self.mapMediaInfo(json)
                 }
             }

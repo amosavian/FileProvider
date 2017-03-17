@@ -338,7 +338,7 @@ public struct LocalFileInformationGenerator {
                 }
             }
             if let ap = try? AVAudioPlayer(contentsOf: fileURL) {
-                add(key: "Duration", value: LocalFileProvider.formatshort(interval: ap.duration))
+                add(key: "Duration", value: ap.duration.formatshort)
                 add(key: "Bitrate", value: ap.settings[AVSampleRateKey] as? Int)
             }
         }
@@ -377,7 +377,7 @@ public struct LocalFileInformationGenerator {
                 duration += track.timeRange.duration.timescale > 0 ? track.timeRange.duration.value / Int64(track.timeRange.duration.timescale) : 0
                 bitrate += track.estimatedDataRate
             }
-            add(key: "Duration", value: LocalFileProvider.formatshort(interval: TimeInterval(duration)))
+            add(key: "Duration", value: TimeInterval(duration).formatshort)
             add(key: "Video Bitrate", value: "\(Int(ceil(bitrate / 1000))) kbps")
         }
         let audioTracks = asset.tracks(withMediaType: AVMediaTypeAudio)

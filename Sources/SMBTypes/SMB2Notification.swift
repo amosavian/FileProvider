@@ -92,7 +92,7 @@ extension SMB2 {
                 }
                 
                 let fileNameLen = Int(data.scanValue(start: offset + 8) as UInt32? ?? 0)
-                let fileName = data.scanString(start: offset + 12, length: fileNameLen, encoding: .utf16) ?? ""
+                let fileName = data.scanString(start: offset + 12, length: fileNameLen, using: .utf16) ?? ""
                 result.append((action: action, fileName: fileName))
                 
                 offset += Int(nextOffset)

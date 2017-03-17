@@ -85,7 +85,7 @@ extension SMB2 {
                     return []
                 }
                 let headersize = MemoryLayout.size(ofValue: header)
-                let fileName = buffer.scanString(start: headersize, length: Int(header.fileNameLength), encoding: .utf16) ?? ""
+                let fileName = buffer.scanString(start: headersize, length: Int(header.fileNameLength), using: .utf16) ?? ""
                 result.append((header: header, fileName: fileName))
                 if header.nextEntryOffset == 0 {
                     break
@@ -216,12 +216,12 @@ extension SMB2 {
         var asAllInformation: (header: FileAllInformationHeader, name: String) {
             let header: FileAllInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileAllInformationHeader>.size
-            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), using: .utf16) ?? ""
             return (header, name)
         }
         
         var asAlternateNameInformation: String {
-            return buffer.scanString(start: 0, length: buffer.count, encoding: .utf16) ?? ""
+            return buffer.scanString(start: 0, length: buffer.count, using: .utf16) ?? ""
         }
         
         var asAttributeTagInformation: FileAttributeTagInformation {
@@ -280,14 +280,14 @@ extension SMB2 {
         var asStreamInformation: (header: FileStreamInformationHeader, name: String) {
             let header: FileStreamInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileStreamInformationHeader>.size
-            let name = buffer.scanString(start: headersize, length: Int(header.streamNameLength), encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.streamNameLength), using: .utf16) ?? ""
             return (header, name)
         }
         
         var asFsVolumeInformation: (header: FileFsVolumeInformationHeader, name: String) {
             let header: FileFsVolumeInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileFsVolumeInformationHeader>.size
-            let name = buffer.scanString(start: headersize, length: Int(header.labelLength), encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.labelLength), using: .utf16) ?? ""
             return (header, name)
         }
         
@@ -302,7 +302,7 @@ extension SMB2 {
         var asFsAttributeInformation: (header: FileFsAttributeInformationHeader, name: String) {
             let header: FileFsAttributeInformationHeader = buffer.scanValue()!
             let headersize = MemoryLayout<FileFsAttributeInformationHeader>.size
-            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), encoding: .utf16) ?? ""
+            let name = buffer.scanString(start: headersize, length: Int(header.nameLength), using: .utf16) ?? ""
             return (header, name)
         }
         

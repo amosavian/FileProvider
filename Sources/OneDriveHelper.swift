@@ -27,7 +27,7 @@ public final class OneDriveFileObject: FileObject {
     }
     
     internal convenience init? (baseURL: URL?, drive: String, jsonStr: String) {
-        guard let json = jsonToDictionary(jsonStr) else { return nil }
+        guard let json = jsonStr.deserializeJSON() else { return nil }
         self.init(baseURL: baseURL, drive: drive, json: json)
     }
     
@@ -92,15 +92,14 @@ internal extension OneDriveFileProvider {
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderOneDriveError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            if let data = data, let jsonStr = String(data: data, encoding: .utf8) {
-                let json = jsonToDictionary(jsonStr)
-                if let entries = json?["value"] as? [AnyObject] , entries.count > 0 {
+            if let json = data?.deserializeJSON() {
+                if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
                         if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
                             files.append(file)
                         }
                     }
-                    let ncursor: URL? = (json?["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
+                    let ncursor: URL? = (json["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
                     let hasmore = ncursor != nil
                     if hasmore {
                         self.list(path, cursor: ncursor, prevContents: files, completionHandler: completionHandler)
@@ -181,15 +180,14 @@ internal extension OneDriveFileProvider {
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderOneDriveError(code: rCode, path: startPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
-            if let data = data, let jsonStr = String(data: data, encoding: .utf8) {
-                let json = jsonToDictionary(jsonStr)
-                if let entries = json?["value"] as? [AnyObject] , entries.count > 0 {
+            if let json = data?.deserializeJSON() {
+                if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
                         if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
                             foundItem(file)
                         }
                     }
-                    let next: URL? = (json?["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
+                    let next: URL? = (json["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
                     if let next = next {
                         self.search(startPath, query: query, next: next, foundItem: foundItem, completionHandler: completionHandler)
                     } else {
@@ -247,7 +245,7 @@ internal extension OneDriveFileProvider {
             add(key: "Location", value: "\(latStr), \(longStr)")
         }
         if let parent = json["image"] as? [String: Any] ?? json["video"] as? [String: Any], let duration = parent["duration"] as? UInt64 {
-            add(key: "Duration", value: OneDriveFileProvider.formatshort(interval: TimeInterval(duration) / 1000))
+            add(key: "Duration", value: (TimeInterval(duration) / 1000).formatshort)
         }
         if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
             OneDriveFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"

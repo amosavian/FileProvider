@@ -243,7 +243,7 @@ extension SMB2 {
                     if data.count < offset + 48 {
                         return nil
                     }
-                    let datestring = data.scanString(start: offset, length: 48, encoding: .utf16)
+                    let datestring = data.scanString(start: offset, length: 48, using: .utf16)
                     if let datestring = datestring, let date = dateFormatter.date(from: datestring) {
                         snapshots.append(SMBTime(date: date))
                     }
