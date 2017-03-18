@@ -637,15 +637,17 @@ extension FileProviderBasic {
     /// - Returns: A `String` contains relative path of url against base url.
     public func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
-        if !url.relativePath.isEmpty, url.baseURL == self.baseURL {
-            return url.relativePath.removingPercentEncoding!
+        let relativePath = url.relativePath
+        if !relativePath.isEmpty, url.baseURL == self.baseURL {
+            return relativePath.removingPercentEncoding ?? relativePath
         }
         
         // resolve url string against baseurl
         guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
         let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
         let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
-        return standardPath.replacingOccurrences(of: standardBase, with: "/").removingPercentEncoding!
+        let standardRelativePath = standardPath.replacingOccurrences(of: standardBase, with: "/")
+        return standardRelativePath.removingPercentEncoding ?? standardRelativePath
     }
     
     internal func correctPath(_ path: String?) -> String? {

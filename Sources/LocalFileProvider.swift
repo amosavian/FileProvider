@@ -480,7 +480,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let dirurl = self.url(of: path)
-        let isdir = (try? dirurl.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false) ?? false
+        let isdir = (try? dirurl.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
         if !isdir {
             return
         }
