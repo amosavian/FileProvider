@@ -250,7 +250,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
+        let url = self.url(of: atPath).appendingPathComponent(folderName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? folderName, isDirectory: true)
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -272,7 +272,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = self.url(of: path).appendingPathComponent(fileName)
+        let url = self.url(of: path).appendingPathComponent(fileName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fileName)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
@@ -520,12 +520,9 @@ struct DavResponse {
     
     init? (_ node: AEXMLElement, baseURL: URL?) {
         
-        func removeSlash(_ str: String) -> String {
-            if str.hasPrefix("/") {
-                return str.substring(from: str.index(after: str.startIndex))
-            } else {
-                return str
-            }
+        func standardizePath(_ str: String) -> String {
+            let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
+            return trimmedStr.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? str
         }
         
         // find node names with namespace
@@ -554,7 +551,7 @@ struct DavResponse {
         } else {
             relativePath = hrefAbsolute?.absoluteString.replacingOccurrences(of: baseURL?.absoluteString ?? "", with: "", options: .anchored, range: nil) ?? hrefString
         }
-        let hrefURL = URL(string: removeSlash(relativePath), relativeTo: baseURL) ?? baseURL
+        let hrefURL = URL(string: standardizePath(relativePath), relativeTo: baseURL) ?? baseURL
         
         guard let href = hrefURL?.standardized else { return nil }
         
