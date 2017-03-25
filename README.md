@@ -22,13 +22,13 @@
 
 This library provides implementaion of WebDav, Dropbox, OneDrive and SMB2 (incomplete) and local files.
 
-All functions are async calls and it wont block your main thread.
+All functions do async calls and it wont block your main thread.
 
 ## Features
 
-- [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like searching and reading a portion of file.
-- [x] **CloudFileProvider** A wrapper around app's ubiquitous container to iCloud Drive in iOS 8+ API.
-- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, replaced FTP.
+- [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like builtin coordinating, searching and reading a portion of file.
+- [x] **CloudFileProvider** A wrapper around app's ubiquitous container API of iCloud Drive.
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, used by many cloud services like Yandex.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
@@ -149,7 +149,7 @@ You can use `url(of:)` method if provider to get direct access url (local or rem
 
 For updating User interface please consider using delegate method instead of completion handlers. Delegate methods are guaranteed to run in main thread to avoid bugs.
 
-It's simply three method which indicated whether the operation failed, succeed and how much of operation has been done (suitable for uploading and downloading operations).
+There's simply three method which indicated whether the operation failed, succeed and how much of operation has been done (suitable for uploading and downloading operations).
 
 Your class should conforms `FileProviderDelegate` class:
 
@@ -202,7 +202,7 @@ You can also implement `FileOperationDelegate` protocol to control behaviour of 
 
 `fileProvider(shouldProceedAfterError:, operation:)` will be called if an error occured during file operations. Return `true` if you want to continue operation on next files or `false` if you want stop operation further. Default value is false if you don't implement delegate.
 
-**Note: these methods will be called for files in a directory and its subfolders recursively.**
+**Note: In `LocalFileProvider`, these methods will be called for files in a directory and its subfolders recursively.**
 
 ### Directory contents and file attributes
 
@@ -304,7 +304,7 @@ documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
 
 ### Fetching Contents of File
 
-There is two method for this purpose, one of them loads entire file into NSData and another can load a portion of file.
+There is two method for this purpose, one of them loads entire file into `Data` and another can load a portion of file.
 
 ```swift
 documentsProvider.contents(path: "old.txt", completionHandler: {
@@ -381,6 +381,10 @@ class ViewController: UIViewController
 Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst.
 
 It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
+
+### File Coordination
+
+`LocalFileProvider` and its descendents has a `isCoordinating` property. By setting this, provider will use `NSFileCoordinating` class to do all file operations. It's mandatory for iCloud, while recommended when using shared container or anywhere that simultaneous operations on a file/folder is common.
 
 ### Monitoring File Changes
 

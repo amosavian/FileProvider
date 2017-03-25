@@ -81,6 +81,38 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
     }
     
+    public required convenience init?(coder aDecoder: NSCoder) {
+        self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential,
+                  serverURL: aDecoder.decodeObject(forKey: "baseURL") as? URL,
+                  drive: aDecoder.decodeObject(forKey: "drive") as? String ?? "root")
+        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
+        self.useCache = aDecoder.decodeBool(forKey: "useCache")
+        self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
+    }
+    
+    open func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.credential, forKey: "credential")
+        aCoder.encode(self.baseURL, forKey: "baseURL")
+        aCoder.encode(self.drive, forKey: "drive")
+        aCoder.encode(self.currentPath, forKey: "currentPath")
+        aCoder.encode(self.useCache, forKey: "useCache")
+        aCoder.encode(self.validatingCache, forKey: "validatingCache")
+    }
+    
+    public static var supportsSecureCoding: Bool {
+        return true
+    }
+    
+    open func copy(with zone: NSZone? = nil) -> Any {
+        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)
+        copy.currentPath = self.currentPath
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
+        copy.useCache = self.useCache
+        copy.validatingCache = self.validatingCache
+        return copy
+    }
+    
     deinit {
         if fileProviderCancelTasksOnInvalidating {
             _session?.invalidateAndCancel()
@@ -442,14 +474,4 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     }
 }
 
-extension OneDriveFileProvider: FileProvider {
-    open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)
-        copy.currentPath = self.currentPath
-        copy.delegate = self.delegate
-        copy.fileOperationDelegate = self.fileOperationDelegate
-        copy.useCache = self.useCache
-        copy.validatingCache = self.validatingCache
-        return copy
-    }
-}
+extension OneDriveFileProvider: FileProvider { }

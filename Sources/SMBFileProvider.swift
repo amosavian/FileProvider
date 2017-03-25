@@ -19,7 +19,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     
     public typealias FileObjectClass = FileObject
     
-    public init? (baseURL: URL, credential: URLCredential, afterInitialized: SimpleCompletionHandler) {
+    public init? (baseURL: URL, credential: URLCredential?) {
         guard baseURL.uw_scheme.lowercased() == "smb" else {
             return nil
         }
@@ -30,7 +30,26 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         
         self.credential = credential
     }
-        
+    
+    public required convenience init?(coder aDecoder: NSCoder) {
+        guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else {
+            return nil
+        }
+        self.init(baseURL: baseURL,
+                  credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
+    }
+    
+    open func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.baseURL, forKey: "baseURL")
+        aCoder.encode(self.credential, forKey: "credential")
+        aCoder.encode(self.currentPath, forKey: "currentPath")
+    }
+    
+    public static var supportsSecureCoding: Bool {
+        return true
+    }
+    
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObjectClass], _ error: Error?) -> Void)) {
         NotImplemented()
     }
@@ -116,7 +135,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     }
     
     open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = SMBFileProvider(baseURL: self.baseURL!, credential: self.credential!, afterInitialized: { _ in })!
+        let copy = SMBFileProvider(baseURL: self.baseURL!, credential: self.credential!)!
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate

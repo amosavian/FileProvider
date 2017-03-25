@@ -81,6 +81,33 @@ open class CloudFileProvider: LocalFileProvider {
         try? fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
     
+    
+    public required convenience init?(coder aDecoder: NSCoder) {
+        guard let containerId = aDecoder.decodeObject(forKey: "containerId") as? String,
+            let scopeString = aDecoder.decodeObject(forKey: "scope") as? String,
+            let scope = UbiquitousScope(rawValue: scopeString) else {
+            return nil
+        }
+        self.init(containerId: containerId, scope: scope)
+        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
+        self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
+    }
+    
+    open override func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.containerId, forKey: "containerId")
+        aCoder.encode(self.scope.rawValue, forKey: "scope")
+        aCoder.encode(self.currentPath, forKey: "currentPath")
+        aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
+    }
+    
+    open override func copy(with zone: NSZone? = nil) -> Any {
+        let copy = CloudFileProvider(containerId: self.containerId, scope: self.scope)
+        copy?.currentPath = self.currentPath
+        copy?.delegate = self.delegate
+        copy?.fileOperationDelegate = self.fileOperationDelegate
+        return copy as Any
+    }
+    
     /**
      Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
      
@@ -609,14 +636,6 @@ open class CloudFileProvider: LocalFileProvider {
     /// - Returns: Directory is being monitored or not.
     open override func isRegisteredForNotification(path: String) -> Bool {
         return monitors[path] != nil
-    }
-    
-    open override func copy(with zone: NSZone? = nil) -> Any {
-        let copy = CloudFileProvider(containerId: self.containerId)
-        copy?.currentPath = self.currentPath
-        copy?.delegate = self.delegate
-        copy?.fileOperationDelegate = self.fileOperationDelegate
-        return copy as Any
     }
     
     fileprivate func mapFileObject(attributes attribs: [String: Any]) -> FileObject? {

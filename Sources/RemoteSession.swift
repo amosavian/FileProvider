@@ -77,18 +77,22 @@ extension FileProviderHTTPError {
     public var description: String {
         return code.description
     }
+    
+    public var localizedDescription: String {
+        return description
+    }
 }
 
 class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate {
     
-    weak var fileProvider: FileProvider?
+    weak var fileProvider: (FileProviderBasicRemote & FileProviderOperations)?
     var credential: URLCredential?
     
     var finishDownloadHandler: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
     var didSendDataHandler: ((_ session: Foundation.URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
     var didReceivedData: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
     
-    init(fileProvider: FileProvider, credential: URLCredential?) {
+    init(fileProvider: FileProviderBasicRemote & FileProviderOperations, credential: URLCredential?) {
         self.fileProvider = fileProvider
         self.credential = credential
     }

@@ -25,7 +25,7 @@ open class FileObject: Equatable {
     }
     
     /// url to access the resource, not supported by Dropbox provider
-    @available(*, deprecated, renamed: "url", message: "Use url.absoluteURL instead.")
+    @available(*, obsoleted: 1.0, renamed: "url", message: "Use url.absoluteURL instead.")
     open var absoluteURL: URL? {
         return url?.absoluteURL
     }

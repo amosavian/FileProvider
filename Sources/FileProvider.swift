@@ -19,7 +19,7 @@ public typealias ImageClass = NSImage
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 /// This protocol defines FileProvider neccesary functions and properties to connect and get contents list
-public protocol FileProviderBasic: class {
+public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
     /// An string to identify type of provider.
     static var type: String { get }
     
@@ -142,12 +142,6 @@ extension FileProviderBasic {
         self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
-    /// Converts Spotlight search predicate to `FileProvider.searchFiles()` method usable predicate.
-    @available(*, obsoleted: 1.0, renamed: "FileObject.convertProdicate(fromSpotlight:)", message: "Use FileObject.convertProdicate(fromSpotlight:) instead.")
-    public func convertSpotlightPredicateTo(_ query: NSPredicate) -> NSPredicate {
-        return FileObject.convertPredicate(fromSpotlight: query)
-    }
-    
     /// The maximum number of queued operations that can execute at the same time.
     ///
     /// The default value of this property is `OperationQueue.defaultMaxConcurrentOperationCount`.
@@ -159,6 +153,8 @@ extension FileProviderBasic {
             operation_queue.maxConcurrentOperationCount = newValue
         }
     }
+    
+    
 }
 
 /// Checking equality of two file provider, regardless of current path queues and delegates.
@@ -610,9 +606,9 @@ extension FileProviderBasic {
         return type(of: self).type
     }
     
-    /// **DEPRECATED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
+    /// **OBSOLETED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
     /// To simulate `false` value, assign `URL(fileURLWithPath: "/")` to `baseURL`.
-    @available(*, deprecated, message: "Redundant property, now is always true.")
+    @available(*, obsoleted: 1.0, message: "Redundant property, now is always true.")
     var isPathRelative: Bool { return true }
     
     public func url(of path: String? = nil) -> URL {

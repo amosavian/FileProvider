@@ -42,12 +42,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     */
     open var isCoorinating: Bool
     
-    /// **OBSOLETED**: Use FileProvider.init(for:in:) instead.
-    @available(*, obsoleted: 1.0, renamed: "init(for:in:)", message: "Use FileProvider.init(for:in:) instead.")
-    public convenience init (directory: FileManager.SearchPathDirectory = .documentDirectory, domainMask: FileManager.SearchPathDomainMask = .userDomainMask) {
-        self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
-    }
-    
     /**
      Initializes provider for the specified common directory in the requested domains.
      default values are `directory: .documentDirectory, domainMask: .userDomainMask`.
@@ -115,11 +109,39 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
-        
     }
     
-    /// **DEPRECATED:** No longer is in use and overriding this method has no effect anymore.
-    @available(*, deprecated, message: "Overriding this method has no effect anymore.")
+    public required convenience init?(coder aDecoder: NSCoder) {
+        guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else {
+            return nil
+        }
+        self.init(baseURL: baseURL)
+        self.currentPath   = aDecoder.decodeObject(of: NSString.self, forKey: "currentPath") as? String ?? ""
+        self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
+    }
+    
+    open func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.baseURL, forKey: "currentPath")
+        aCoder.encode(self.currentPath, forKey: "currentPath")
+        aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
+    }
+    
+    public static var supportsSecureCoding: Bool {
+        return true
+    }
+    
+    public func copy(with zone: NSZone? = nil) -> Any {
+        let copy = LocalFileProvider(baseURL: self.baseURL!)
+        copy.currentPath = self.currentPath
+        copy.undoManager = self.undoManager
+        copy.isCoorinating = self.isCoorinating
+        copy.delegate = self.delegate
+        copy.fileOperationDelegate = self.fileOperationDelegate
+        return copy
+    }
+    
+    /// **OBSOLETED:** No longer is in use and overriding this method has no effect anymore.
+    @available(*, obsoleted: 1.0, message: "Overriding this method has no effect anymore.")
     open class func defaultBaseURL() -> URL {
         return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
@@ -504,16 +526,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     open func isRegisteredForNotification(path: String) -> Bool {
         return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-    }
-    
-    open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = LocalFileProvider(baseURL: self.baseURL!)
-        copy.currentPath = self.currentPath
-        copy.undoManager = self.undoManager
-        copy.isCoorinating = self.isCoorinating
-        copy.delegate = self.delegate
-        copy.fileOperationDelegate = self.fileOperationDelegate
-        return copy
     }
 }
 
