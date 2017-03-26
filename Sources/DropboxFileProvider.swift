@@ -34,7 +34,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     }
     
     open weak var delegate: FileProviderDelegate?
-    open let credential: URLCredential?
+    open var credential: URLCredential?
     open private(set) var cache: URLCache?
     public var useCache: Bool
     public var validatingCache: Bool

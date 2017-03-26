@@ -51,13 +51,13 @@ public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
      
      **Example initialization:**
      ````
-     let credential = URLCredential(user: "user", password: "password", persistence: .forSeession)
+     provider.credential = URLCredential(user: "user", password: "password", persistence: .forSeession)
      ````
      
      - Note: In OAuth based providers like `DropboxFileProvider` and `OneDriveFileProvider`, password is Token.
      use [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) library to fetch clientId and Token of user.
      */
-    var credential: URLCredential? { get }
+    var credential: URLCredential? { get set }
     
     /**
      Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.

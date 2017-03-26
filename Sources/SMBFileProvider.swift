@@ -15,7 +15,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue
     open weak var delegate: FileProviderDelegate?
-    open let credential: URLCredential?
+    open var credential: URLCredential?
     
     public typealias FileObjectClass = FileObject
     

@@ -21,7 +21,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue
     open weak var delegate: FileProviderDelegate?
-    open internal(set) var credential: URLCredential?
+    open var credential: URLCredential?
     
     /// Underlying `FileManager` object for listing and metadata fetching.
     open private(set) var fileManager = FileManager()

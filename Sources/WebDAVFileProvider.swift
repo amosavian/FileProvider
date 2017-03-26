@@ -32,7 +32,11 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     }
     
     public weak var delegate: FileProviderDelegate?
-    open let credential: URLCredential?
+    open var credential: URLCredential? {
+        didSet {
+            sessionDelegate?.credential = credential
+        }
+    }
     open private(set) var cache: URLCache?
     public var useCache: Bool
     public var validatingCache: Bool
