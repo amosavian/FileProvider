@@ -17,14 +17,14 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     
-    fileprivate var dispatch_queue: DispatchQueue!
+    fileprivate var operation_queue: OperationQueue!
     internal var _underlyingSession: URLSession
     fileprivate var streamDelegate: FPSStreamDelegate? {
         return (_underlyingSession.delegate as? FPSStreamDelegate)
     }
     fileprivate var _taskIdentifier: Int
     
-    public var useURLSession = false
+    public var useURLSession = true
     @available(iOS 9.0, OSX 10.11, *)
     static var streamTasks = [Int: URLSessionStreamTask]()
     
@@ -99,7 +99,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         if #available(iOS 9.0, OSX 10.11, *) {
             return _underlyingTask!.countOfBytesExpectedToSend
         } else {
-            return Int64(dataToBeSent.length)
+            return Int64(dataToBeSent.count)
         }
     }
     
@@ -110,7 +110,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        return Int64(dataReceived.length)
+        return Int64(dataReceived.count)
     }
     
     override public init() {
@@ -134,8 +134,9 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         lasttaskIdAssociated += 1
         self._taskIdentifier = lasttaskIdAssociated
         self.host = (host, port)
-        self.dispatch_queue = DispatchQueue(label: "FSPStreamTask", attributes: DispatchQueue.Attributes.concurrent)
-
+        self.operation_queue = OperationQueue()
+        self.operation_queue.name = "FPSStreamTask"
+        self.operation_queue.maxConcurrentOperationCount = 1
     }
     
     internal init(session: URLSession, netService: NetService) {
@@ -152,7 +153,9 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         lasttaskIdAssociated += 1
         self._taskIdentifier = lasttaskIdAssociated
         self.service = netService
-        self.dispatch_queue = DispatchQueue(label: "FSPStreamTask", attributes: DispatchQueue.Attributes.concurrent)
+        self.operation_queue = OperationQueue()
+        self.operation_queue.name = "FPSStreamTask"
+        self.operation_queue.maxConcurrentOperationCount = 1
     }
     
     override open func cancel() {
@@ -170,8 +173,8 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         self.inputStream?.close()
         self.outputStream?.close()
         
-        self.inputStream?.remove(from: RunLoop.current, forMode: RunLoopMode.defaultRunLoopMode)
-        self.outputStream?.remove(from: RunLoop.current, forMode: RunLoopMode.defaultRunLoopMode)
+        self.inputStream?.remove(from: RunLoop.main, forMode: RunLoopMode.defaultRunLoopMode)
+        self.outputStream?.remove(from: RunLoop.main, forMode: RunLoopMode.defaultRunLoopMode)
         
         self.inputStream?.delegate = nil
         self.outputStream?.delegate = nil
@@ -204,6 +207,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
         
         self._state = .suspended
+        self.operation_queue.isSuspended = true
     }
     
     override open func resume() {
@@ -241,29 +245,30 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         inputStream.delegate = self
         outputStream.delegate = self
         
-        dispatch_queue.sync(execute: {
-            inputStream.schedule(in: RunLoop.current, forMode: RunLoopMode.defaultRunLoopMode)
-            outputStream.schedule(in: RunLoop.current, forMode: RunLoopMode.defaultRunLoopMode)
-        })
+        operation_queue.addOperation {
+            inputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
+            outputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
+        }
         
         inputStream.open()
         outputStream.open()
         
+        operation_queue.isSuspended = false
         _state = .running
     }
     
-    fileprivate let dataToBeSent: NSMutableData = NSMutableData()
-    fileprivate let dataReceived: NSMutableData = NSMutableData()
+    fileprivate var dataToBeSent: Data = Data()
+    fileprivate var dataReceived: Data = Data()
     
     /* Read minBytes, or at most maxBytes bytes and invoke the completion
      * handler on the sessions delegate queue with the data or an error.
      * If an error occurs, any outstanding reads will also fail, and new
      * read requests will error out immediately.
      */
-    open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (Data?, Bool, NSError?) -> Void) {
+    open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (Data?, Bool, Error?) -> Void) {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
-                _underlyingTask!.readData(ofMinLength: minBytes, maxLength: maxBytes, timeout: timeout, completionHandler: completionHandler as! (Data?, Bool, Error?) -> Void)
+                _underlyingTask!.readData(ofMinLength: minBytes, maxLength: maxBytes, timeout: timeout, completionHandler: completionHandler)
                 return
             }
         }
@@ -271,28 +276,27 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         guard let inputStream = inputStream else {
             return
         }
-        var timedOut: Bool = false
-        dispatch_queue.async {
-            if timeout > 0 {
-                self.dispatch_queue.asyncAfter(deadline: .now() + 1) {
-                    timedOut = true
-                    completionHandler(nil, inputStream.streamStatus == .atEnd, inputStream.streamError as NSError?)
+        
+        let expireDate = Date(timeIntervalSinceNow: timeout)
+        operation_queue.addOperation {
+            var timedOut: Bool = false
+            while (self.dataReceived.count == 0 || self.dataReceived.count < minBytes) && !timedOut {
+                Thread.sleep(forTimeInterval: 0.1)
+                timedOut = expireDate < Date()
+            }
+            var dR: Data?
+            if self.dataReceived.count > maxBytes {
+                let range: Range = 0..<maxBytes
+                dR = self.dataReceived.subdata(in: range)
+                self.dataReceived.replaceSubrange(range, with: Data())
+            } else {
+                if self.dataReceived.count > 0 {
+                    dR = self.dataReceived
+                    self.dataReceived.count = 0
                 }
             }
-            while (self.dataReceived.length == 0 || self.dataReceived.length < minBytes) && !timedOut {
-                //RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
-                Thread.sleep(forTimeInterval: 0.1)
-            }
-            let dR = NSMutableData()
-            if self.dataReceived.length > maxBytes {
-                let range = NSRange(location: 0, length: maxBytes - 1)
-                dR.append(self.dataReceived.subdata(with: range))
-                self.dataReceived.replaceBytes(in: range, withBytes: nil, length: 0)
-            } else {
-                dR.append(self.dataReceived as Data)
-                self.dataReceived.length = 0
-            }
-            completionHandler(dR as Data, inputStream.streamStatus == .atEnd, inputStream.streamError as NSError?)
+            let isEOF = inputStream.streamStatus == .atEnd && self.dataReceived.count == 0
+            completionHandler(dR, isEOF, dR == nil ? inputStream.streamError : nil)
         }
     }
     
@@ -309,34 +313,19 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        guard let outputStream = outputStream else {
+        guard outputStream != nil else {
             return
         }
-        var timedOut: Bool = false
-        dispatch_queue.async {
-            if timeout > 0 {
-                self.dispatch_queue.asyncAfter(deadline: .now() + 1) {
-                    timedOut = true
-                    completionHandler(self._error)
-                }
-            }
-            
+        
+        
+        operation_queue.addOperation {
             self.dataToBeSent.append(data)
-            while !outputStream.hasSpaceAvailable && !timedOut {
-                //RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
-                Thread.sleep(forTimeInterval: 0.1)
-            }
-            if self.dataToBeSent.length > 0 {
-                let bytesWritten = outputStream.write(self.dataToBeSent.bytes.bindMemory(to: UInt8.self, capacity: self.dataToBeSent.length), maxLength: self.dataToBeSent.length)
-                if bytesWritten > 0 {
-                    let range = NSRange(location: 0, length: bytesWritten)
-                    self.dataToBeSent.replaceBytes(in: range, withBytes: nil, length: 0)
-                    self._countOfBytesSent += Int64(bytesWritten)
-                    completionHandler(nil)
-                } else {
-                    self._error = outputStream.streamError
-                    completionHandler(outputStream.streamError)
-                }
+            let result = self.write(timeout: timeout, close: false)
+            if result < 0 {
+                let error = self.outputStream?.streamError ?? NSError(domain: URLError.errorDomain, code: URLError.cannotWriteToFile.rawValue, userInfo: nil)
+                completionHandler(error)
+            } else {
+                completionHandler(nil)
             }
         }
     }
@@ -358,10 +347,9 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         guard let outputStream = outputStream, let inputStream = inputStream else {
             return
         }
-        dispatch_queue.async {
-            self.write(false)
+        self.operation_queue.addOperation {
+            self.write(close: false)
             while inputStream.streamStatus != .atEnd {
-                //RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
                 Thread.sleep(forTimeInterval: 0.1)
             }
             self.streamDelegate?.urlSession?(self._underlyingSession, streamTask: self, didBecome: inputStream, outputStream: outputStream)
@@ -382,34 +370,41 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        dispatch_queue.async {
-            self.write(true)
+        operation_queue.addOperation {
+            _ = self.write(close: true)
         }
     }
     
-    fileprivate func write(_ close: Bool) {
+    fileprivate func write(timeout: TimeInterval = 0, close: Bool) -> Int {
         guard let outputStream = outputStream else {
-            return
+            return -1
         }
-        while self.dataToBeSent.length > 0 {
-            let bytesWritten = outputStream.write(self.dataToBeSent.bytes.bindMemory(to: UInt8.self, capacity: self.dataToBeSent.length), maxLength: self.dataToBeSent.length) 
-            if bytesWritten > 0 {
-                let range = NSRange(location: 0, length: bytesWritten)
-                self.dataToBeSent.replaceBytes(in: range, withBytes: nil, length: 0)
-                self._countOfBytesSent += Int64(bytesWritten)
-            } else {
-                self._error = outputStream.streamError as NSError?
+        
+        var byteSent: Int = 0
+        let expireDate = Date(timeIntervalSinceNow: timeout)
+        while self.dataToBeSent.count > 0 && (timeout == 0 || expireDate > Date()) {
+            let bytesWritten = self.dataToBeSent.withUnsafeBytes {
+                outputStream.write($0, maxLength: self.dataToBeSent.count)
             }
-            if self.dataToBeSent.length == 0 {
+            
+            if bytesWritten > 0 {
+                let range = 0..<bytesWritten
+                self.dataToBeSent.replaceSubrange(range, with: Data())
+                byteSent += bytesWritten
+            } else if bytesWritten < 0 {
+                self._error = outputStream.streamError
+                return bytesWritten
+            }
+            if self.dataToBeSent.count == 0 {
                 break
             }
-            //RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
-            Thread.sleep(forTimeInterval: 0.1)
         }
+        self._countOfBytesSent += Int64(byteSent)
         if close {
             outputStream.close()
             self.streamDelegate?.urlSession?(self._underlyingSession, writeClosedFor: self)
         }
+        return byteSent
     }
     
     /* Enqueue a request to close the read side of the underlying socket.
@@ -427,9 +422,8 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         guard let inputStream = inputStream else {
             return
         }
-        dispatch_queue.async {
+        operation_queue.addOperation {
             while inputStream.streamStatus != .atEnd {
-                //RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1));
                 Thread.sleep(forTimeInterval: 0.1)
             }
             inputStream.close()
@@ -450,8 +444,10 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        inputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
-        outputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
+        operation_queue.addOperation {
+            self.inputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
+            self.outputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
+        }
     }
     
     /*
@@ -465,15 +461,16 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
                 return
             }
         }
-        
-        inputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
-        outputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+        operation_queue.addOperation {
+            self.inputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+            self.outputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+        }
     }
     
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         switch (eventCode) {
         case Stream.Event.errorOccurred:
-            self._error = aStream.streamError as NSError?
+            self._error = aStream.streamError
             streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
         case Stream.Event.endEncountered:
             break
@@ -487,7 +484,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
                 while (inputStream!.hasBytesAvailable) {
                     let len = inputStream!.read(&buffer, maxLength: buffer.count)
                     if len > 0 {
-                        dataReceived.append(&buffer, length: len)
+                        dataReceived.append(&buffer, count: len)
                         self._countOfBytesRecieved += Int64(len)
                     }
                 }

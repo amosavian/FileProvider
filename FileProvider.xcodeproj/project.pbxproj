@@ -35,6 +35,9 @@
 		792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
 		792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
 		792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792572401DF23BDA006A1526 /* LocalHelper.swift */; };
+		7936BC121E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
+		7936BC131E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
+		7936BC141E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
 		79480FF61E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
 		79480FF71E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
 		79480FF81E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
@@ -50,6 +53,7 @@
 		796807551E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
 		796807561E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
 		796807571E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
+		798654331E8874BC002FA550 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
 		799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
@@ -133,11 +137,13 @@
 		7924B1921D89DAE000589DB7 /* Parser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
 		7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FPSStreamTask.swift; sourceTree = "<group>"; };
 		792572401DF23BDA006A1526 /* LocalHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalHelper.swift; sourceTree = "<group>"; };
+		7936BC111E880F5700A6C81C /* FTPFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPFileProvider.swift; sourceTree = "<group>"; };
 		79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CloudFileProvider.swift; sourceTree = "<group>"; };
 		794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DropboxHelper.swift; sourceTree = "<group>"; };
 		794C22091D5893F800EC49B8 /* SMB2Notification.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Notification.swift; sourceTree = "<group>"; };
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
 		796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileProviderExtensions.swift; sourceTree = "<group>"; };
+		798654321E8874BC002FA550 /* FTPHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPHelper.swift; sourceTree = "<group>"; };
 		799396671D48B7F600086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396751D48B80D00086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396821D48B82700086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -294,6 +300,8 @@
 				7902C0851D61B56D00564440 /* RemoteSession.swift */,
 				799396931D48C02300086753 /* DropboxFileProvider.swift */,
 				794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */,
+				7936BC111E880F5700A6C81C /* FTPFileProvider.swift */,
+				798654321E8874BC002FA550 /* FTPHelper.swift */,
 				79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */,
 				79BD63C41E2D17880035128C /* OneDriveHelper.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
@@ -485,12 +493,14 @@
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
 				792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				7936BC121E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF61E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				79BD63C51E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
 				7924B1991D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
+				798654331E8874BC002FA550 /* FTPHelper.swift in Sources */,
 				7924B1B21D89FCDA00589DB7 /* FPSStreamTask.swift in Sources */,
 				799396C51D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */,
@@ -526,6 +536,7 @@
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
 				792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				7936BC131E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF71E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				79BD63C61E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
@@ -567,6 +578,7 @@
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
 				792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */,
+				7936BC141E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF81E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */,
 				79BD63C71E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
