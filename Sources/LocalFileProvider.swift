@@ -70,7 +70,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             return nil
         }
         
-        var finalBaseURL = baseURL
+        var finalBaseURL = baseURL.absoluteURL
         
         switch directory {
         case .documentDirectory:
@@ -116,7 +116,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             return nil
         }
         self.init(baseURL: baseURL)
-        self.currentPath   = aDecoder.decodeObject(of: NSString.self, forKey: "currentPath") as? String ?? ""
+        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     

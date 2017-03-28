@@ -68,7 +68,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
        - cache: A URLCache to cache downloaded files and contents.
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
-        let baseURL = serverURL ?? URL(string: "https://api.onedrive.com/")!
+        let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
         self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
         self.drive = drive
         self.currentPath = ""
@@ -334,7 +334,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + length - 1)", forHTTPHeaderField: "Range")
+            request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }

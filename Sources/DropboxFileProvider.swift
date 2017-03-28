@@ -329,7 +329,7 @@ extension DropboxFileProvider: FileProviderReadWrite {
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + length - 1)", forHTTPHeaderField: "Range")
+            request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }

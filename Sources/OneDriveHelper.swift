@@ -240,8 +240,8 @@ internal extension OneDriveFileProvider {
         if let location = json["location"] as? [String: Any], let latitude = location["latitude"] as? Double, let longitude = location["longitude"] as? Double {
             OneDriveFileProvider.decimalFormatter.numberStyle = .decimal
             OneDriveFileProvider.decimalFormatter.maximumFractionDigits = 5
-            let latStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))
-            let longStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))
+            let latStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))!
+            let longStr = OneDriveFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))!
             add(key: "Location", value: "\(latStr), \(longStr)")
         }
         if let parent = json["image"] as? [String: Any] ?? json["video"] as? [String: Any], let duration = parent["duration"] as? UInt64 {

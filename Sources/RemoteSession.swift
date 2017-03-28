@@ -83,7 +83,7 @@ extension FileProviderHTTPError {
     }
 }
 
-class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate {
+class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, URLSessionStreamDelegate {
     
     weak var fileProvider: (FileProviderBasicRemote & FileProviderOperations)?
     var credential: URLCredential?
@@ -91,6 +91,8 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     var finishDownloadHandler: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
     var didSendDataHandler: ((_ session: Foundation.URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
     var didReceivedData: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
+    var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
+    
     
     init(fileProvider: FileProviderBasicRemote & FileProviderOperations, credential: URLCredential?) {
         self.fileProvider = fileProvider
@@ -144,6 +146,11 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
         default:
             completionHandler(.performDefaultHandling, nil)
         }
+    }
+    
+    @available(iOSApplicationExtension 9.0, *)
+    func urlSession(_ session: URLSession, streamTask: URLSessionStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream) {
+        self.didBecomeStream?(session, streamTask.taskIdentifier, inputStream, outputStream)
     }
 }
 

@@ -38,7 +38,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: UInt16(126), messageId: mId, treeId: UInt32(0), sessionId: UInt64(0))
         let msg = SMB2.NegotiateRequest()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.writeData(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: 0, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId
@@ -50,9 +50,9 @@ class SMB2ProtocolClient: FPSStreamTask {
         let smbHeader = SMB2.Header(command: SMB2.Command.SESSION_SETUP, creditRequestResponse: credit, messageId: mId, treeId: UInt32(0), sessionId: sessionId)
         let msg = SMB2.SessionSetupRequest(singing: [])
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.writeData(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: 0, completionHandler: { (e) in
             if self.sessionId == 0 {
-                self.readData(OfMinLength: 64, maxLength: 65536, timeout: self.timeout, completionHandler: { (data, eof, e2) in
+                self.readData(ofMinLength: 64, maxLength: 65536, timeout: self.timeout, completionHandler: { (data, eof, e2) in
                     // TODO: set session id
                     completionHandler?(e2 ?? e)
                 })
@@ -73,7 +73,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let tcHeader = SMB2.TreeConnectRequest.Header(flags: [])
         let msg = SMB2.TreeConnectRequest(header: tcHeader, host: host, share: share)
         let data = createSMB2Message(header: smbHeader, message: msg!)
-        self.writeData(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: 0, completionHandler: { (e) in
             completionHandler?(e)
             
         })
@@ -85,7 +85,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let smbHeader = SMB2.Header(command: .TREE_DISCONNECT, creditRequestResponse: 111, messageId: mId, treeId: treeId, sessionId: sessionId)
         let msg = SMB2.TreeDisconnect()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.writeData(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: 0, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId
@@ -96,7 +96,7 @@ class SMB2ProtocolClient: FPSStreamTask {
         let smbHeader = SMB2.Header(command: .LOGOFF, creditRequestResponse: 0, messageId: mId, treeId: 0, sessionId: sessionId)
         let msg = SMB2.LogOff()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.writeData(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: 0, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId

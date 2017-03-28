@@ -68,7 +68,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
         }
-        self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
+        self.baseURL = (baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
@@ -435,7 +435,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + length - 1)", forHTTPHeaderField: "Range")
+            request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }

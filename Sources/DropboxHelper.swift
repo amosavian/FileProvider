@@ -241,8 +241,8 @@ internal extension DropboxFileProvider {
             DropboxFileProvider.decimalFormatter.numberStyle = .decimal
             DropboxFileProvider.decimalFormatter.maximumFractionDigits = 5
             keys.append("Location")
-            let latStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))
-            let longStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))
+            let latStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: latitude))!
+            let longStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))!
             dic["Location"] = "\(latStr), \(longStr)"
         }
         if let timeTakenStr = json["time_taken"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
