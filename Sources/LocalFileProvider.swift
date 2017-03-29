@@ -207,15 +207,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    open func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let fileName = fileName.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let path = (atPath as NSString).appendingPathComponent(fileName)
-        let opType = FileOperationType.create(path: path)
-        
-        return self.doOperation(opType, data: data, atomically: true, completionHandler: completionHandler)
-    }
-    
-    @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.move(source: path, destination: toPath)
 
@@ -492,9 +483,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.modify(path: path)
-        return self.doOperation(opType, data: data, atomically: atomically, completionHandler: completionHandler)
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let fileExists = fileManager.fileExists(atPath: url(of: path).path)
+        let opType: FileOperationType = fileExists ? .modify(path: path) : .create(path: path)
+        return self.doOperation(opType, data: data ?? Data(), atomically: atomically, completionHandler: completionHandler)
     }
     
     fileprivate var monitors = [LocalFolderMonitor]()

@@ -276,8 +276,7 @@ extension FTPFileProvider {
         }
     }
     
-    func ftpRetrieve(_ task: FPSStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
-        // Retrieving data should be in passive mode
+    func ftpRetrieve(_ task: FPSStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FPSStreamTask) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
         // FIXME: retreiven't begain
         self.ftpPassive(task) { (host, port, error) in
             if let error = error {
@@ -298,6 +297,7 @@ extension FTPFileProvider {
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 passiveTask.resume()
+                onTask?(passiveTask)
                 
                 DispatchQueue.global().async {
                     var finalData = Data()
@@ -343,9 +343,8 @@ extension FTPFileProvider {
         }
     }
     
-    func ftpStore(_ task: FPSStreamTask, filePath: String, fromData: Data?, fromFile: URL?, completionHandler: @escaping (_ error: Error?) -> Void) {
+    func ftpStore(_ task: FPSStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FPSStreamTask) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
         // Retrieving data should be in passive mode
-        // FIXME: retreiven't begain
         self.ftpPassive(task) { (host, port, error) in
             if let error = error {
                 completionHandler(error)
@@ -365,6 +364,7 @@ extension FTPFileProvider {
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 passiveTask.resume()
+                onTask?(passiveTask)
                 
                 DispatchQueue.global().async {
                     var error: Error?
@@ -478,7 +478,6 @@ extension FTPFileProvider {
         default:  file.type = .regular
         }
         file.isReadOnly = !posixPermission.contains("w")
-        file.modifiedDate = nil //FIXME
         file.size = file.isDirectory ? -1 : size
         file.allValues[.linkCountKey] = linksCount
         
@@ -532,12 +531,12 @@ extension FTPFileProvider {
                 case "dir": file.type = .directory
                 case "link": file.type = .symbolicLink
                 case "os.unix=block": file.type = .blockSpecial
-                case "cdir", "pdir": return nil
+                case "cdir", "pdir": return nil // . and .. files are redundant in listing
                 default: file.type = .unknown
                 }
                 
             case "unique":
-                file.allValues[URLResourceKey.fileResourceIdentifierKey] = attribute
+                file.allValues[.fileResourceIdentifierKey] = attribute
                 
             case "modify":
                 file.modifiedDate = dateFormatter.date(from: attribute)
@@ -547,7 +546,7 @@ extension FTPFileProvider {
                 
             case "perm":
                 file.allValues[.isReadableKey] = attribute.contains("r") || attribute.contains("l")
-                file.allValues[.isWritableKey] = attribute.contains("w") || attribute.contains("r")
+                file.allValues[.isWritableKey] = attribute.contains("w") || attribute.contains("a")
                 
             case "size":
                 file.size = Int64(attribute) ?? -1

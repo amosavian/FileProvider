@@ -73,11 +73,6 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        NotImplemented()
-        return nil
-    }
-    
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
         return nil
@@ -113,7 +108,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return nil
     }
     
-    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         NotImplemented()
         return nil
     }

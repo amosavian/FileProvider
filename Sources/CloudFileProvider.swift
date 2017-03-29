@@ -379,23 +379,6 @@ open class CloudFileProvider: LocalFileProvider {
     }
     
     /**
-     Creates an new file with data passed to method asynchronously.
-     Returns error via completionHandler if file is already exists.
-     
-     - Parameters:
-       - file: New file name with extension separated by period.
-       - at: Parent path of new file.
-       - data: Data of new files. Pass nil or `Data()` to create empty file.
-       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
-     */
-    @discardableResult
-    open override func create(file fileName: String, at atPath: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.create(file: fileName, at: atPath, contents: data, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
-    }
-    
-    /**
      Moves a file or directory from `path` to designated path asynchronously.
      When you want move a file, destination path should also consists of file name.
      Either a new name or the old one.
@@ -571,7 +554,7 @@ open class CloudFileProvider: LocalFileProvider {
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
-    open override func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         guard let r = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
         return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
     }

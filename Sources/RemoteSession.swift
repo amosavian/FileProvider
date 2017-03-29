@@ -9,41 +9,48 @@
 import Foundation
 
 /// Allows to get progress or cancel an in-progress operation, for remote, `URLSession` based providers.
+/// This class keeps strong reference to tasks.
 open class RemoteOperationHandle: OperationHandle {
     
-    internal var tasks: [Weak<URLSessionTask>]
+    internal var tasks: [URLSessionTask]
     
     open private(set) var operationType: FileOperationType
     
     init(operationType: FileOperationType, tasks: [URLSessionTask]) {
         self.operationType = operationType
-        self.tasks = tasks.map { Weak<URLSessionTask>($0) }
+        self.tasks = tasks
     }
     
     internal func add(task: URLSessionTask) {
-        tasks.append(Weak<URLSessionTask>(task))
+        tasks.append(task)
     }
     
-    private func reape() {
-        self.tasks = tasks.filter { $0.value != nil }
+    internal func reape() {
+        self.tasks = tasks.filter { $0.state != .completed }
     }
     
     open var bytesSoFar: Int64 {
         return tasks.reduce(0) {
-            if let task = $1.value as? URLSessionUploadTask {
+            switch $1 {
+            case let task as URLSessionUploadTask:
                 return $0 + task.countOfBytesSent
-            } else {
-                return $0 + ($1.value?.countOfBytesReceived ?? 0)
+            case let task as FPSStreamTask:
+                return $0 + task.countOfBytesSent + task.countOfBytesReceived
+            default:
+                return $0 + $1.countOfBytesReceived
             }
         }
     }
     
     open var totalBytes: Int64 {
         return tasks.reduce(0) {
-            if let task = $1.value as? URLSessionUploadTask {
+            switch $1 {
+            case let task as URLSessionUploadTask:
                 return $0 + task.countOfBytesExpectedToSend
-            } else {
-                return $0 + ($1.value?.countOfBytesExpectedToReceive ?? 0)
+            case let task as FPSStreamTask:
+                return $0 + task.countOfBytesExpectedToSend + task.countOfBytesExpectedToReceive
+            default:
+                return $0 + $1.countOfBytesExpectedToReceive
             }
         }
     }
@@ -51,14 +58,14 @@ open class RemoteOperationHandle: OperationHandle {
     open func cancel() -> Bool {
         var canceled = false
         for taskbox in tasks {
-            taskbox.value?.cancel()
+            taskbox.cancel()
             canceled = true
         }
         return canceled
     }
     
     open var inProgress: Bool {
-        return tasks.reduce(false) { $0 || $1.value?.state ?? .canceling == .running }
+        return tasks.reduce(false) { $0 || $1.state == .running }
     }
 }
 

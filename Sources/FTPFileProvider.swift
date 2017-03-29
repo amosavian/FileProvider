@@ -118,7 +118,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
-     - Parameter rfc3659enabled: uses MLST command instead of old LIST to get files attributes, default is true.
+     - Parameter rfc3659enabled: uses MLST command instead of old LIST to get files attributes, default is `true`.
      - Parameter completionHandler: a closure with result of directory entries or error.
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
@@ -223,7 +223,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        // TODO: implement SITE CPFR/CPTO extension
+        // TODO: implement SITE QUOTA extension
         dispatch_queue.async {
             completionHandler(-1, 0)
         }
@@ -246,11 +246,6 @@ extension FTPFileProvider: FileProviderOperations {
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
-    }
-    
-    open func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let filePath = (path as NSString).appendingPathComponent(fileName)
-        return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
     }
     
     open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -317,6 +312,7 @@ extension FTPFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
@@ -328,7 +324,9 @@ extension FTPFileProvider: FileProviderOperations {
             }
             
             let path = self.ftpPath(toPath)
-            self.ftpStore(task, filePath: path, fromData: nil, fromFile: localFile, completionHandler: { (error) in
+            self.ftpStore(task, filePath: path, fromData: nil, fromFile: localFile, onTask: {
+                operation.add(task: $0)
+            }, completionHandler: { (error) in
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
                     completionHandler?(error)
@@ -336,7 +334,7 @@ extension FTPFileProvider: FileProviderOperations {
             })
         }
         
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return operation
     }
     
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -431,6 +429,7 @@ extension FTPFileProvider: FileProviderReadWrite {
         }
         let path = ftpPath(apath)
         let opType = FileOperationType.fetch(path: path)
+        let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
@@ -441,7 +440,9 @@ extension FTPFileProvider: FileProviderReadWrite {
                 return
             }
             
-            self.ftpRetrieve(task, filePath: path, from: offset, length: length, completionHandler: { (data, error) in
+            self.ftpRetrieve(task, filePath: path, from: offset, length: length, onTask: {
+                operation.add(task: $0)
+            }) { (data, error) in
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
@@ -454,18 +455,19 @@ extension FTPFileProvider: FileProviderReadWrite {
                         completionHandler(data, nil)
                     }
                 }
-            })
+            }
         }
         
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return operation
     }
     
-    public func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         
+        let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
             if let error = error {
@@ -475,7 +477,9 @@ extension FTPFileProvider: FileProviderReadWrite {
                 return
             }
             
-            self.ftpStore(task, filePath: path, fromData: data, fromFile: nil, completionHandler: { (error) in
+            self.ftpStore(task, filePath: path, fromData: data ?? Data(), fromFile: nil, onTask: {
+                operation.add(task: $0)
+            }, completionHandler: { (error) in
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
                     completionHandler?(error)
@@ -483,7 +487,7 @@ extension FTPFileProvider: FileProviderReadWrite {
             })
         }
         
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return operation
     }
     
     /*

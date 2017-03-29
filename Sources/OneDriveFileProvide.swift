@@ -225,11 +225,6 @@ extension OneDriveFileProvider: FileProviderOperations {
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    open func create(file fileName: String, at path: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let filePath = (path as NSString).appendingPathComponent(fileName)
-        return self.writeContents(path: filePath, contents: data ?? Data(), completionHandler: completionHandler)
-    }
-    
     open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
@@ -351,13 +346,13 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
-    open func writeContents(path: String, contents data: Data, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
         // FIXME: remove 150MB restriction
-        return upload_simple(path, data: data, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
+        return upload_simple(path, data: data ?? Data(), overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
