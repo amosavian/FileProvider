@@ -375,7 +375,6 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    @discardableResult
     fileprivate func write(timeout: TimeInterval = 0, close: Bool) -> Int {
         guard let outputStream = outputStream else {
             return -1
