@@ -29,7 +29,7 @@ import Foundation
 
     XML Parsing is also done with this object.
 */
-internal class AEXMLDocument: AEXMLElement {
+public class AEXMLDocument: AEXMLElement {
     
     // MARK: - Properties
     
