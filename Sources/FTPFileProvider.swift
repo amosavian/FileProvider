@@ -9,8 +9,8 @@
 import Foundation
 
 /**
- Allows accessing to FTP files. This provider doesn't cache or save files internally, however you can
- set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
+ Allows accessing to FTP files and directories. This provider doesn't cache or save files internally.
+ It's a complete reimplementation and doesn't use CFNetwork deprecated API.
  */
 open class FTPFileProvider: FileProviderBasicRemote {
     open class var type: String { return "FTP" }
@@ -29,6 +29,8 @@ open class FTPFileProvider: FileProviderBasicRemote {
     open private(set) var cache: URLCache?
     public var useCache: Bool
     public var validatingCache: Bool
+    
+    public let passiveMode = true // TODO: Implement active mode
     
     fileprivate var _session: URLSession?
     internal var sessionDelegate: SessionDelegate?
@@ -221,7 +223,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        // This feature isn't supported
+        // TODO: implement SITE CPFR/CPTO extension
         dispatch_queue.async {
             completionHandler(-1, 0)
         }
@@ -276,13 +278,16 @@ extension FTPFileProvider: FileProviderOperations {
         case .copy:
             // FTP doesn't support copy command Intrinsically, a dirty workaround is
             // to download file and upload again!
+            // TODO: implement SITE CPFR/CPTO extension and use dirty workaround as fallback
             NotImplemented()
             command = ""
         case .move:
             command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
         case .remove:
-            // TODO: Remove folder
             command = "DELE \(ftpPath(sourcePath))"
+            // TODO: Remove folder using SITE RMDIR and recursive as fallback
+        case .link:
+            command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
         default: // modify, link, fetch
             return nil
         }
@@ -492,6 +497,24 @@ extension FTPFileProvider: FileProviderReadWrite {
      NotImplemented()
      }
      */
+}
+
+extension FTPFileProvider {
+    /**
+     Creates a symbolic link at the specified path that points to an item at the given path.
+     This method does not traverse symbolic links contained in destURL, making it possible
+     to create symbolic links to locations that do not yet exist.
+     Also, if the final path component in url is a symbolic link, that link is not followed.
+     
+     - Parameters:
+       - path: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
+       - destPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     */
+    public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
+        let opType = FileOperationType.link(link: path, target: destPath)
+        _=self.doOperation(opType, completionHandler: completionHandler)
+    }
 }
 
 extension FTPFileProvider: FileProvider { }

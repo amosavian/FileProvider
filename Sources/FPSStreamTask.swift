@@ -348,8 +348,8 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             return
         }
         self.operation_queue.addOperation {
-            self.write(close: false)
-            while inputStream.streamStatus != .atEnd {
+            _=self.write(close: false)
+            while inputStream.streamStatus != .atEnd || outputStream.streamStatus == .writing {
                 Thread.sleep(forTimeInterval: 0.1)
             }
             self.streamDelegate?.urlSession?(self._underlyingSession, streamTask: self, didBecome: inputStream, outputStream: outputStream)
