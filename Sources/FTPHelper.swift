@@ -221,7 +221,7 @@ extension FTPFileProvider {
             }
             
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
-            self.execute(command: "MLSD \(path)", on: task, minLength: 70, afterSend: { error in
+            self.execute(command: command, on: task, minLength: 70, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
