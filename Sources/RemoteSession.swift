@@ -148,6 +148,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
         }
     }
     
+    @available(iOS 9.0, *)
     @available(iOSApplicationExtension 9.0, *)
     func urlSession(_ session: URLSession, streamTask: URLSessionStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream) {
         self.didBecomeStream?(session, streamTask.taskIdentifier, inputStream, outputStream)
