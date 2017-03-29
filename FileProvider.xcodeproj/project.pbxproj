@@ -122,6 +122,8 @@
 		79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
+		79F4678B1E8B80F200C91A85 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
+		79F4678C1E8B80F200C91A85 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
 		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
@@ -543,6 +545,7 @@
 				7924B1B01D89F7DE00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19A1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
+				79F4678B1E8B80F200C91A85 /* FTPHelper.swift in Sources */,
 				799396D81D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C61D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */,
@@ -585,6 +588,7 @@
 				7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19B1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,
+				79F4678C1E8B80F200C91A85 /* FTPHelper.swift in Sources */,
 				799396D91D48C02300086753 /* SMB2Types.swift in Sources */,
 				799396C71D48C02300086753 /* SMB2FileOperation.swift in Sources */,
 				79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */,
