@@ -30,7 +30,10 @@ open class FTPFileProvider: FileProviderBasicRemote {
     public var useCache: Bool
     public var validatingCache: Bool
     
-    public let passiveMode = true // TODO: Implement active mode
+    /// Determine either FTP session is in passive or active mode.
+    /// - Note: Due to `URLSessionStreamTask` restrictions for determining listening port,
+    /// only passive sessions are available in current implementation.
+    public let passiveMode = true
     
     fileprivate var _session: URLSession?
     internal var sessionDelegate: SessionDelegate?
@@ -333,8 +336,7 @@ extension FTPFileProvider: FileProviderOperations {
                     case .move:
                         errorCode = URLError.cannotMoveFile
                     case .remove:
-                        let opHandle = self.fallbackRemove(operation, completionHandler: completionHandler) as? RemoteOperationHandle
-                        operationHandle.tasks = opHandle?.tasks ?? []
+                        self.fallbackRemove(operation, on: task, completionHandler: completionHandler)
                         return
                     case .link:
                         errorCode = URLError.cannotWriteToFile
@@ -381,10 +383,43 @@ extension FTPFileProvider: FileProviderOperations {
         return operationHandle
     }
     
-    private func fallbackRemove(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // guard let sourcePath = operation.source else { return nil }
-        // TODO: Remove folder using SITE RMDIR and recursive as fallback
-        return nil
+    private func fallbackRemove(_ operation: FileOperationType, on task: FileProviderStreamTask, recursive: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard let sourcePath = operation.source else { return }
+        
+        switch recursive {
+        case true:
+            break
+        case false:
+            self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
+                guard let response = response else {
+                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
+                if response.hasPrefix("50") {
+                    self.fallbackRemove(operation, on: task, recursive: true, completionHandler: completionHandler)
+                    return
+                }
+                
+                let escapedPath = sourcePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sourcePath
+                let url = NSURL(string: escapedPath, relativeTo: self.baseURL) ?? self.baseURL! as NSURL
+                let error = NSError(domain: URLError.errorDomain, code: URLError.cannotRemoveFile.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+            }
+        }
+        return
     }
     
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -556,7 +591,7 @@ extension FTPFileProvider: FileProviderReadWrite {
                 }
                 return
             }
-            
+            // TODO: Check for overwrite
             self.ftpStore(task, filePath: path, fromData: data ?? Data(), fromFile: nil, onTask: {
                 operation.add(task: $0)
             }, completionHandler: { (error) in

@@ -15,7 +15,7 @@ protocol SMBProtocolClientDelegate: class {
     func receivedResponse(client: SMB2ProtocolClient, response: SMBResponse, for: SMBRequest)
 }
 
-class SMB2ProtocolClient: FPSStreamTask {
+class SMB2ProtocolClient: FileProviderStreamTask {
     var timeout: TimeInterval = 30
     
     private(set) var lastMessageID: UInt64 = 0

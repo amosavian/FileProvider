@@ -12,8 +12,8 @@ private var lasttaskIdAssociated = 1_000_000_000
 
 
 /// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
-/// while it will fallback to NSURLSessionStreamTask in iOS 9.
-internal class FPSStreamTask: URLSessionTask, StreamDelegate {
+/// while it can actually fallback to NSURLSessionStreamTask in iOS 9.
+public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     
@@ -24,15 +24,22 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     }
     fileprivate var _taskIdentifier: Int
     
+    /// Force using `URLSessionStreamTask` for iOS 9 and later
     public var useURLSession = true
     @available(iOS 9.0, OSX 10.11, *)
-    static var streamTasks = [Int: URLSessionStreamTask]()
+    fileprivate static var streamTasks = [Int: URLSessionStreamTask]()
     
     @available(iOS 9.0, OSX 10.11, *)
     internal var _underlyingTask: URLSessionStreamTask? {
-        return FPSStreamTask.streamTasks[_taskIdentifier]
+        return FileProviderStreamTask.streamTasks[_taskIdentifier]
     }
     
+    /**
+     * An identifier uniquely identifies the task within a given session.
+     *
+     * This value is unique only within the context of a single session; 
+     * tasks in other sessions may have the same `taskIdentifier` value.
+     */
     open override var taskIdentifier: Int {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -44,6 +51,10 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     }
     
     fileprivate var _state: URLSessionTask.State = .suspended
+    /**
+     * The current state of the task—active, suspended, in the process 
+     * of being canceled, or completed.
+    */
     override open var state: URLSessionTask.State {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -54,6 +65,11 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return _state
     }
     
+    /**
+     * The original request object passed when the task was created.
+     * This value is typically the same as the currently active request (`currentRequest`)
+     * except when the server has responded to the initial request with a redirect to a different URL.
+    */
     override open var originalRequest: URLRequest? {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -64,6 +80,11 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return nil
     }
     
+    /**
+     * The URL request object currently being handled by the task.
+     * This value is typically the same as the initial request (`originalRequest`)
+     * except when the server has responded to the initial request with a redirect to a different URL.
+    */
     override open var currentRequest: URLRequest? {
         if #available(iOS 9.0, OSX 10.11, *) {
             return _underlyingTask!.currentRequest
@@ -75,6 +96,14 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var _countOfBytesSent: Int64 = 0
     fileprivate var _countOfBytesRecieved: Int64 = 0
     
+    /**
+     * The number of bytes that the task has sent to the server in the request body.
+     *
+     * This byte count includes only the length of the request body itself, not the request headers.
+     *
+     * To be notified when this value changes, implement the 
+     * `urlSession(_:task:didSendBodyData:totalBytesSent:totalBytesExpectedToSend:)` delegate method.
+    */
     override open var countOfBytesSent: Int64 {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -85,6 +114,12 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return _countOfBytesSent
     }
     
+    /**
+     * The number of bytes that the task has received from the server in the response body.
+     *
+     * To be notified when this value changes, implement the `urlSession(_:dataTask:didReceive:)` delegate method (for data and upload tasks)
+     * or the `urlSession(_:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:)` method (for download tasks).
+    */
     override open var countOfBytesReceived: Int64 {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -95,6 +130,16 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return _countOfBytesRecieved
     }
     
+    /**
+     * The number of bytes that the task expects to send in the request body.
+     *
+     * The `URL` loading system can determine the length of the upload data in three ways:
+     * - From the length of the `NSData` object provided as the upload body.
+     * - From the length of the file on disk provided as the upload body of an upload task (not a download task).
+     * - From the `Content-Length` in the request object, if you explicitly set it.
+     *
+     * Otherwise, the value is `NSURLSessionTransferSizeUnknown` (`-1`) if you provided a stream or body data object, or zero (`0`) if you did not.
+    */
     override open var countOfBytesExpectedToSend: Int64 {
         if #available(iOS 9.0, OSX 10.11, *) {
             return _underlyingTask!.countOfBytesExpectedToSend
@@ -103,6 +148,12 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
+    /**
+     * The number of bytes that the task expects to receive in the response body.
+     *
+     * This value is determined based on the `Content-Length` header received from the server.
+     * If that header is absent, the value is `NSURLSessionTransferSizeUnknown`.
+    */
     override open var countOfBytesExpectedToReceive: Int64 {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -117,8 +168,8 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         fatalError("Use NSURLSession.fpstreamTask() method")
     }
     
-    var host: (hostname: String, port: Int)?
-    var service: NetService?
+    fileprivate var host: (hostname: String, port: Int)?
+    fileprivate var service: NetService?
     
     internal init(session: URLSession, host: String, port: Int) {
         self._underlyingSession = session
@@ -126,7 +177,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             if self.useURLSession {
                 let task = session.streamTask(withHostName: host, port: port)
                 self._taskIdentifier = task.taskIdentifier
-                FPSStreamTask.streamTasks[_taskIdentifier] = task
+                FileProviderStreamTask.streamTasks[_taskIdentifier] = task
                 return
             }
         }
@@ -135,7 +186,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         self._taskIdentifier = lasttaskIdAssociated
         self.host = (host, port)
         self.operation_queue = OperationQueue()
-        self.operation_queue.name = "FPSStreamTask"
+        self.operation_queue.name = "FileProviderStreamTask"
         self.operation_queue.maxConcurrentOperationCount = 1
     }
     
@@ -145,7 +196,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
             if self.useURLSession {
                 let task = session.streamTask(with: netService)
                 self._taskIdentifier = task.taskIdentifier
-                FPSStreamTask.streamTasks[_taskIdentifier] = task
+                FileProviderStreamTask.streamTasks[_taskIdentifier] = task
                 return
             }
         }
@@ -154,10 +205,20 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         self._taskIdentifier = lasttaskIdAssociated
         self.service = netService
         self.operation_queue = OperationQueue()
-        self.operation_queue.name = "FPSStreamTask"
+        self.operation_queue.name = "FileProviderStreamTask"
         self.operation_queue.maxConcurrentOperationCount = 1
     }
     
+    /**
+     * Cancels the task.
+     *
+     * This method returns immediately, marking the task as being canceled. Once a task is marked as being canceled, 
+     * `urlSession(_:task:didCompleteWithError:)` will be sent to the task delegate, passing an error
+     * in the domain NSURLErrorDomain with the code `NSURLErrorCancelled`. A task may, under some circumstances,
+     * send messages to its delegate before the cancelation is acknowledged.
+     *
+     * This method may be called on a task that is suspended.
+    */
     override open func cancel() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -173,8 +234,8 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         self.inputStream?.close()
         self.outputStream?.close()
         
-        self.inputStream?.remove(from: RunLoop.main, forMode: RunLoopMode.defaultRunLoopMode)
-        self.outputStream?.remove(from: RunLoop.main, forMode: RunLoopMode.defaultRunLoopMode)
+        self.inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        self.outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
         
         self.inputStream?.delegate = nil
         self.outputStream?.delegate = nil
@@ -188,6 +249,12 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     }
     
     var _error: Error? = nil
+    
+    /**
+     * An error object that indicates why the task failed.
+     *
+     * This value is `NULL` if the task is still active or if the transfer completed successfully.
+    */
     override open var error: Error? {
         if #available(iOS 9.0, OSX 10.11, *) {
             if useURLSession {
@@ -198,6 +265,13 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return _error
     }
     
+    /**
+     * Temporarily suspends a task.
+     *
+     * A task, while suspended, produces no network traffic and is not subject to timeouts. 
+     * A download task can continue transferring data at a later time. 
+     * All other tasks must start over when resumed.
+    */
     override open func suspend() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -210,6 +284,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         self.operation_queue.isSuspended = true
     }
     
+    // Resumes the task, if it is suspended.
     override open func resume() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -223,8 +298,7 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         
         if inputStream == nil || outputStream == nil {
             if let host = host {
-                let hostRef: CFString = NSString(string: host.hostname)
-                CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, hostRef, UInt32(host.port), &readStream, &writeStream)
+                CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, host.hostname as CFString, UInt32(host.port), &readStream, &writeStream)
             } else if let service = service {
                 let cfnetService = CFNetServiceCreate(kCFAllocatorDefault, service.domain as CFString, service.type as CFString, service.name as CFString, Int32(service.port))
                 CFStreamCreatePairWithSocketToNetService(kCFAllocatorDefault, cfnetService.takeRetainedValue(), &readStream, &writeStream)
@@ -260,12 +334,20 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var dataToBeSent: Data = Data()
     fileprivate var dataReceived: Data = Data()
     
-    /* Read minBytes, or at most maxBytes bytes and invoke the completion
-     * handler on the sessions delegate queue with the data or an error.
-     * If an error occurs, any outstanding reads will also fail, and new
-     * read requests will error out immediately.
-     */
-    open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (Data?, Bool, Error?) -> Void) {
+    /**
+     * Asynchronously reads a number of bytes from the stream, and calls a handler upon completion.
+     *
+     * - Parameter minBytes: The minimum number of bytes to read.
+     * - ParametermaxBytes: The maximum number of bytes to read.
+     * - Parameter timeout:  A timeout for reading bytes. If the read is not completed within the specified interval,
+     *        the read is canceled and the completionHandler is called with an error. Pass `0` to prevent a read from timing out.
+     * - Parameter completionHandler: The completion handler to call when all bytes are read, or an error occurs.
+     *        This handler is executed on the delegate queue. This completion handler takes the following parameters:
+     *     - data: The data read from the stream.
+     *     - atEOF: Whether or not the stream reached end-of-file (`EOF`), such that no more data can be read.
+     *     - error: An error object that indicates why the read failed, or `nil` if the read was successful.
+    */
+    open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ atEOF: Bool, _ error :Error?) -> Void) {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.readData(ofMinLength: minBytes, maxLength: maxBytes, timeout: timeout, completionHandler: completionHandler)
@@ -300,12 +382,22 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    /* Write the data completely to the underlying socket.  If all the
-     * bytes have not been written by the timeout, a timeout error will
-     * occur.  Note that invocation of the completion handler does not
-     * guarantee that the remote side has received all the bytes, only
-     * that they have been written to the kernel. */
-    open func write(_ data: Data, timeout: TimeInterval, completionHandler: @escaping (Error?) -> Void) {
+    /**
+     * Asynchronously writes the specified data to the stream, and calls a handler upon completion.
+     *
+     * There is no guarantee that the remote side of the stream has received all of the written bytes
+     * at the time that `completionHandler` is called, only that all of the data has been written to the kernel.
+     *
+     * - Parameter data: The data to be written.
+     * - Parameter timeout: A timeout for writing bytes. If the write is not completed within the specified interval,
+     *      the write is canceled and the `completionHandler` is called with an error.
+     *      Pass `0` to prevent a write from timing out.
+     * - Parameter completionHandler: The completion handler to call when all bytes are written, or an error occurs.
+     *      This handler is executed on the delegate queue.
+     *      This completion handler takes the following parameter:
+     *      - error: An error object that indicates why the write failed, or nil if the write was successful.
+    */
+    open func write(_ data: Data, timeout: TimeInterval, completionHandler: @escaping (_ error: Error?) -> Void) {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.write(data, timeout: timeout, completionHandler: completionHandler)
@@ -330,12 +422,10 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    /* -captureStreams completes any already enqueued reads
-     * and writes, and then invokes the
-     * URLSession:streamTask:didBecomeInputStream:outputStream: delegate
-     * message. When that message is received, the task object is
-     * considered completed and will not receive any more delegate
-     * messages. */
+    /**
+     * Completes any already enqueued reads and writes, and then invokes the 
+     * `urlSession(_:streamTask:didBecome:outputStream:)` delegate message.
+    */
     open func captureStreams() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -356,12 +446,16 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    /* Enqueue a request to close the write end of the underlying socket.
-     * All outstanding IO will complete before the write side of the
-     * socket is closed.  The server, however, may continue to write bytes
-     * back to the client, so best practice is to continue reading from
-     * the server until you receive EOF.
-     */
+    /**
+     * Completes any enqueued reads and writes, and then closes the write side of the underlying socket.
+     *
+     * You may continue to read data using the `readData(ofMinLength:maxLength:timeout:completionHandler:)`
+     * method after calling this method. Any calls to `write(_:timeout:completionHandler:)` after calling 
+     * this method will result in an error.
+     *
+     * Because the server may continue to write bytes to the client, it is recommended that 
+     * you continue reading until the stream reaches end-of-file (EOF).
+    */
     open func closeWrite() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -407,10 +501,13 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         return byteSent
     }
     
-    /* Enqueue a request to close the read side of the underlying socket.
-     * All outstanding IO will complete before the read side is closed.
-     * You may continue writing to the server.
-     */
+    /**
+     * Completes any enqueued reads and writes, and then closes the read side of the underlying socket.
+     *
+     * You may continue to write data using the `write(_:timeout:completionHandler:)` method after 
+     * calling this method. Any calls to `readData(ofMinLength:maxLength:timeout:completionHandler:)`
+     * after calling this method will result in an error.
+    */
     open func closeRead() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -431,11 +528,12 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    /*
-     * Begin encrypted handshake.  The hanshake begins after all pending
-     * IO has completed.  TLS authentication callbacks are sent to the
-     * session's -URLSession:task:didReceiveChallenge:completionHandler:
-     */
+    /**
+     * Completes any enqueued reads and writes, and establishes a secure connection.
+     *
+     * Authentication callbacks are sent to the session's delegate using the
+     * `urlSession(_:task:didReceive:completionHandler:)` method.
+    */
     open func startSecureConnection() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -450,10 +548,9 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    /*
-     * Cleanly close a secure connection after all pending secure IO has
-     * completed.
-     */
+    /**
+     * Completes any enqueued reads and writes, and closes the secure connection.
+    */
     open func stopSecureConnection() {
         if #available(iOS 9.0, OSX 10.11, *) {
             if self.useURLSession {
@@ -468,47 +565,36 @@ internal class FPSStreamTask: URLSessionTask, StreamDelegate {
     }
     
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        switch (eventCode) {
-        case Stream.Event.errorOccurred:
+        if eventCode.contains(.errorOccurred) {
             self._error = aStream.streamError
             streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
-        case Stream.Event.endEncountered:
-            break
-        case Stream.Event():
-            break
-        case Stream.Event.openCompleted:
-            break
-        case Stream.Event.hasBytesAvailable:
-            var buffer = [UInt8](repeating: 0, count: 2048)
-            if (aStream == inputStream) {
-                while (inputStream!.hasBytesAvailable) {
-                    let len = inputStream!.read(&buffer, maxLength: buffer.count)
-                    if len > 0 {
-                        dataReceived.append(&buffer, count: len)
-                        self._countOfBytesRecieved += Int64(len)
-                    }
+        }
+        
+        if aStream == inputStream && eventCode.contains(.hasBytesAvailable) {
+            while (inputStream!.hasBytesAvailable) {
+                var buffer = [UInt8](repeating: 0, count: 2048)
+                let len = inputStream!.read(&buffer, maxLength: buffer.count)
+                if len > 0 {
+                    dataReceived.append(&buffer, count: len)
+                    self._countOfBytesRecieved += Int64(len)
                 }
             }
-        case Stream.Event.hasSpaceAvailable:
-            break
-        default:
-            break
         }
     }
 }
 
-internal extension URLSession {
-    /* Creates a bidirectional stream task to a given host and port.
-     */
-    func fpstreamTask(withHostName hostname: String, port: Int) -> FPSStreamTask {
-        return FPSStreamTask(session: self, host: hostname, port: port)
+public extension URLSession {
+    /// Creates a bidirectional stream task to a given host and port.
+    func fpstreamTask(withHostName hostname: String, port: Int) -> FileProviderStreamTask {
+        return FileProviderStreamTask(session: self, host: hostname, port: port)
     }
     
-    /* Creates a bidirectional stream task with an NSNetService to identify the endpoint.
+    /**
+     * Creates a bidirectional stream task with an NSNetService to identify the endpoint.
      * The NSNetService will be resolved before any IO completes.
-     */
-    func fpstreamTask(withNetService service: NetService) -> FPSStreamTask {
-        return fpstreamTask(withNetService: service)
+    */
+    func fpstreamTask(withNetService service: NetService) -> FileProviderStreamTask {
+        return FileProviderStreamTask(session: self, netService: service)
     }
 }
 
@@ -516,39 +602,43 @@ internal extension URLSession {
 internal protocol FPSStreamDelegate : URLSessionTaskDelegate {
     
     
-    /* Indiciates that the read side of a connection has been closed.  Any
+    /**
+     * Indiciates that the read side of a connection has been closed.  Any
      * outstanding reads complete, but future reads will immediately fail.
      * This may be sent even when no reads are in progress. However, when
      * this delegate message is received, there may still be bytes
      * available.  You only know that no more bytes are available when you
      * are able to read until EOF. */
-    @objc optional func urlSession(_ session: URLSession, readClosedFor streamTask: FPSStreamTask)
+    @objc optional func urlSession(_ session: URLSession, readClosedFor streamTask: FileProviderStreamTask)
     
     
-    /* Indiciates that the write side of a connection has been closed.
+    /**
+     * Indiciates that the write side of a connection has been closed.
      * Any outstanding writes complete, but future writes will immediately
      * fail.
      */
-    @objc optional func urlSession(_ session: URLSession, writeClosedFor streamTask: FPSStreamTask)
+    @objc optional func urlSession(_ session: URLSession, writeClosedFor streamTask: FileProviderStreamTask)
     
     
-    /* A notification that the system has determined that a better route
+    /**
+     * A notification that the system has determined that a better route
      * to the host has been detected (eg, a wi-fi interface becoming
      * available.)  This is a hint to the delegate that it may be
      * desirable to create a new task for subsequent work.  Note that
      * there is no guarantee that the future task will be able to connect
      * to the host, so callers should should be prepared for failure of
      * reads and writes over any new interface. */
-    @objc optional func urlSession(_ session: URLSession, betterRouteDiscoveredFor streamTask: FPSStreamTask)
+    @objc optional func urlSession(_ session: URLSession, betterRouteDiscoveredFor streamTask: FileProviderStreamTask)
     
     
-    /* The given task has been completed, and unopened NSInputStream and
+    /**
+     * The given task has been completed, and unopened NSInputStream and
      * NSOutputStream objects are created from the underlying network
      * connection.  This will only be invoked after all enqueued IO has
      * completed (including any necessary handshakes.)  The streamTask
      * will not receive any further delegate messages.
      */
-    @objc optional func urlSession(_ session: URLSession, streamTask: FPSStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream)
+    @objc optional func urlSession(_ session: URLSession, streamTask: FileProviderStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream)
 }
 
 private let ports: [String: Int] = ["http": 80, "https": 443, "smb": 445,"ftp": 21,

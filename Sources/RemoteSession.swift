@@ -34,7 +34,7 @@ open class RemoteOperationHandle: OperationHandle {
             switch $1 {
             case let task as URLSessionUploadTask:
                 return $0 + task.countOfBytesSent
-            case let task as FPSStreamTask:
+            case let task as FileProviderStreamTask:
                 return $0 + task.countOfBytesSent + task.countOfBytesReceived
             default:
                 return $0 + $1.countOfBytesReceived
@@ -47,7 +47,7 @@ open class RemoteOperationHandle: OperationHandle {
             switch $1 {
             case let task as URLSessionUploadTask:
                 return $0 + task.countOfBytesExpectedToSend
-            case let task as FPSStreamTask:
+            case let task as FileProviderStreamTask:
                 return $0 + task.countOfBytesExpectedToSend + task.countOfBytesExpectedToReceive
             default:
                 return $0 + $1.countOfBytesExpectedToReceive
