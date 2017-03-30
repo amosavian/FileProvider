@@ -42,11 +42,11 @@ All functions do async calls and it wont block your main thread.
 
 ## Requirements
 
-- **Swift 3.0 +**
+- **Swift 3.0 or higher**
 - iOS 8.0 , OSX 10.10
 - XCode 8.0
 
-Legacy version is available in swift-2 branch
+Legacy version is available in swift-2 branch.
 
 ## Installation
 
@@ -467,7 +467,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [https://github.com/amosavian/](https://github.com/amosavian/)
 
 [cocoapods]: https://cocoapods.org/pods/FileProvider
-[swift-image]: https://img.shields.io/badge/swift-3.0-orange.svg
+[swift-image]: https://img.shields.io/badge/swift-3.0,%203.1-orange.svg
 [swift-url]: https://swift.org/
 [platform-image]: https://img.shields.io/cocoapods/p/FileProvider.svg
 [license-image]: https://img.shields.io/github/license/amosavian/FileProvider.svg

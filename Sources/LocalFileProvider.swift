@@ -524,13 +524,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
 public extension LocalFileProvider {
     /**
      Creates a symbolic link at the specified path that points to an item at the given path.
-     This method does not traverse symbolic links contained in destURL, making it possible 
-     to create symbolic links to locations that do not yet exist. 
-     Also, if the final path component in url is a symbolic link, that link is not followed.
+     This method does not traverse symbolic links contained in destination path, making it possible
+     to create symbolic links to locations that do not yet exist.
+     Also, if the final path component is a symbolic link, that link is not followed.
     
      - Parameters:
-       - path: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
-       - destPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
+       - symbolicLink: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
+       - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
     */
     public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {

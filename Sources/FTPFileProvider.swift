@@ -53,10 +53,11 @@ open class FTPFileProvider: FileProviderBasicRemote {
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
      */
     public init? (baseURL: URL, credential: URLCredential?, cache: URLCache? = nil) {
-        guard (baseURL.scheme ?? "ftp").lowercased() == "ftp" else { return nil }
+        guard (baseURL.scheme ?? "ftp").lowercased().hasPrefix("ftp") else { return nil }
         guard baseURL.host != nil else { return nil }
         var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)!
         urlComponents.port = urlComponents.port ?? 21
+        urlComponents.scheme = urlComponents.scheme ?? "ftp"
         
         self.baseURL = urlComponents.url!
         self.currentPath = ""
@@ -264,28 +265,25 @@ extension FTPFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
-        let command: String
         guard let sourcePath = operation.source else { return nil }
         let destPath = operation.destination
+        
+        let command: String
         switch operation {
         case .create:
             command = "MKD \(ftpPath(sourcePath))"
         case .copy:
-            // FTP doesn't support copy command Intrinsically, a dirty workaround is
-            // to download file and upload again!
-            // TODO: implement SITE CPFR/CPTO extension and use dirty workaround as fallback
-            NotImplemented()
-            command = ""
+            command = "SITE CPFR \(ftpPath(sourcePath))\r\nSITE CPTO \(ftpPath(destPath!))"
         case .move:
             command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
         case .remove:
             command = "DELE \(ftpPath(sourcePath))"
-            // TODO: Remove folder using SITE RMDIR and recursive as fallback
         case .link:
             command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
-        default: // modify, link, fetch
+        default: // modify, fetch
             return nil
         }
+        let operationHandle = RemoteOperationHandle(operationType: operation, tasks: [])
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
@@ -297,14 +295,93 @@ extension FTPFileProvider: FileProviderOperations {
             }
             
             self.execute(command: command, on: task, completionHandler: { (response, error) in
-                //TODO : Implement return code error return
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
+                guard let response = response else {
+                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
+                let codes: [Int] = response.components(separatedBy: .newlines).flatMap({ $0.isEmpty ? nil : $0})
+                .flatMap {
+                    let code = $0.components(separatedBy: .whitespaces).flatMap({ $0.isEmpty ? nil : $0}).first
+                    return code != nil ? Int(code!) : nil
+                }
+                
+                if codes.filter({ (450..<560).contains($0) }).count > 0 {
+                    let errorCode: URLError.Code
+                    switch operation {
+                    case .create:
+                        errorCode = URLError.cannotCreateFile
+                    case .modify:
+                        errorCode = URLError.cannotWriteToFile
+                    case .copy:
+                        let opHandle = self.fallbackCopy(operation, completionHandler: completionHandler) as? RemoteOperationHandle
+                        operationHandle.tasks = opHandle?.tasks ?? []
+                        return
+                    case .move:
+                        errorCode = URLError.cannotMoveFile
+                    case .remove:
+                        let opHandle = self.fallbackRemove(operation, completionHandler: completionHandler) as? RemoteOperationHandle
+                        operationHandle.tasks = opHandle?.tasks ?? []
+                        return
+                    case .link:
+                        errorCode = URLError.cannotWriteToFile
+                    default:
+                        errorCode = URLError.cannotOpenFile
+                    }
+                    let escapedPath = sourcePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sourcePath
+                    let url = NSURL(string: escapedPath, relativeTo: self.baseURL) ?? self.baseURL! as NSURL
+                    let error = NSError(domain: URLError.errorDomain, code: errorCode.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
                 self.dispatch_queue.async {
-                    completionHandler?(error)
+                    completionHandler?(nil)
                 }
             })
         }
         
-        return RemoteOperationHandle(operationType: operation, tasks: [])
+        operationHandle.add(task: task)
+        return operationHandle
+    }
+    
+    private func fallbackCopy(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        guard let sourcePath = operation.source else { return nil }
+        guard let destPath = operation.destination else { return nil }
+        
+        let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+        let operationHandle = RemoteOperationHandle(operationType: operation, tasks: [])
+        let firstOp = self.copyItem(path: sourcePath, toLocalURL: localURL, completionHandler: { (error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                return
+            }
+            
+            let secondOp = self.copyItem(localFile: localURL, to: destPath, completionHandler: completionHandler) as? RemoteOperationHandle
+            operationHandle.tasks = secondOp?.tasks ?? []
+        }) as? RemoteOperationHandle
+        operationHandle.tasks = firstOp?.tasks ?? []
+        return operationHandle
+    }
+    
+    private func fallbackRemove(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        // guard let sourcePath = operation.source else { return nil }
+        // TODO: Remove folder using SITE RMDIR and recursive as fallback
+        return nil
     }
     
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -506,13 +583,13 @@ extension FTPFileProvider: FileProviderReadWrite {
 extension FTPFileProvider {
     /**
      Creates a symbolic link at the specified path that points to an item at the given path.
-     This method does not traverse symbolic links contained in destURL, making it possible
+     This method does not traverse symbolic links contained in destination path, making it possible
      to create symbolic links to locations that do not yet exist.
-     Also, if the final path component in url is a symbolic link, that link is not followed.
+     Also, if the final path component is a symbolic link, that link is not followed.
      
      - Parameters:
-       - path: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
-       - destPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
+       - symbolicLink: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
+       - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      */
     public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {

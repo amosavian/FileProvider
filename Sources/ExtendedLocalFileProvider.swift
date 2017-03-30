@@ -414,7 +414,7 @@ public struct LocalFileInformationGenerator {
             guard let date = date else { return nil }
             var dateStr = date
             if dateStr.hasPrefix("D:") {
-                dateStr = date.substring(from: date.characters.index(date.startIndex, offsetBy: 2))
+                dateStr.characters.removeFirst(2)
             }
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyyMMddHHmmssTZD"

@@ -69,9 +69,6 @@ extension FTPFileProvider {
     
     func ftpLogin(_ task: FPSStreamTask, completionHandler: @escaping (_ error: Error?) -> Void) {
         let timeout = session.configuration.timeoutIntervalForRequest
-        if baseURL?.scheme == "ftps" {
-            task.startSecureConnection()
-        }
         if task.state == .suspended {
             task.resume()
         }
@@ -96,35 +93,51 @@ extension FTPFileProvider {
                 return
             }
             
-            self.execute(command: "USER \(credential?.user ?? "anonymous")", on: task) { (response, error) in
-                if let error = error {
-                    completionHandler(error)
-                    return
-                }
-                
-                guard let response = response else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                    completionHandler(error)
-                    return
-                }
-                
-                // successfully logged in
-                if response.hasPrefix("23") {
+            let loginHandle = {
+                self.execute(command: "USER \(credential?.user ?? "anonymous")", on: task) { (response, error) in
+                    if let error = error {
+                        completionHandler(error)
+                        return
+                    }
                     
-                    completionHandler(nil)
-                }
-                
-                // needs password
-                if response.hasPrefix("33") {
-                    self.execute(command: "PASS \(credential?.password ?? "fileprovider@")", on: task) { (response, error) in
-                        if response?.hasPrefix("2") ?? false {
-                            completionHandler(nil)
-                        } else {
-                            let error = NSError(domain: URLError.errorDomain, code: URLError.userAuthenticationRequired.rawValue, userInfo: nil)
-                            completionHandler(error)
+                    guard let response = response else {
+                        let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                        completionHandler(error)
+                        return
+                    }
+                    
+                    // successfully logged in
+                    if response.hasPrefix("23") {
+                        
+                        completionHandler(nil)
+                    }
+                    
+                    // needs password
+                    if response.hasPrefix("33") {
+                        self.execute(command: "PASS \(credential?.password ?? "fileprovider@")", on: task) { (response, error) in
+                            if response?.hasPrefix("2") ?? false {
+                                completionHandler(nil)
+                            } else {
+                                let error = NSError(domain: URLError.errorDomain, code: URLError.userAuthenticationRequired.rawValue, userInfo: nil)
+                                completionHandler(error)
+                            }
                         }
                     }
                 }
+            }
+            
+            if self.baseURL?.scheme == "ftps" {
+                self.execute(command: "AUTH TLS", on: task, completionHandler: { (response, error) in
+                    if let error = error {
+                        completionHandler(error)
+                        return
+                    }
+                    
+                    task.startSecureConnection()
+                    loginHandle()
+                })
+            } else {
+                loginHandle()
             }
         }
     }
@@ -226,6 +239,9 @@ extension FTPFileProvider {
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 passiveTask.resume()
+                if self.baseURL?.scheme == "ftps" {
+                    task.startSecureConnection()
+                }
                 
                 DispatchQueue.global().async {
                     var finalData = Data()
@@ -297,6 +313,9 @@ extension FTPFileProvider {
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 passiveTask.resume()
+                if self.baseURL?.scheme == "ftps" {
+                    task.startSecureConnection()
+                }
                 onTask?(passiveTask)
                 
                 DispatchQueue.global().async {
@@ -364,6 +383,9 @@ extension FTPFileProvider {
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 passiveTask.resume()
+                if self.baseURL?.scheme == "ftps" {
+                    task.startSecureConnection()
+                }
                 onTask?(passiveTask)
                 
                 DispatchQueue.global().async {
@@ -427,6 +449,11 @@ extension FTPFileProvider {
     
     func ftpPath(_ apath: String) -> String {
         var path = apath.isEmpty ? self.currentPath : apath
+        
+        // path of base url should be concreted into file path!
+        path = baseURL!.appendingPathComponent(path).path
+        
+        // Fixing slashes
         if !path.hasPrefix("/") {
             path = "/" + path
         }
@@ -437,6 +464,7 @@ extension FTPFileProvider {
         if path.isEmpty {
             path = "/"
         }
+        
         return path
     }
     
