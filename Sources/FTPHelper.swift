@@ -88,7 +88,10 @@ extension FTPFileProvider {
             }
             
             guard response.hasPrefix("22") else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.cannotConnectToHost.rawValue, userInfo: nil)
+                let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
                 completionHandler(error)
                 return
             }
@@ -108,8 +111,8 @@ extension FTPFileProvider {
                     
                     // successfully logged in
                     if response.hasPrefix("23") {
-                        
                         completionHandler(nil)
+                        return
                     }
                     
                     // needs password
@@ -122,17 +125,20 @@ extension FTPFileProvider {
                                 completionHandler(error)
                             }
                         }
+                        return
                     }
+                    
+                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    completionHandler(error)
+                    return
                 }
             }
             
             if self.baseURL?.scheme == "ftps" {
-                self.execute(command: "AUTH TLS", on: task, completionHandler: { (response, error) in
-                    if let error = error {
-                        completionHandler(error)
-                        return
-                    }
-                    
+                self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
                     task.startSecureConnection()
                     loginHandle()
                 })
@@ -161,8 +167,12 @@ extension FTPFileProvider {
             }
             // not logged in
             else if response.hasPrefix("55") {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.fileDoesNotExist.rawValue, userInfo: nil)
+                let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
                 completionHandler(error)
+                return
             }
         }
     }
@@ -214,8 +224,12 @@ extension FTPFileProvider {
             if response?.hasPrefix("35") ?? false {
                 completionHandler(nil)
             } else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.resourceUnavailable.rawValue, userInfo: nil)
+                let spaceIndex = response?.characters.index(of: " ") ?? response?.startIndex
+                let code = Int((response?.substring(to: spaceIndex!).trimmingCharacters(in: .whitespacesAndNewlines))!) ?? -1
+                let description = response?.substring(from: spaceIndex!).trimmingCharacters(in: .whitespacesAndNewlines)
+                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
                 completionHandler(error)
+                return
             }
         }
     }
@@ -288,12 +302,34 @@ extension FTPFileProvider {
                     completionHandler([], error)
                     return
                 }
+                
+                guard let response = response else {
+                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
+                    completionHandler([], badResponseError)
+                    return
+                }
+                
+                if response.hasPrefix("50") && useMLST {
+                    self.ftpList(task, of: path, useMLST: false, completionHandler: completionHandler)
+                    return
+                }
+                
+                if !response.hasPrefix("25") {
+                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+
+                    self.dispatch_queue.async {
+                        completionHandler([], error)
+                    }
+                    return
+                }
             }
         }
     }
     
     func ftpRetrieve(_ task: FPSStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FPSStreamTask) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
-        // FIXME: retreiven't begain
         self.ftpPassive(task) { (host, port, error) in
             if let error = error {
                 completionHandler(nil, error)
@@ -307,7 +343,6 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            // FIXME: use crlf instead of length
             self.execute(command: "REST \(position)\r\nRETR \(filePath)", on: task, minLength: 75, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
@@ -358,6 +393,23 @@ extension FTPFileProvider {
                     return
                 }
                 
+                guard let response = response else {
+                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
+                    completionHandler(nil, badResponseError)
+                    return
+                }
+                
+                if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    
+                    self.dispatch_queue.async {
+                        completionHandler(nil, error)
+                    }
+                    return
+                }
             }
         }
     }
@@ -377,7 +429,6 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            // FIXME: use crlf instead of length
             self.execute(command: "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
@@ -437,6 +488,23 @@ extension FTPFileProvider {
                     return
                 }
                 
+                guard let response = response else {
+                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
+                    completionHandler(badResponseError)
+                    return
+                }
+                
+                if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
+                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    
+                    self.dispatch_queue.async {
+                        completionHandler(error)
+                    }
+                    return
+                }
             }
         }
     }
@@ -589,4 +657,10 @@ extension FTPFileProvider {
         
         return file
     }
+}
+
+public struct FileProviderFTPError: Error {
+    public let code: Int
+    public let path: String
+    public let errorDescription: String?
 }

@@ -551,7 +551,7 @@ internal protocol FPSStreamDelegate : URLSessionTaskDelegate {
     @objc optional func urlSession(_ session: URLSession, streamTask: FPSStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream)
 }
 
-private let ports: [String: Int] = ["http": 80, "https": 443, "smb": 445,"ftp": 21,"ftps": 22, "sftp": 2121,
+private let ports: [String: Int] = ["http": 80, "https": 443, "smb": 445,"ftp": 21,
                                     "telnet": 23, "pop": 110, "smtp": 25, "imap": 143]
-private let securePorts: [String: Int] =  ["https": 443, "smb": 445, "ftps": 990, "sftp": 2121,
-                                           "telnet": 992, "pop": 995, "smtp": 465, "imap": 993]
+private let securePorts: [String: Int] =  ["ssh": 22, "https": 443, "smb": 445, "smtp": 465,
+                                            "ftps": 990,"telnet": 992, "imap": 993, "pop": 995]

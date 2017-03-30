@@ -199,12 +199,16 @@ open class FTPFileProvider: FileProviderBasicRemote {
                     return
                 }
                 
-                guard let response = response, response.hasPrefix("250") else {
+                guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
                     let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
                     }
                     return
+                }
+                
+                if response.hasPrefix("500") {
+                    self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
                 }
                 
                 let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -224,7 +228,6 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        // TODO: implement SITE QUOTA extension
         dispatch_queue.async {
             completionHandler(-1, 0)
         }
