@@ -35,6 +35,9 @@ open class FTPFileProvider: FileProviderBasicRemote {
     /// only passive sessions are available in current implementation.
     public let passiveMode = true
     
+    /// Force to use URLSessionDownloadTask/URLSessionDataTask when possible
+    public var useAppleImplementation = true
+    
     fileprivate var _session: URLSession?
     internal var sessionDelegate: SessionDelegate?
     public var session: URLSession {
@@ -44,6 +47,27 @@ open class FTPFileProvider: FileProviderBasicRemote {
             config.urlCache = cache
             config.requestCachePolicy = .returnCacheDataElseLoad
             _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
+            
+            
+            sessionDelegate?.didReceivedData = { [weak self] (session: URLSession, downloadTask: URLSessionDownloadTask, bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) -> Void in
+                guard let `self` = self else { return }
+                guard let opDic = downloadTask.taskDescription?.deserializeJSON(),
+                    let opType = FileOperationType(json: opDic) else { return }
+                DispatchQueue.main.async {
+                    let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
+                }
+            }
+            
+            sessionDelegate?.didSendDataHandler = { [weak self] (session: Foundation.URLSession, task: URLSessionTask, bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) -> Void in
+                guard let `self` = self else { return }
+                guard let opDic = task.taskDescription?.deserializeJSON(),
+                    let opType = FileOperationType(json: opDic) else { return }
+                DispatchQueue.main.async {
+                    let progress = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
+                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
+                }
+            }
         }
         return _session!
     }
@@ -55,7 +79,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
      - Parameter credential: a `URLCredential` object contains user and password.
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
      */
-    public init? (baseURL: URL, credential: URLCredential?, cache: URLCache? = nil) {
+    public init? (baseURL: URL, credential: URLCredential? = nil, cache: URLCache? = nil) {
         guard (baseURL.scheme ?? "ftp").lowercased().hasPrefix("ftp") else { return nil }
         guard baseURL.host != nil else { return nil }
         var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)!
@@ -140,7 +164,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
                 return
             }
             
-            self.ftpList(task, of: path, useMLST: rfc3659enabled, completionHandler: { (contents, error) in
+            self.ftpList(task, of: self.ftpPath(path), useMLST: rfc3659enabled, completionHandler: { (contents, error) in
                 defer {
                     self.ftpQuit(task)
                 }
@@ -240,6 +264,15 @@ open class FTPFileProvider: FileProviderBasicRemote {
         NotImplemented()
     }
     
+    public func url(of path: String?) -> URL {
+        let path = (path ?? self.currentPath).trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? (path ?? self.currentPath)
+        
+        var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
+        baseUrlComponent?.user = credential?.user
+        baseUrlComponent?.password = credential?.password
+        return URL(string: path, relativeTo: baseURL) ?? baseURL!
+    }
+    
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         self.attributesOfItem(path: "/") { (file, error) in
             completionHandler(file != nil)
@@ -267,15 +300,15 @@ extension FTPFileProvider: FileProviderOperations {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
-    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+    fileprivate func doOperation(_ opType: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        guard let sourcePath = operation.source else { return nil }
-        let destPath = operation.destination
+        guard let sourcePath = opType.source else { return nil }
+        let destPath = opType.destination
         
         let command: String
-        switch operation {
+        switch opType {
         case .create:
             command = "MKD \(ftpPath(sourcePath))"
         case .copy:
@@ -289,13 +322,14 @@ extension FTPFileProvider: FileProviderOperations {
         default: // modify, fetch
             return nil
         }
-        let operationHandle = RemoteOperationHandle(operationType: operation, tasks: [])
+        let operationHandle = RemoteOperationHandle(operationType: opType, tasks: [])
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
                 return
             }
@@ -304,6 +338,7 @@ extension FTPFileProvider: FileProviderOperations {
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
@@ -312,6 +347,7 @@ extension FTPFileProvider: FileProviderOperations {
                     let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
                         completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
@@ -324,19 +360,19 @@ extension FTPFileProvider: FileProviderOperations {
                 
                 if codes.filter({ (450..<560).contains($0) }).count > 0 {
                     let errorCode: URLError.Code
-                    switch operation {
+                    switch opType {
                     case .create:
                         errorCode = URLError.cannotCreateFile
                     case .modify:
                         errorCode = URLError.cannotWriteToFile
                     case .copy:
-                        let opHandle = self.fallbackCopy(operation, completionHandler: completionHandler) as? RemoteOperationHandle
+                        let opHandle = self.fallbackCopy(opType, completionHandler: completionHandler) as? RemoteOperationHandle
                         operationHandle.tasks = opHandle?.tasks ?? []
                         return
                     case .move:
                         errorCode = URLError.cannotMoveFile
                     case .remove:
-                        self.fallbackRemove(operation, on: task, completionHandler: completionHandler)
+                        self.fallbackRemove(opType, on: task, completionHandler: completionHandler)
                         return
                     case .link:
                         errorCode = URLError.cannotWriteToFile
@@ -348,12 +384,14 @@ extension FTPFileProvider: FileProviderOperations {
                     let error = NSError(domain: URLError.errorDomain, code: errorCode.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
                     self.dispatch_queue.async {
                         completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
                 
                 self.dispatch_queue.async {
                     completionHandler?(nil)
+                    self.delegateNotify(opType, error: nil)
                 }
             })
         }
@@ -362,16 +400,17 @@ extension FTPFileProvider: FileProviderOperations {
         return operationHandle
     }
     
-    private func fallbackCopy(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let sourcePath = operation.source else { return nil }
-        guard let destPath = operation.destination else { return nil }
+    private func fallbackCopy(_ opType: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        guard let sourcePath = opType.source else { return nil }
+        guard let destPath = opType.destination else { return nil }
         
-        let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
-        let operationHandle = RemoteOperationHandle(operationType: operation, tasks: [])
+        let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
+        let operationHandle = RemoteOperationHandle(operationType: opType, tasks: [])
         let firstOp = self.copyItem(path: sourcePath, toLocalURL: localURL, completionHandler: { (error) in
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
                 return
             }
@@ -383,17 +422,18 @@ extension FTPFileProvider: FileProviderOperations {
         return operationHandle
     }
     
-    private func fallbackRemove(_ operation: FileOperationType, on task: FileProviderStreamTask, recursive: Bool = false, completionHandler: SimpleCompletionHandler) {
-        guard let sourcePath = operation.source else { return }
+    private func fallbackRemove(_ opType: FileOperationType, on task: FileProviderStreamTask, recursive: Bool = false, completionHandler: SimpleCompletionHandler) {
+        guard let sourcePath = opType.source else { return }
         
         switch recursive {
         case true:
-            break
+            NotImplemented()
         case false:
             self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
@@ -402,12 +442,13 @@ extension FTPFileProvider: FileProviderOperations {
                     let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
                         completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
                 
                 if response.hasPrefix("50") {
-                    self.fallbackRemove(operation, on: task, recursive: true, completionHandler: completionHandler)
+                    self.fallbackRemove(opType, on: task, recursive: true, completionHandler: completionHandler)
                     return
                 }
                 
@@ -416,6 +457,7 @@ extension FTPFileProvider: FileProviderOperations {
                 let error = NSError(domain: URLError.errorDomain, code: URLError.cannotRemoveFile.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
             }
         }
@@ -434,17 +476,18 @@ extension FTPFileProvider: FileProviderOperations {
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
                 return
             }
             
-            let path = self.ftpPath(toPath)
-            self.ftpStore(task, filePath: path, fromData: nil, fromFile: localFile, onTask: {
+            self.ftpStore(task, filePath: self.ftpPath(toPath), fromData: nil, fromFile: localFile, onTask: {
                 operation.add(task: $0)
             }, completionHandler: { (error) in
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
             })
         }
@@ -457,38 +500,67 @@ extension FTPFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let path = path.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
-        guard let url = URL(string: path, relativeTo: baseURL!) else {
-            self.dispatch_queue.async {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.unsupportedURL.rawValue, userInfo: nil)
-                completionHandler?(error)
-            }
-            return nil
-        }
-        let task = session.downloadTask(with: url) { (tempDest, response, error) in
-            if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                }
-                return
-            }
-            
-            if let tempDest = tempDest {
-                do {
-                    try FileManager.default.moveItem(at: tempDest, to: destURL)
-                    self.dispatch_queue.async {
-                        completionHandler?(nil)
-                    }
-                } catch let error {
+        if self.useAppleImplementation {
+            let task = session.downloadTask(with: url(of: path)) { (tempDest, response, error) in
+                if let error = error {
                     self.dispatch_queue.async {
                         completionHandler?(error)
                     }
+                    return
+                }
+                
+                if let tempDest = tempDest {
+                    do {
+                        try FileManager.default.moveItem(at: tempDest, to: destURL)
+                        self.dispatch_queue.async {
+                            completionHandler?(nil)
+                        }
+                    } catch let error {
+                        self.dispatch_queue.async {
+                            completionHandler?(error)
+                        }
+                    }
+                }
+            }
+            operation.add(task: task)
+            task.resume()
+        } else {
+            let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+            self.ftpLogin(task) { (error) in
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    return
+                }
+                
+                self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: {
+                    operation.add(task: $0)
+                }, onProgress: { recevied, totalReceived, totalSize in
+                    let progress = Double(totalReceived) / Double(totalSize)
+                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
+                }) { (tmpurl, error) in
+                    if let error = error {
+                        self.dispatch_queue.async {
+                            completionHandler?(error)
+                            self.delegateNotify(opType, error: error)
+                        }
+                        return
+                    }
+                    
+                    if let tmpurl = tmpurl {
+                        try? FileManager.default.moveItem(at: tmpurl, to: destURL)
+                        self.dispatch_queue.async {
+                            completionHandler?(nil)
+                            self.delegateNotify(opType, error: nil)
+                        }
+                    }
                 }
             }
         }
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return operation
     }
 }
 
@@ -498,52 +570,40 @@ extension FTPFileProvider: FileProviderReadWrite {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let path = path.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
         
-        var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
-        baseUrlComponent?.user = credential?.user
-        baseUrlComponent?.password = credential?.password
-        guard let baseURL = baseUrlComponent?.url else {
-            let error = NSError(domain: URLError.errorDomain, code: URLError.badURL.rawValue, userInfo: nil)
-            self.dispatch_queue.async {
-                completionHandler(nil, error)
-            }
-            return nil
-        }
-        guard let url = URL(string: path, relativeTo: baseURL) else {
-            self.dispatch_queue.async {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.unsupportedURL.rawValue, userInfo: nil)
-                completionHandler(nil, error)
-            }
-            return nil
-        }
-        let task = session.dataTask(with: url) { (data, response, error) in
-            if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler(nil, error)
+        if self.useAppleImplementation {
+            let task = session.dataTask(with: url(of: path)) { (data, response, error) in
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler(nil, error)
+                        self.delegateNotify(opType, error: error)
+                    }
+                    return
                 }
-                return
-            }
-            
-            if let data = data {
-                self.dispatch_queue.async {
-                    completionHandler(data, nil)
+                
+                if let data = data {
+                    self.dispatch_queue.async {
+                        completionHandler(data, nil)
+                        self.delegateNotify(opType, error: nil)
+                    }
                 }
             }
+            task.resume()
+            return RemoteOperationHandle(operationType: opType, tasks: [task])
+        } else {
+            return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
         }
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
     }
     
-    open func contents(path apath: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+        let opType = FileOperationType.fetch(path: path)
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
+                self.delegateNotify(opType, error: nil)
             }
             return nil
         }
-        let path = ftpPath(apath)
-        let opType = FileOperationType.fetch(path: path)
         let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -555,12 +615,16 @@ extension FTPFileProvider: FileProviderReadWrite {
                 return
             }
             
-            self.ftpRetrieve(task, filePath: path, from: offset, length: length, onTask: {
+            self.ftpRetrieveData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: {
                 operation.add(task: $0)
+            }, onProgress: { recevied, totalReceived, totalSize in
+                let progress = Double(totalReceived) / Double(totalSize)
+                self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
             }) { (data, error) in
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
+                        self.delegateNotify(opType, error: error)
                     }
                     return
                 }
@@ -568,6 +632,7 @@ extension FTPFileProvider: FileProviderReadWrite {
                 if let data = data {
                     self.dispatch_queue.async {
                         completionHandler(data, nil)
+                        self.delegateNotify(opType, error: nil)
                     }
                 }
             }
@@ -588,18 +653,32 @@ extension FTPFileProvider: FileProviderReadWrite {
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
                 }
                 return
             }
-            // TODO: Check for overwrite
-            self.ftpStore(task, filePath: path, fromData: data ?? Data(), fromFile: nil, onTask: {
-                operation.add(task: $0)
-            }, completionHandler: { (error) in
-                self.ftpQuit(task)
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                }
-            })
+            
+            let storeHandler = {
+                self.ftpStore(task, filePath: self.ftpPath(path), fromData: data ?? Data(), fromFile: nil, onTask: {
+                    operation.add(task: $0)
+                }, completionHandler: { (error) in
+                    self.ftpQuit(task)
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
+                    }
+                })
+            }
+            
+            if overwrite {
+                storeHandler()
+            } else {
+                self.attributesOfItem(path: path, completionHandler: { (file, erroe) in
+                    if file == nil {
+                        storeHandler()
+                    }
+                })
+            }
         }
         
         return operation

@@ -90,16 +90,19 @@ extension FileProviderHTTPError {
     }
 }
 
+internal var completionHandlersForTasks = [Int: SimpleCompletionHandler]()
+internal var downloadCompletionHandlersForTasks = [Int: (URL) -> Void]()
+internal var dataCompletionHandlersForTasks = [Int: (Data) -> Void]()
+
 class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, URLSessionStreamDelegate {
     
     weak var fileProvider: (FileProviderBasicRemote & FileProviderOperations)?
     var credential: URLCredential?
     
-    var finishDownloadHandler: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
-    var didSendDataHandler: ((_ session: Foundation.URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
-    var didReceivedData: ((_ session: Foundation.URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
+    var finishDownloadHandler: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
+    var didSendDataHandler: ((_ session: URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
+    var didReceivedData: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
     var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
-    
     
     init(fileProvider: FileProviderBasicRemote & FileProviderOperations, credential: URLCredential?) {
         self.fileProvider = fileProvider
@@ -107,9 +110,35 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     }
     
     // codebeat:disable[ARITY]
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if error != nil {
+            let completionHandler = completionHandlersForTasks[task.taskIdentifier] ?? nil
+            completionHandler?(error)
+            completionHandlersForTasks.removeValue(forKey: task.taskIdentifier)
+        }
+    }
+    
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let completionHandler = dataCompletionHandlersForTasks[dataTask.taskIdentifier] ?? nil
+        completionHandler?(data)
+        completionHandlersForTasks.removeValue(forKey: dataTask.taskIdentifier)
+    }
+    
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         self.finishDownloadHandler?(session, downloadTask, location)
-        return
+        
+        let dcompletionHandler = downloadCompletionHandlersForTasks[downloadTask.taskIdentifier]
+        dcompletionHandler?(location)
+        completionHandlersForTasks.removeValue(forKey: downloadTask.taskIdentifier)
+        
+        guard let json = downloadTask.taskDescription?.deserializeJSON(),
+            let op = FileOperationType(json: json), let fileProvider = fileProvider else {
+                return
+        }
+        
+        DispatchQueue.main.async {
+            fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
+        }
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
@@ -122,7 +151,9 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
         
         let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
         
-        fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: progress)
+        DispatchQueue.main.async {
+            fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: progress)
+        }
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
@@ -133,7 +164,9 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
             return
         }
         
-        fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
+        DispatchQueue.main.async {
+            fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
+        }
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

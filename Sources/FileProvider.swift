@@ -195,7 +195,7 @@ public protocol FileProviderBasicRemote: FileProviderBasic {
     var validatingCache: Bool { get set }
 }
 
-internal extension FileProviderBasicRemote {
+internal extension FileProviderBasicRemote {    
     func returnCachedDate(with request: URLRequest, validatingCache: Bool, completionHandler: @escaping (Data?, URLResponse?, Error?) -> Swift.Void) -> Bool {
         guard let cache = self.cache else { return false }
         if let response = cache.cachedResponse(for: request) {
@@ -335,6 +335,8 @@ public protocol FileProviderOperations: FileProviderBasic {
      Uploads a file from local file url to designated path asynchronously.
      Method will fail if source is not a local url with `file://` scheme.
      
+     - Note: It's safe to assume that this method only works on individual files and **won't** copy folders recursively.
+     
      - Parameters:
        - localFile: a file url to file.
        - to: destination path of file, including file/directory name.
@@ -361,6 +363,8 @@ public protocol FileProviderOperations: FileProviderBasic {
     /**
      Download a file from `path` to designated local file url asynchronously.
      Method will fail if destination is not a local url with `file://` scheme.
+     
+     - Note: It's safe to assume that this method only works on individual files and **won't** copy folders recursively.
      
      - Parameters:
        - path: original file or directory path.

@@ -127,14 +127,16 @@ internal extension OneDriveFileProvider {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
-        let task = session.uploadTask(with: request, from: data, completionHandler: { (data, response, error) in
+        let task = session.uploadTask(with: request, from: data)
+        completionHandlersForTasks[task.taskIdentifier] = completionHandler
+        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
             var responseError: FileProviderOneDriveError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
             }
-            completionHandler?(responseError ?? error)
-            self.delegateNotify(operation, error: responseError ?? error)
-        })
+            completionHandler?(responseError)
+            self?.delegateNotify(.create(path: targetPath), error: responseError)
+        }
         task.taskDescription = operation.json
         task.resume()
         return RemoteOperationHandle(operationType: operation, tasks: [task])
@@ -154,14 +156,16 @@ internal extension OneDriveFileProvider {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        let task = session.uploadTask(with: request, fromFile: localFile, completionHandler: { (data, response, error) in
+        let task = session.uploadTask(with: request, fromFile: localFile)
+        completionHandlersForTasks[task.taskIdentifier] = completionHandler
+        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
             var responseError: FileProviderOneDriveError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
             }
-            completionHandler?(responseError ?? error)
-            self.delegateNotify(operation, error: responseError ?? error)
-        })
+            completionHandler?(responseError)
+            self?.delegateNotify(.create(path: targetPath), error: responseError)
+        }
         task.taskDescription = operation.json
         task.resume()
         return RemoteOperationHandle(operationType: operation, tasks: [task])

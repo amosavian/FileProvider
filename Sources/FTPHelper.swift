@@ -11,6 +11,16 @@ import Foundation
 extension FTPFileProvider {
     private static let carriage = "\r\n"
     
+    func delegateNotify(_ operation: FileOperationType, error: Error?) {
+        DispatchQueue.main.async(execute: {
+            if error == nil {
+                self.delegate?.fileproviderSucceed(self, operation: operation)
+            } else {
+                self.delegate?.fileproviderFailed(self, operation: operation)
+            }
+        })
+    }
+    
     func readDataUntilEOF(of task: FileProviderStreamTask, minLength: Int, receivedData: Data? = nil, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ errror:Error?) -> Void) {
         task.readData(ofMinLength: minLength, maxLength: 65535, timeout: timeout) { (data, eof, error) in
             if let error = error {
@@ -372,88 +382,227 @@ extension FTPFileProvider {
         // TODO: Implement recursive listing
     }
     
-    func ftpRetrieve(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
-        self.ftpDataConnect(task) { (dataTask, error) in
-            if let error = error {
-                completionHandler(nil, error)
-                return
+    func ftpRetrieveData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
+        
+        // Check cache
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+            dispatch_queue.async {
+                completionHandler(cachedResponse.data, nil)
             }
-            
-            guard let dataTask = dataTask else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(nil, error)
-                return
-            }
-            
-            // Send retreive command
-            self.execute(command: "REST \(position)\r\nRETR \(filePath)", on: task, minLength: 75, afterSend: { error in
-                // starting passive task
-                onTask?(dataTask)
-                
-                let timeout = self.session.configuration.timeoutIntervalForRequest
-                DispatchQueue.global().async {
-                    var finalData = Data()
-                    var eof = false
-                    var error: Error?
-                    while !eof {
-                        let group = DispatchGroup()
-                        group.enter()
-                        dataTask.readData(ofMinLength: 0, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
-                            if let data = data {
-                                finalData.append(data)
-                            }
-                            eof = seof || (length > 0 && finalData.count >= length)
-                            if length > 0 && finalData.count > length {
-                                finalData.count = length
-                            }
-                            error = serror
-                            group.leave()
-                        })
-                        let waitResult = group.wait(timeout: .now() + timeout)
-                        
-                        if let error = error {
-                            completionHandler(nil, error)
-                            return
-                        }
-                        
-                        if waitResult == .timedOut {
-                            error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
-                            completionHandler(nil, error)
-                            return
-                        }
-                    }
-                    completionHandler(finalData, nil)
-                    return
-                }
-            }) { (response, error) in
+            return
+        }
+        
+        self.attributesOfItem(path: filePath) { (file, error) in
+            let totalSize = file?.size ?? -1
+            // Retreive data from server
+            self.ftpDataConnect(task) { (dataTask, error) in
                 if let error = error {
                     completionHandler(nil, error)
                     return
                 }
                 
-                guard let response = response else {
-                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                    completionHandler(nil, badResponseError)
+                guard let dataTask = dataTask else {
+                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                    completionHandler(nil, error)
                     return
                 }
                 
-                if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
-                    let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                // Send retreive command
+                self.execute(command: "TYPE L" + FTPFileProvider.carriage + "REST \(position)" + FTPFileProvider.carriage + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                    // starting passive task
+                    onTask?(dataTask)
                     
-                    self.dispatch_queue.async {
-                        completionHandler(nil, error)
+                    let timeout = self.session.configuration.timeoutIntervalForRequest
+                    DispatchQueue.global().async {
+                        var finalData = Data()
+                        var eof = false
+                        var error: Error?
+                        while !eof {
+                            let group = DispatchGroup()
+                            group.enter()
+                            dataTask.readData(ofMinLength: 0, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                                if let data = data {
+                                    finalData.append(data)
+                                    onProgress?(Int64(data.count), Int64(finalData.count), totalSize)
+                                }
+                                eof = seof || (length > 0 && finalData.count >= length)
+                                if length > 0 && finalData.count > length {
+                                    finalData.count = length
+                                }
+                                error = serror
+                                group.leave()
+                            })
+                            let waitResult = group.wait(timeout: .now() + timeout)
+                            
+                            if let error = error {
+                                completionHandler(nil, error)
+                                return
+                            }
+                            
+                            if waitResult == .timedOut {
+                                error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
+                                completionHandler(nil, error)
+                                return
+                            }
+                        }
+                        
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                            let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
+                            let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
+                            let request = URLRequest(url: url)
+                            self.cache?.storeCachedResponse(cachedResponse, for: request)
+                        }
+                        
+                        completionHandler(finalData, nil)
+                        return
                     }
+                }) { (response, error) in
+                    if let error = error {
+                        completionHandler(nil, error)
+                        return
+                    }
+                    
+                    guard let response = response else {
+                        let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
+                        completionHandler(nil, badResponseError)
+                        return
+                    }
+                    
+                    if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                        let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
+                        let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                        let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                        let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                        
+                        self.dispatch_queue.async {
+                            completionHandler(nil, error)
+                        }
+                        return
+                    }
+                }
+            }
+        }
+    }
+    
+    func ftpRetrieveFile(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ file: URL?, _ error: Error?) -> Void) {
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
+        
+        // Check cache
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+            dispatch_queue.async {
+                do {
+                    try cachedResponse.data.write(to: tempURL)
+                    completionHandler(tempURL, nil)
+                } catch {
+                    completionHandler(nil, error)
+                }
+                try? FileManager.default.removeItem(at: tempURL)
+            }
+            return
+        }
+        
+        self.attributesOfItem(path: filePath) { (file, error) in
+            let totalSize = file?.size ?? -1
+            // Retreive data from server
+            self.ftpDataConnect(task) { (dataTask, error) in
+                if let error = error {
+                    completionHandler(nil, error)
                     return
+                }
+                
+                guard let dataTask = dataTask else {
+                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                    completionHandler(nil, error)
+                    return
+                }
+                
+                // Send retreive command
+                self.execute(command: "TYPE I"  + FTPFileProvider.carriage + "REST \(position)" + FTPFileProvider.carriage + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                    // starting passive task
+                    onTask?(dataTask)
+                    
+                    let timeout = self.session.configuration.timeoutIntervalForRequest
+                    DispatchQueue.global().async {
+                        var finalData = Data()
+                        var eof = false
+                        var error: Error?
+                        while !eof {
+                            let group = DispatchGroup()
+                            group.enter()
+                            dataTask.readData(ofMinLength: 0, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                                if let data = data {
+                                    finalData.append(data)
+                                    onProgress?(Int64(data.count), Int64(finalData.count), totalSize)
+                                }
+                                eof = seof || (length > 0 && finalData.count >= length)
+                                if length > 0 && finalData.count > length {
+                                    finalData.count = length
+                                }
+                                error = serror
+                                group.leave()
+                            })
+                            let waitResult = group.wait(timeout: .now() + timeout)
+                            
+                            if let error = error {
+                                completionHandler(nil, error)
+                                return
+                            }
+                            
+                            if waitResult == .timedOut {
+                                error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
+                                completionHandler(nil, error)
+                                return
+                            }
+                        }
+                        
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                            let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
+                            let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
+                            let request = URLRequest(url: url)
+                            self.cache?.storeCachedResponse(cachedResponse, for: request)
+                        }
+                        
+                        self.dispatch_queue.async {
+                            do {
+                                try finalData.write(to: tempURL)
+                                completionHandler(tempURL, nil)
+                            } catch {
+                                completionHandler(nil, error)
+                            }
+                            try? FileManager.default.removeItem(at: tempURL)
+                        }
+                        return
+                    }
+                }) { (response, error) in
+                    if let error = error {
+                        completionHandler(nil, error)
+                        return
+                    }
+                    
+                    guard let response = response else {
+                        let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
+                        completionHandler(nil, badResponseError)
+                        return
+                    }
+                    
+                    if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                        let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
+                        let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+                        let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+                        let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                        
+                        self.dispatch_queue.async {
+                            completionHandler(nil, error)
+                        }
+                        return
+                    }
                 }
             }
         }
     }
     
     func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FileProviderStreamTask) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
-        // Retrieving data should be in passive mode
+        
         self.ftpDataConnect(task) { (dataTask, error) in
             if let error = error {
                 completionHandler(error)
@@ -467,7 +616,7 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            self.execute(command: "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
+            self.execute(command: "TYPE L"  + FTPFileProvider.carriage + "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
@@ -547,8 +696,8 @@ extension FTPFileProvider {
     
     func ftpQuit(_ task: FileProviderStreamTask) {
         self.execute(command: "QUIT", on: task) { (_, _) in
-            task.closeRead()
-            task.closeWrite()
+            //task.closeRead()
+            //task.closeWrite()
         }
     }
     
@@ -600,11 +749,8 @@ extension FTPFileProvider {
         if path.hasPrefix("/") {
             path.characters.removeFirst()
         }
-        guard let url = URL(string: path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path, relativeTo: self.baseURL!) else {
-            return nil
-        }
         
-        let file = FileObject(url: url, name: name, path: path)
+        let file = FileObject(url: url(of: path), name: name, path: path)
         switch String(posixPermission.characters.first!) {
         case "d": file.type = .directory
         case "l": file.type = .symbolicLink
@@ -632,16 +778,13 @@ extension FTPFileProvider {
         guard components.count > 1 else { return nil }
         
         let nameOrPath = components.removeLast().trimmingCharacters(in: .whitespacesAndNewlines)
-        let completePath: String, name: String
+        let correctedPath: String, name: String
         if nameOrPath.hasPrefix("/") {
-            completePath = nameOrPath
+            correctedPath = nameOrPath.replacingOccurrences(of: baseURL!.path, with: "", options: .anchored)
             name = (nameOrPath as NSString).lastPathComponent
         } else {
             name = nameOrPath
-            completePath = (path as NSString).appendingPathComponent(nameOrPath)
-        }
-        guard let url = URL(string: completePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? completePath, relativeTo: self.baseURL!) else {
-            return nil
+            correctedPath = (path as NSString).appendingPathComponent(nameOrPath)
         }
         
         var attributes = [String: String]()
@@ -651,7 +794,7 @@ extension FTPFileProvider {
             attributes[keyValue[0].lowercased()] = keyValue.dropFirst().joined(separator: "=")
         }
         
-        let file = FileObject(url: url, name: name, path: completePath)
+        let file = FileObject(url: url(of: path), name: name, path: correctedPath)
         let dateFormatter = DateFormatter()
         dateFormatter.calendar = Calendar(identifier: .gregorian)
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")

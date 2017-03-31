@@ -294,21 +294,23 @@ extension OneDriveFileProvider: FileProviderOperations {
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        let task = session.downloadTask(with: request, completionHandler: { (cacheURL, response, error) in
-            guard let cacheURL = cacheURL, let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (response as? HTTPURLResponse)?.statusCode ?? -1)
-                let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
+        let task = session.downloadTask(with: request)
+        completionHandlersForTasks[task.taskIdentifier] = completionHandler
+        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
+                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
+                let errorData : Data? = nil //Data(contentsOf: cacheURL) // TODO: Figure out how to get error response data for the error description
                 let serverError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
-                completionHandler?(serverError ?? error)
+                completionHandler?(serverError)
                 return
             }
             do {
-                try FileManager.default.moveItem(at: cacheURL, to: destURL)
+                try FileManager.default.moveItem(at: tempURL, to: destURL)
                 completionHandler?(nil)
             } catch let e {
                 completionHandler?(e)
             }
-        })
+        }
         task.taskDescription = opType.json
         task.resume()
         return RemoteOperationHandle(operationType: opType, tasks: [task])
