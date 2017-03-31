@@ -600,8 +600,8 @@ public final class WebDavFileObject: FileObject {
         let path = relativePath.hasPrefix("/") ? relativePath : ("/" + relativePath)
         super.init(url: href, name: name, path: path)
         self.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
-        self.creationDate = resolve(dateString: davResponse.prop["creationdate"] ?? "")
-        self.modifiedDate = resolve(dateString: davResponse.prop["getlastmodified"] ?? "")
+        self.creationDate = Date(rfcString: davResponse.prop["creationdate"] ?? "")
+        self.modifiedDate = Date(rfcString: davResponse.prop["getlastmodified"] ?? "")
         self.contentType = davResponse.prop["getcontenttype"] ?? "octet/stream"
         self.isHidden = (Int(davResponse.prop["ishidden"] ?? "0") ?? 0) > 0
         self.type = self.contentType == "httpd/unix-directory" ? .directory : .regular

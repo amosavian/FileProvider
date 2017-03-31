@@ -66,8 +66,8 @@ public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
      - Parameter completionHandler: a closure with result of directory entries or error.
-        `contents`: An array of `FileObject` identifying the the directory entries.
-        `error`: Error returned by system.
+        - `contents`: An array of `FileObject` identifying the the directory entries.
+        - `error`: Error returned by system.
      */
     func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void))
     
@@ -78,8 +78,8 @@ public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
      
      - Parameter path: path to target directory. If empty, `currentPath` value will be used.
      - Parameter completionHandler: a closure with result of directory entries or error.
-        `attributes`: A `FileObject` containing the attributes of the item.
-        `error`: Error returned by system.
+        - `attributes`: A `FileObject` containing the attributes of the item.
+        - `error`: Error returned by system.
      */
     func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
     
@@ -406,8 +406,8 @@ public protocol FileProviderReadWrite: FileProviderBasic {
      - Parameters:
        - path: Path of file.
        - completionHandler: a closure with result of file contents or error.
-         `contents`: contents of file in a `Data` object.
-         `error`: Error returned by system.
+         - `contents`: contents of file in a `Data` object.
+         - `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
     */
     @discardableResult
@@ -422,8 +422,8 @@ public protocol FileProviderReadWrite: FileProviderBasic {
        - offset: First byte index which should be read. **Starts from 0.**
        - length: Bytes count of data. Pass `-1` to read until the end of file.
        - completionHandler: a closure with result of file contents or error.
-         `contents`: contents of file in a `Data` object.
-         `error`: Error returned by system.
+         - `contents`: contents of file in a `Data` object.
+         - `error`: Error returned by system.
      - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
@@ -726,8 +726,8 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      - Parameters:
        - path: path of file.
        - completionHandler: a closure with result of preview image or error.
-         `image`: `NSImage`/`UIImage` object contains preview.
-         `error`: Error returned by system.
+         - `image`: `NSImage`/`UIImage` object contains preview.
+         - `error`: Error returned by system.
     */
     func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
     
@@ -742,8 +742,8 @@ public protocol ExtendedFileProvider: FileProviderBasic {
        - path: path of file.
        - dimension: width and height of result preview image.
        - completionHandler: a closure with result of preview image or error.
-         `image`: `NSImage`/`UIImage` object contains preview.
-     `error`: Error returned by system.
+         - `image`: `NSImage`/`UIImage` object contains preview.
+         - `error`: Error returned by system.
      */
     func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
     
@@ -757,9 +757,9 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      - Parameters:
        - path: path of file.
        - completionHandler: a closure with result of preview image or error.
-         `propertiesDictionary`: A `Dictionary` of proprty keys and values.
-         `keys`: An `Array` contains ordering of keys.
-         `error`: Error returned by system.
+         - `propertiesDictionary`: A `Dictionary` of proprty keys and values.
+         - `keys`: An `Array` contains ordering of keys.
+         - `error`: Error returned by system.
      */
     func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void))
 }
@@ -1017,7 +1017,9 @@ public protocol FileOperationDelegate: class {
 
 /// For internal use in `FileProvider` framework
 public protocol FoundationErrorEnum {
+    /// Init from error code
     init? (rawValue: Int)
+    // Raw error code
     var rawValue: Int { get }
 }
 

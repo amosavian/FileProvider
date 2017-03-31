@@ -394,10 +394,10 @@ extension DropboxFileProvider {
      - Parameters:
        - to: path of file, including file/directory name.
        - completionHandler: a closure with result of directory entries or error.
-         `link`: a url returned by Dropbox to share.
-         `attribute`: a `FileObject` containing the attributes of the item.
-         `expiration`: a `Date` object, determines when the public url will expires.
-         `error`: Error returned by Dropbox.
+         - `link`: a url returned by Dropbox to share.
+         - `attribute`: a `FileObject` containing the attributes of the item.
+         - `expiration`: a `Date` object, determines when the public url will expires.
+         - `error`: Error returned by Dropbox.
     */
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
@@ -437,9 +437,9 @@ extension DropboxFileProvider {
        - remoteURL: a valid remote url to file.
        - to: Destination path of file, including file/directory name.
        - completionHandler: a closure with result of directory entries or error.
-         `jobId`: Job ID returned by Dropbox to monitor the copy/download progress.
-         `attribute`: A `FileObject` containing the attributes of the item.
-         `error`: Error returned by Dropbox.
+         - `jobId`: Job ID returned by Dropbox to monitor the copy/download progress.
+         - `attribute`: A `FileObject` containing the attributes of the item.
+         - `error`: Error returned by Dropbox.
      */
     open func copyItem(remoteURL: URL, to toPath: String, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
         if remoteURL.isFileURL {

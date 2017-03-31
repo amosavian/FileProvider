@@ -39,8 +39,8 @@ public final class OneDriveFileObject: FileObject {
         lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
         self.init(baseURL: baseURL, name: name, path: lPath)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        self.modifiedDate = resolve(dateString: json["lastModifiedDateTime"] as? String ?? "")
-        self.creationDate = resolve(dateString: json["createdDateTime"] as? String ?? "")
+        self.modifiedDate = Date(rfcString: json["lastModifiedDateTime"] as? String ?? "")
+        self.creationDate = Date(rfcString: json["createdDateTime"] as? String ?? "")
         self.type = (json["folder"] as? String) != nil ? .directory : .regular
         self.id = json["id"] as? String
         self.entryTag = json["eTag"] as? String
@@ -247,7 +247,7 @@ internal extension OneDriveFileProvider {
         if let parent = json["image"] as? [String: Any] ?? json["video"] as? [String: Any], let duration = parent["duration"] as? UInt64 {
             add(key: "Duration", value: (TimeInterval(duration) / 1000).formatshort)
         }
-        if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
+        if let timeTakenStr = json["takenDateTime"] as? String, let timeTaken = Date(rfcString: timeTakenStr) {
             OneDriveFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             add(key: "Date taken", value:  OneDriveFileProvider.dateFormatter.string(from: timeTaken))
         }

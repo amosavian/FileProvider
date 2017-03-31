@@ -696,8 +696,12 @@ extension FTPFileProvider {
     }
 }
 
+/// Contains error code and description returned by FTP/S provider.
 public struct FileProviderFTPError: Error {
+    /// HTTP status code returned for error by server.
     public let code: Int
+    /// Path of file/folder casued that error
     public let path: String
+    /// Contents returned by server as error description
     public let errorDescription: String?
 }

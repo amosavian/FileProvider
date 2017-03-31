@@ -31,8 +31,8 @@ public final class DropboxFileObject: FileObject {
         guard let path = json["path_display"] as? String else { return nil }
         self.init(name: name, path: path)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        self.serverTime = resolve(dateString: json["server_modified"] as? String ?? "")
-        self.modifiedDate = resolve(dateString: json["client_modified"] as? String ?? "")
+        self.serverTime = Date(rfcString: json["server_modified"] as? String ?? "")
+        self.modifiedDate = Date(rfcString: json["client_modified"] as? String ?? "")
         self.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
         self.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
         self.id = json["id"] as? String
@@ -133,7 +133,7 @@ internal extension DropboxFileProvider {
         url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = rfc3339utc(of: modifiedDate) as NSString
+        requestDictionary["client_modified"] = modifiedDate.rfc3339utc() as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -166,7 +166,7 @@ internal extension DropboxFileProvider {
         url = URL(string: "files/upload", relativeTo: contentURL)!
         requestDictionary["path"] = correctPath(targetPath) as NSString?
         requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = rfc3339utc(of: modifiedDate) as NSString
+        requestDictionary["client_modified"] = modifiedDate.rfc3339utc() as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
@@ -245,7 +245,7 @@ internal extension DropboxFileProvider {
             let longStr = DropboxFileProvider.decimalFormatter.string(from: NSNumber(value: longitude))!
             dic["Location"] = "\(latStr), \(longStr)"
         }
-        if let timeTakenStr = json["time_taken"] as? String, let timeTaken = resolve(dateString: timeTakenStr) {
+        if let timeTakenStr = json["time_taken"] as? String, let timeTaken = Date(rfcString: timeTakenStr) {
             keys.append("Date taken")
             DropboxFileProvider.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             dic["Date taken"] = DropboxFileProvider.dateFormatter.string(from: timeTaken)
