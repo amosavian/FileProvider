@@ -350,6 +350,8 @@ public protocol FileProviderOperations: FileProviderBasic {
      Uploads a file from local file url to designated path asynchronously.
      Method will fail if source is not a local url with `file://` scheme.
      
+     - Note: It's safe to assume that this method only works on individual files and **won't** copy folders recursively.
+     
      - Parameters:
        - localFile: a file url to file.
        - to: destination path of file, including file/directory name.
@@ -376,11 +378,11 @@ public protocol FileProviderOperations: FileProviderBasic {
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle?
 }
 
-extension FileProviderOperations {
+public extension FileProviderOperations {
     /// *DEPRECATED:* Use Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.
     @available(*, deprecated, message: "Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.")
     @discardableResult
-    func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    public func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (at as NSString).appendingPathComponent(file)
         return (self as? FileProviderReadWrite)?.writeContents(path: path, contents: data, completionHandler: completionHandler)
     }

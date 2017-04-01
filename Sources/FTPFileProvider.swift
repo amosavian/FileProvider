@@ -104,6 +104,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         self.currentPath     = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
+        self.useAppleImplementation = aDecoder.decodeBool(forKey: "useAppleImplementation")
     }
     
     public func encode(with aCoder: NSCoder) {
@@ -112,6 +113,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         aCoder.encode(self.currentPath, forKey: "currentPath")
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
+        aCoder.encode(self.useAppleImplementation, forKey: "useAppleImplementation")
     }
     
     public static var supportsSecureCoding: Bool {
@@ -683,18 +685,6 @@ extension FTPFileProvider: FileProviderReadWrite {
         
         return operation
     }
-    
-    /*
-     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
-     /* 
-      * There is no ways to monitor folders changing in FTP.
-     */
-     NotImplemented()
-     }
-     fileprivate func unregisterNotifcation(path: String) {
-     NotImplemented()
-     }
-     */
 }
 
 extension FTPFileProvider {
@@ -703,6 +693,8 @@ extension FTPFileProvider {
      This method does not traverse symbolic links contained in destination path, making it possible
      to create symbolic links to locations that do not yet exist.
      Also, if the final path component is a symbolic link, that link is not followed.
+     
+     - Note: Many servers does't support this functionality.
      
      - Parameters:
        - symbolicLink: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.

@@ -20,7 +20,7 @@
 [![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
 ---> 
 
-This library provides implementaion of WebDav, Dropbox, OneDrive and SMB2 (incomplete) and local files.
+This library provides implementaion of WebDav, FTP, Dropbox, OneDrive and SMB2 (incomplete) and local files.
 
 All functions do async calls and it wont block your main thread.
 
@@ -28,7 +28,10 @@ All functions do async calls and it wont block your main thread.
 
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like builtin coordinating, searching and reading a portion of file.
 - [x] **CloudFileProvider** A wrapper around app's ubiquitous container API of iCloud Drive.
-- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, used by many cloud services like Yandex.
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, supported by some cloud services like `Box.com` and `Yandex.disk`.
+- [x] **FTPFileProvider** While deprecated in 1990s due to serious security concerns, it's still in use on some Web hosts.
+    * Recursive directory removing & searching is not implemented yet.
+    * Active mode is not implemented yet (and probably won`t).
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
@@ -37,8 +40,7 @@ All functions do async calls and it wont block your main thread.
 - [ ] **AmazonS3FileProvider** Amazon storage backend. Used by many sites.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
     * Data types and some basic functions are implemented but *main interface is not implemented yet!*.
-    * SMB1/CIFS is deprecated and very tricky to be implemented.
-- [ ] **FTPFileProvider** while deprecated in 1990s, it's still in use on some Web hosts.
+    * SMB1/CIFS is deprecated and very tricky to be implemented due to strict memory allignment in Swift.
 
 ## Requirements
 
@@ -271,12 +273,7 @@ documentsProvider.create(folder: "new folder", at: "/", completionHandler: { err
 })
 ```
 
-Creating new file from data:
-
-```swift
-let data = "hello world!".data(encoding: .utf8)
-documentsProvider.create(file: "newFile.txt", at: "/", contents: data, completionHandler: nil)
-```
+To create a file, use `writeContents(path:, content:, atomically:, completionHandler:)` method.
 
 ### Copy and Move/Rename Files
 
@@ -300,7 +297,7 @@ documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite:
 documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
 ```
 
-***Caution:*** This method will delete directories with all it's contents recursively.
+***Caution:*** This method will delete directories with all it's contents recursively except for FTP providers that don't support `SITE RMDIR` command, this will be fixed later.
 
 ### Fetching Contents of File
 
@@ -332,6 +329,27 @@ documentsProvider.contents(path: "old.txt", offset: 2, length: 5, completionHand
 let data = "What's up Newyork!".data(encoding: .utf8)
 documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
 ```
+
+### Copying Files to and From Local URL
+
+There are two methods to download and upload files between provider's and local storage. These methods use `URLSessionDownloadTask` and `URLSessionUploadTask` classes and allows to use background session and provide progress via delegate.
+
+To upload a file:
+
+```swift
+let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("image.jpg")
+documentsProvider.copyItem(localFile: fileURL, to: "/upload/image.jpg", overwrite: true, completionHandler: nil)
+```
+
+To download a file:
+
+```swift
+let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("image.jpg")
+documentsProvider.copyItem(path: "/download/image.jpg", toLocalURL: fileURL, overwrite: true, completionHandler: nil)
+```
+
+* It's safe only to assume these methods **won't** handle directories to upload/download recursively. If you need, you can list directories, create directories on target and copy files using these methods.
+* FTP provider allows developer to either use apple implemented `URLSessionDownloadTask` or custom implemented method based on stream task via `useAppleImplementation` property. FTP protocol is not supported by background session.
 
 ### Undo Operations
 
@@ -443,9 +461,10 @@ if documentsProvider..propertiesOfFile(path: file.path, completionHandler: { (pr
 
 We would love for you to contribute to **FileProvider**, check the `LICENSE` file for more info.
 
-Things to do:
+Things you may consider to help us:
 
-- [ ] Implement Test-case (XCTest)
+- [ ] Implement request/response stack for `SMBClient`
+- [ ] Implement Test-case (`XCTest`)
 - [ ] Add Sample project for iOS
 - [ ] Add Sample project for macOS
 
