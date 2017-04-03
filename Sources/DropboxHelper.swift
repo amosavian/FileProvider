@@ -121,42 +121,8 @@ internal extension DropboxFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        if data.count > 150 * 1024 * 1024 {
-            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(.create(path: targetPath), error: error)
-            return nil
-        }
-        var requestDictionary = [String: AnyObject]()
-        let url: URL
-        url = URL(string: "files/upload", relativeTo: contentURL)!
-        requestDictionary["path"] = correctPath(targetPath) as NSString?
-        requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = modifiedDate.rfc3339utc() as NSString
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
-        request.httpBody = data
-        let task = session.uploadTask(with: request, from: data)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
-            var responseError: FileProviderDropboxError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
-            }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: targetPath), error: responseError)
-        }
-        task.taskDescription = operation.json
-        task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
-    }
-    
-    func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let size = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1
+    func upload_simple(_ targetPath: String, data: Data? = nil, localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
         if size > 150 * 1024 * 1024 {
             let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
             completionHandler?(error)
@@ -174,15 +140,23 @@ internal extension DropboxFileProvider {
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
-        let task = session.uploadTask(with: request, fromFile: localFile)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
+        let task: URLSessionUploadTask
+        if let data = data {
+            task = session.uploadTask(with: request, from: data)
+        } else if let localFile = localFile {
+            task = session.uploadTask(with: request, fromFile: localFile)
+        } else {
+            return nil
+        }
+        
+        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderDropboxError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
+                // We can't fetch server result from delegate!
+                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: nil)
             }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: targetPath), error: responseError)
+            completionHandler?(responseError ?? error)
+            self?.delegateNotify(.create(path: targetPath), error: responseError ?? error)
         }
         task.taskDescription = operation.json
         task.resume()

@@ -113,37 +113,8 @@ internal extension OneDriveFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        if data.count > 100 * 1024 * 1024 {
-            let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(.create(path: targetPath), error: error)
-            return nil
-        }
-        let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-        let url = self.url(of: targetPath, modifier: "content\(queryStr)")
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.httpBody = data
-        let task = session.uploadTask(with: request, from: data)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
-            var responseError: FileProviderOneDriveError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
-            }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: targetPath), error: responseError)
-        }
-        task.taskDescription = operation.json
-        task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
-    }
-    
-    func upload_simple(_ targetPath: String, localFile: URL, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let size = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1
+    func upload_simple(_ targetPath: String, data: Data? = nil , localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        let size = data?.count ?? (try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1
         if size > 100 * 1024 * 1024 {
             let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
             completionHandler?(error)
@@ -156,15 +127,23 @@ internal extension OneDriveFileProvider {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        let task = session.uploadTask(with: request, fromFile: localFile)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
+        let task: URLSessionUploadTask
+        if let data = data {
+            task = session.uploadTask(with: request, from: data)
+        } else if  let localFile = localFile {
+            task = session.uploadTask(with: request, fromFile: localFile)
+        } else {
+            return nil
+        }
+        
+        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderOneDriveError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: String(data: data, encoding: .utf8))
+                // We can't fetch server result from delegate!
+                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: nil)
             }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: targetPath), error: responseError)
+            completionHandler?(responseError ?? error)
+            self?.delegateNotify(.create(path: targetPath), error: responseError ?? error)
         }
         task.taskDescription = operation.json
         task.resume()

@@ -111,11 +111,9 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     
     // codebeat:disable[ARITY]
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if error != nil {
-            let completionHandler = completionHandlersForTasks[task.taskIdentifier] ?? nil
-            completionHandler?(error)
-            completionHandlersForTasks.removeValue(forKey: task.taskIdentifier)
-        }
+        let completionHandler = completionHandlersForTasks[task.taskIdentifier] ?? nil
+        completionHandler?(error)
+        completionHandlersForTasks.removeValue(forKey: task.taskIdentifier)
     }
     
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {

@@ -37,7 +37,7 @@ public final class LocalFileObject: FileObject {
     /// Initiates a `LocalFileObject` with attributes of file in url.
     public convenience init?(fileWithURL fileURL: URL) {
         do {
-            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .fileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey, .documentIdentifierKey])
+            let values = try fileURL.resourceValues(forKeys: [.nameKey, .fileSizeKey, .totalFileSizeKey, .fileAllocatedSizeKey, .totalFileAllocatedSizeKey, .creationDateKey, .contentModificationDateKey, .fileResourceTypeKey, .isHiddenKey, .isWritableKey, .typeIdentifierKey, .generationIdentifierKey, .documentIdentifierKey])
             let path = fileURL.relativePath.hasPrefix("/") ? fileURL.relativePath : "/" + fileURL.relativePath
             
             self.init(url: fileURL, name: values.name ?? fileURL.lastPathComponent, path: path)

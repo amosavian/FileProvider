@@ -120,14 +120,29 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         }
     }
     
-    open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    public func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+        self.contentsOfDirectory(path: path, including: [], completionHandler: completionHandler)
+    }
+    
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter including: An array which determines which file properties should be considered to fetch.
+     - Parameter completionHandler: a closure with result of directory entries or error.
+         - `contents`: An array of `FileObject` identifying the the directory entries.
+         - `error`: Error returned by system.
+     */
+    open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path).appendingPathComponent("")
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, operationHandle: RemoteOperationHandle(operationType: opType, tasks: []), completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
@@ -149,12 +164,27 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+        self.attributesOfItem(path: path, including: [], completionHandler: completionHandler)
+    }
+    
+    /**
+     Returns a `FileObject` containing the attributes of the item (file, directory, symlink, etc.) at the path in question via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
+     
+     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter including: An array which determines which file properties should be considered to fetch.
+     - Parameter completionHandler: a closure with result of directory entries or error.
+         - `attributes`: A `FileObject` containing the attributes of the item.
+         - `error`: Error returned by system.
+     */
+    open func attributesOfItem(path: String, including: [URLResourceKey], completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
+        request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
@@ -356,14 +386,14 @@ extension WebDAVFileProvider: FileProviderOperations {
         }
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, fromFile: localFile)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
+        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderWebDavError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: toPath, errorDescription: String(data: data, encoding: .utf8), url: url)
+                // We can't fetch server result from delegate!
+                responseError = FileProviderWebDavError(code: rCode, path: toPath, errorDescription: nil, url: url)
             }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: toPath), error: responseError)
+            completionHandler?(responseError ?? error)
+            self?.delegateNotify(.create(path: toPath), error: responseError ?? error)
         }
         task.taskDescription = opType.json
         task.resume()
@@ -444,14 +474,14 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         let task = session.uploadTask(with: request, from: data ?? Data())
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        dataCompletionHandlersForTasks[task.taskIdentifier] = { [weak self] data in
+        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderWebDavError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data, encoding: .utf8), url: url)
+                // We can't fetch server result from delegate!
+                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: nil, url: url)
             }
-            completionHandler?(responseError)
-            self?.delegateNotify(.create(path: path), error: responseError)
+            completionHandler?(responseError ?? error)
+            self?.delegateNotify(.create(path: path), error: responseError ?? error)
         }
         task.taskDescription = opType.json
         task.resume()
@@ -591,7 +621,7 @@ struct DavResponse {
 public final class WebDavFileObject: FileObject {
     internal init(_ davResponse: DavResponse) {
         let href = davResponse.href
-        let name = davResponse.prop["displayname"] ?? (davResponse.hrefString.removingPercentEncoding! as NSString).lastPathComponent
+        let name = davResponse.prop["displayname"] ?? davResponse.href.lastPathComponent
         let relativePath = href.relativePath
         let path = relativePath.hasPrefix("/") ? relativePath : ("/" + relativePath)
         super.init(url: href, name: name, path: path)
@@ -622,6 +652,38 @@ public final class WebDavFileObject: FileObject {
         set {
             allValues[.entryTag] = newValue
         }
+    }
+    
+    internal class func resourceKeyToDAVProp(_ key: URLResourceKey) -> String? {
+        switch key {
+        case URLResourceKey.fileSizeKey:
+            return "getcontentlength"
+        case URLResourceKey.creationDateKey:
+            return "creationdate"
+        case URLResourceKey.contentModificationDateKey:
+            return "getlastmodified"
+        case URLResourceKey.fileResourceTypeKey, URLResourceKey.mimeType:
+            return "getcontenttype"
+        case URLResourceKey.isHiddenKey:
+            return "ishidden"
+        case URLResourceKey.entryTag:
+            return "getetag"
+        default:
+            return nil
+        }
+    }
+    
+    internal class func propString(_ keys: [URLResourceKey]) -> String {
+        var propKeys = ""
+        for item in keys {
+            if let prop = WebDavFileObject.resourceKeyToDAVProp(item) {
+                propKeys += "<D:prop><D:\(prop)/></D:prop>"
+            }
+        }
+        if propKeys.isEmpty {
+            propKeys = "<D:allprop/>"
+        }
+        return propKeys
     }
 }
 
