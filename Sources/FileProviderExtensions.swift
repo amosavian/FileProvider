@@ -38,10 +38,19 @@ extension URLFileResourceType {
 }
 
 internal extension URLResourceKey {
-    static let fileURL = URLResourceKey(rawValue: "NSURLFileURLKey")
-    static let serverDate = URLResourceKey(rawValue: "NSURLServerDateKey")
-    static let entryTag = URLResourceKey(rawValue: "NSURLEntryTagKey")
-    static let mimeType = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
+    static let fileURLKey = URLResourceKey(rawValue: "NSURLFileURLKey")
+    static let serverDateKey = URLResourceKey(rawValue: "NSURLServerDateKey")
+    static let entryTagKey = URLResourceKey(rawValue: "NSURLEntryTagKey")
+    static let mimeTypeKey = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
+    
+    @available(*, deprecated, renamed: "fileURLKey")
+    static let fileURL = fileURLKey
+    @available(*, deprecated, renamed: "serverDateKey")
+    static let serverDate = serverDateKey
+    @available(*, deprecated, renamed: "entryTagKey")
+    static let entryTag = entryTagKey
+    @available(*, deprecated, renamed: "mimeTypeKey")
+    static let mimeType = mimeTypeKey
 }
 
 internal extension URL {

@@ -42,10 +42,10 @@ public final class DropboxFileObject: FileObject {
     /// The time contents of file has been modified on server, returns nil if not set
     open internal(set) var serverTime: Date? {
         get {
-            return allValues[.serverDate] as? Date
+            return allValues[.serverDateKey] as? Date
         }
         set {
-            allValues[.serverDate] = newValue
+            allValues[.serverDateKey] = newValue
         }
     }
     

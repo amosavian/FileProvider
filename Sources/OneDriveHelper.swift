@@ -61,20 +61,20 @@ public final class OneDriveFileObject: FileObject {
     /// MIME type of file contents returned by OneDrive server.
     open internal(set) var contentType: String {
         get {
-            return allValues[.mimeType] as? String ?? ""
+            return allValues[.mimeTypeKey] as? String ?? ""
         }
         set {
-            allValues[.mimeType] = newValue
+            allValues[.mimeTypeKey] = newValue
         }
     }
     
     /// HTTP E-Tag, can be used to mark changed files.
     open internal(set) var entryTag: String? {
         get {
-            return allValues[.entryTag] as? String
+            return allValues[.entryTagKey] as? String
         }
         set {
-            allValues[.entryTag] = newValue
+            allValues[.entryTagKey] = newValue
         }
     }
 }

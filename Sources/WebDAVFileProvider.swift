@@ -637,20 +637,20 @@ public final class WebDavFileObject: FileObject {
     /// MIME type of the file.
     open internal(set) var contentType: String {
         get {
-            return allValues[.mimeType] as? String ?? ""
+            return allValues[.mimeTypeKey] as? String ?? ""
         }
         set {
-            allValues[.mimeType] = newValue
+            allValues[.mimeTypeKey] = newValue
         }
     }
     
     /// HTTP E-Tag, can be used to mark changed files.
     open internal(set) var entryTag: String? {
         get {
-            return allValues[.entryTag] as? String
+            return allValues[.entryTagKey] as? String
         }
         set {
-            allValues[.entryTag] = newValue
+            allValues[.entryTagKey] = newValue
         }
     }
     
@@ -662,11 +662,11 @@ public final class WebDavFileObject: FileObject {
             return "creationdate"
         case URLResourceKey.contentModificationDateKey:
             return "getlastmodified"
-        case URLResourceKey.fileResourceTypeKey, URLResourceKey.mimeType:
+        case URLResourceKey.fileResourceTypeKey, URLResourceKey.mimeTypeKey:
             return "getcontenttype"
         case URLResourceKey.isHiddenKey:
             return "ishidden"
-        case URLResourceKey.entryTag:
+        case URLResourceKey.entryTagKey:
             return "getetag"
         default:
             return nil
