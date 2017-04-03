@@ -11,11 +11,11 @@ import Foundation
 // This client implementation is for little-endian platform, namely x86, x64 & arm
 // For big-endian platforms like PowerPC, there must be a huge overhaul
 
-protocol SMBProtocolClientDelegate: class {
-    func receivedResponse(client: SMB2ProtocolClient, response: SMBResponse, for: SMBRequest)
+protocol FileProviderSMBTaskDelegate: class {
+    func receivedResponse(client: FileProviderSMBTask, response: SMBResponse, for: SMBRequest)
 }
 
-class SMB2ProtocolClient: FileProviderStreamTask {
+class FileProviderSMBTask: FileProviderStreamTask {
     var timeout: TimeInterval = 30
     
     private(set) var lastMessageID: UInt64 = 0
@@ -31,14 +31,14 @@ class SMB2ProtocolClient: FileProviderStreamTask {
     private(set) var requestStack = [Int: SMBRequest]()
     private(set) var responseStack = [Int: SMBResponse]()
     
-    weak var delegate: SMBProtocolClientDelegate?
+    weak var delegate: FileProviderSMBTaskDelegate?
     
     func sendNegotiate(completionHandler: SimpleCompletionHandler) -> UInt64 {
         let mId = messageId()
         let smbHeader = SMB2.Header(command: .NEGOTIATE, creditRequestResponse: UInt16(126), messageId: mId, treeId: UInt32(0), sessionId: UInt64(0))
         let msg = SMB2.NegotiateRequest()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.write(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: timeout, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId
@@ -50,7 +50,7 @@ class SMB2ProtocolClient: FileProviderStreamTask {
         let smbHeader = SMB2.Header(command: SMB2.Command.SESSION_SETUP, creditRequestResponse: credit, messageId: mId, treeId: UInt32(0), sessionId: sessionId)
         let msg = SMB2.SessionSetupRequest(singing: [])
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.write(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: timeout, completionHandler: { (e) in
             if self.sessionId == 0 {
                 self.readData(ofMinLength: 64, maxLength: 65536, timeout: self.timeout, completionHandler: { (data, eof, e2) in
                     // TODO: set session id
@@ -73,7 +73,7 @@ class SMB2ProtocolClient: FileProviderStreamTask {
         let tcHeader = SMB2.TreeConnectRequest.Header(flags: [])
         let msg = SMB2.TreeConnectRequest(header: tcHeader, host: host, share: share)
         let data = createSMB2Message(header: smbHeader, message: msg!)
-        self.write(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: timeout, completionHandler: { (e) in
             completionHandler?(e)
             
         })
@@ -85,7 +85,7 @@ class SMB2ProtocolClient: FileProviderStreamTask {
         let smbHeader = SMB2.Header(command: .TREE_DISCONNECT, creditRequestResponse: 111, messageId: mId, treeId: treeId, sessionId: sessionId)
         let msg = SMB2.TreeDisconnect()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.write(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: timeout, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId
@@ -96,7 +96,7 @@ class SMB2ProtocolClient: FileProviderStreamTask {
         let smbHeader = SMB2.Header(command: .LOGOFF, creditRequestResponse: 0, messageId: mId, treeId: 0, sessionId: sessionId)
         let msg = SMB2.LogOff()
         let data = createSMB2Message(header: smbHeader, message: msg)
-        self.write(data, timeout: 0, completionHandler: { (e) in
+        self.write(data, timeout: timeout, completionHandler: { (e) in
             completionHandler?(e)
         })
         return mId
@@ -108,7 +108,7 @@ class SMB2ProtocolClient: FileProviderStreamTask {
 }
 
 // MARK: create and analyse messages
-extension SMB2ProtocolClient {
+extension FileProviderSMBTask {
     func determineSMBVersion(_ data: Data) -> Float {
         let smbverChar: Int8 = Int8(bitPattern: data.first ?? 0)
         let version = 0 - smbverChar

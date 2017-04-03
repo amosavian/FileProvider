@@ -717,8 +717,11 @@ public enum UbiquitousScope: RawRepresentable {
     }
 }
 
+/// Get progress of CloudFileProvider operations
 open class CloudOperationHandle: OperationHandle {
+    /// Url of file which operation is doing on
     public let baseURL: URL?
+    /// Type of operation
     public let operationType: FileOperationType
     
     init (operationType: FileOperationType, baseURL: URL?) {

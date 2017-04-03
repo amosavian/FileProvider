@@ -216,9 +216,11 @@ internal class LocalFileProviderManagerDelegate: NSObject, FileManagerDelegate {
     }
 }
 
-/// Local operation handling is limited. Please don't use as much as possible.
+/// - Note: Local operation handling is limited. Please don't use as much as possible.
 open class LocalOperationHandle: OperationHandle {
+    /// Url of file which operation is doing on
     public let baseURL: URL
+    /// Type of operation
     public let operationType: FileOperationType
     
     init (operationType: FileOperationType, baseURL: URL?) {

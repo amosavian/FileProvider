@@ -65,6 +65,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
             if session.sessionDescription?.isEmpty ?? true {
                 _session?.sessionDescription = UUID().uuidString
             }
+            self.sessionDelegate = newValue.delegate as? SessionDelegate
             initEmptySessionHandler(_session!.sessionDescription!)
         }
     }
