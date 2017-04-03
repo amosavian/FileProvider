@@ -25,7 +25,11 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open weak var delegate: FileProviderDelegate?
-    open var credential: URLCredential?
+    open var credential: URLCredential? {
+        didSet {
+            sessionDelegate?.credential = self.credential
+        }
+    }
     open private(set) var cache: URLCache?
     public var useCache: Bool
     public var validatingCache: Bool
