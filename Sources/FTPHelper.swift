@@ -828,7 +828,7 @@ extension FTPFileProvider {
                 file.size = Int64(attribute) ?? -1
                 
             case "media-type":
-                file.allValues[.mimeType] = attribute
+                file.allValues[.mimeTypeKey] = attribute
                 
             default:
                 break

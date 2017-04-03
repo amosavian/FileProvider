@@ -34,10 +34,10 @@ open class FileObject: Equatable {
     /// not supported by Dropbox provider.
     open internal(set) var url: URL? {
         get {
-            return allValues[.fileURL] as? URL
+            return allValues[.fileURLKey] as? URL
         }
         set {
-            allValues[.fileURL] = newValue
+            allValues[.fileURLKey] = newValue
         }
     }
     
@@ -152,8 +152,8 @@ open class FileObject: Equatable {
     }
     
     internal func mapPredicate() -> [String: Any] {
-        let mapDict: [URLResourceKey: String] = [.fileURL: "url", .nameKey: "name", .pathKey: "path", .fileSizeKey: "filesize", .creationDateKey: "creationDate",
-                                                 .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden", .isWritableKey: "isWritable", .serverDate: "serverDate", .entryTag: "entryTag", .mimeType: "mimeType"]
+        let mapDict: [URLResourceKey: String] = [.fileURLKey: "url", .nameKey: "name", .pathKey: "path", .fileSizeKey: "filesize", .creationDateKey: "creationDate",
+                                                 .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden", .isWritableKey: "isWritable", .serverDateKey: "serverDate", .entryTagKey: "entryTag", .mimeTypeKey: "mimeType"]
         let typeDict: [URLFileResourceType: String] = [.directory: "directory", .regular: "regular", .symbolicLink: "symbolicLink", .unknown: "unknown"]
         var result = [String: Any]()
         for (key, value) in allValues {
@@ -172,9 +172,9 @@ open class FileObject: Equatable {
     
     /// Converts macOS spotlight query for searching files to a query that can be used for `searchFiles()` method
     static public func convertPredicate(fromSpotlight query: NSPredicate) -> NSPredicate {
-        let mapDict: [String: URLResourceKey] = [NSMetadataItemURLKey: .fileURL, NSMetadataItemFSNameKey: .nameKey, NSMetadataItemPathKey: .pathKey,
+        let mapDict: [String: URLResourceKey] = [NSMetadataItemURLKey: .fileURLKey, NSMetadataItemFSNameKey: .nameKey, NSMetadataItemPathKey: .pathKey,
                                                  NSMetadataItemFSSizeKey: .fileSizeKey, NSMetadataItemFSCreationDateKey: .creationDateKey,
-                                                 NSMetadataItemFSContentChangeDateKey: .contentModificationDateKey, "kMDItemFSInvisible": .isHiddenKey, "kMDItemFSIsWriteable": .isWritableKey, "kMDItemKind": .mimeType]
+                                                 NSMetadataItemFSContentChangeDateKey: .contentModificationDateKey, "kMDItemFSInvisible": .isHiddenKey, "kMDItemFSIsWriteable": .isWritableKey, "kMDItemKind": .mimeTypeKey]
         
         if let cQuery = query as? NSCompoundPredicate {
             let newSub = cQuery.subpredicates.map { convertPredicate(fromSpotlight: $0 as! NSPredicate) }
