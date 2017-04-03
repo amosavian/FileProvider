@@ -90,19 +90,36 @@ extension FileProviderHTTPError {
     }
 }
 
-internal var completionHandlersForTasks = [Int: SimpleCompletionHandler]()
-internal var downloadCompletionHandlersForTasks = [Int: (URL) -> Void]()
-internal var dataCompletionHandlersForTasks = [Int: (Data) -> Void]()
+internal var completionHandlersForTasks = [String: [Int: SimpleCompletionHandler]]()
+internal var downloadCompletionHandlersForTasks = [String: [Int: (URL) -> Void]]()
+internal var dataCompletionHandlersForTasks = [String: [Int: (Data) -> Void]]()
 
-class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, URLSessionStreamDelegate {
+internal func initEmptySessionHandler(_ uuid: String) {
+    completionHandlersForTasks[uuid] = [:]
+    downloadCompletionHandlersForTasks[uuid] = [:]
+    dataCompletionHandlersForTasks[uuid] = [:]
+}
+
+internal func removeSessionHandler(for uuid: String) {
+    completionHandlersForTasks.removeValue(forKey: uuid)
+    downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
+    dataCompletionHandlersForTasks.removeValue(forKey: uuid)
+}
+
+/// All objects set to `FileProviderRemote.session` must be an instance of this class
+final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, URLSessionStreamDelegate {
     
     weak var fileProvider: (FileProviderBasicRemote & FileProviderOperations)?
     var credential: URLCredential?
     
-    var finishDownloadHandler: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
-    var didSendDataHandler: ((_ session: URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
-    var didReceivedData: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
-    var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
+    /// Forwardng URLSessionDownloadTaskDelegate call
+    public var finishDownloadHandler: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
+    /// Forwardng URLSessionTaskDelegate call
+    public var didSendDataHandler: ((_ session: URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
+    /// Forwardng URLSessionDownloadTaskDelegate call
+    public var didReceivedData: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
+    /// Forwardng URLSessionStreamTaskDelegate call
+    public var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
     
     init(fileProvider: FileProviderBasicRemote & FileProviderOperations, credential: URLCredential?) {
         self.fileProvider = fileProvider
@@ -110,36 +127,43 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     }
     
     // codebeat:disable[ARITY]
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        let completionHandler = completionHandlersForTasks[task.taskIdentifier] ?? nil
-        completionHandler?(error)
-        completionHandlersForTasks.removeValue(forKey: task.taskIdentifier)
-    }
-    
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        let completionHandler = dataCompletionHandlersForTasks[dataTask.taskIdentifier] ?? nil
-        completionHandler?(data)
-        completionHandlersForTasks.removeValue(forKey: dataTask.taskIdentifier)
-    }
-    
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        self.finishDownloadHandler?(session, downloadTask, location)
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if !(error == nil && task is URLSessionDownloadTask) {
+            let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
+            completionHandler?(error)
+            completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+        }
         
-        let dcompletionHandler = downloadCompletionHandlersForTasks[downloadTask.taskIdentifier]
-        dcompletionHandler?(location)
-        completionHandlersForTasks.removeValue(forKey: downloadTask.taskIdentifier)
-        
-        guard let json = downloadTask.taskDescription?.deserializeJSON(),
+        guard let json = task.taskDescription?.deserializeJSON(),
             let op = FileOperationType(json: json), let fileProvider = fileProvider else {
                 return
         }
         
         DispatchQueue.main.async {
-            fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
+            if error != nil {
+                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op)
+            } else {
+                fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
+            }
         }
     }
     
-    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let completionHandler = dataCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] ?? nil
+        completionHandler?(data)
+        dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
+    }
+    
+    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        self.finishDownloadHandler?(session, downloadTask, location)
+        
+        let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
+        dcompletionHandler?(location)
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+    }
+    
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
         self.didSendDataHandler?(session, task, bytesSent, totalBytesSent, totalBytesExpectedToSend)
         
         guard let json = task.taskDescription?.deserializeJSON(),
@@ -154,7 +178,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
         }
     }
     
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         self.didReceivedData?(session, downloadTask, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite)
         
         guard let json = downloadTask.taskDescription?.deserializeJSON(),
@@ -167,11 +191,11 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
         }
     }
     
-    func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         authenticate(didReceive: challenge, completionHandler: completionHandler)
     }
     
-    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         authenticate(didReceive: challenge, completionHandler: completionHandler)
     }
     
@@ -187,7 +211,7 @@ class SessionDelegate: NSObject, URLSessionDataDelegate, URLSessionDownloadDeleg
     }
     
     @available(iOS 9.0, macOS 10.11, *)
-    func urlSession(_ session: URLSession, streamTask: URLSessionStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream) {
+    public func urlSession(_ session: URLSession, streamTask: URLSessionStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream) {
         self.didBecomeStream?(session, streamTask.taskIdentifier, inputStream, outputStream)
     }
 }

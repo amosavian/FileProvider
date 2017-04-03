@@ -195,6 +195,12 @@ public protocol FileProviderBasicRemote: FileProviderBasic {
     var validatingCache: Bool { get set }
 }
 
+internal protocol FileProviderBasicRemoteInternal: FileProviderBasic {
+    var completionHandlersForTasks: [Int: SimpleCompletionHandler] { get set }
+    var downloadCompletionHandlersForTasks: [Int: (URL) -> Void] { get set }
+    var dataCompletionHandlersForTasks: [Int: (Data) -> Void] { get set }
+}
+
 internal extension FileProviderBasicRemote {    
     func returnCachedDate(with request: URLRequest, validatingCache: Bool, completionHandler: @escaping (Data?, URLResponse?, Error?) -> Swift.Void) -> Bool {
         guard let cache = self.cache else { return false }
@@ -605,11 +611,6 @@ extension FileProviderBasic {
     public var type: String {
         return type(of: self).type
     }
-    
-    /// **OBSOLETED** This property never worked as expected and is redundant as only supported by `LocalFileProvider`.
-    /// To simulate `false` value, assign `URL(fileURLWithPath: "/")` to `baseURL`.
-    @available(*, obsoleted: 1.0, message: "Redundant property, now is always true.")
-    var isPathRelative: Bool { return true }
     
     public func url(of path: String? = nil) -> URL {
         var rpath: String = path ?? self.currentPath

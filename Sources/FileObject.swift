@@ -24,12 +24,6 @@ open class FileObject: Equatable {
         self.path = path
     }
     
-    /// url to access the resource, not supported by Dropbox provider
-    @available(*, obsoleted: 1.0, renamed: "url", message: "Use url.absoluteURL instead.")
-    open var absoluteURL: URL? {
-        return url?.absoluteURL
-    }
-    
     /// URL to access the resource, can be a relative URL against base URL.
     /// not supported by Dropbox provider.
     open internal(set) var url: URL? {

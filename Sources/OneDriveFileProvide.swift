@@ -41,16 +41,29 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
     public var session: URLSession {
-        if _session == nil {
-            self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
-            let queue = OperationQueue()
-            //queue.underlyingQueue = dispatch_queue
-            let config = URLSessionConfiguration.default
-            config.urlCache = cache
-            config.requestCachePolicy = .returnCacheDataElseLoad
-            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: queue)
+        get {
+            if _session == nil {
+                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                let queue = OperationQueue()
+                //queue.underlyingQueue = dispatch_queue
+                let config = URLSessionConfiguration.default
+                config.urlCache = cache
+                config.requestCachePolicy = .returnCacheDataElseLoad
+                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: queue)
+                _session?.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session!.sessionDescription!)
+            }
+            return _session!
         }
-        return _session!
+        
+        set {
+            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
+            _session = newValue
+            if session.sessionDescription?.isEmpty ?? true {
+                _session?.sessionDescription = UUID().uuidString
+            }
+            initEmptySessionHandler(_session!.sessionDescription!)
+        }
     }
     
     /**
@@ -114,6 +127,10 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     }
     
     deinit {
+        if let sessionuuid = _session?.sessionDescription {
+            removeSessionHandler(for: sessionuuid)
+        }
+        
         if fileProviderCancelTasksOnInvalidating {
             _session?.invalidateAndCancel()
         } else {
@@ -292,11 +309,10 @@ extension OneDriveFileProvider: FileProviderOperations {
             return nil
         }
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
-        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf: cacheURL) // TODO: Figure out how to get error response data for the error description
@@ -335,14 +351,25 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderOneDriveError?
-            if let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: httpResponse.statusCode) {
-                serverError = FileProviderOneDriveError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+        let task = session.downloadTask(with: request)
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            completionHandler(nil, error)
+        }
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
+                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
+                let errorData : Data? = nil //Data(contentsOf: cacheURL) // TODO: Figure out how to get error response data for the error description
+                let serverError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                completionHandler(nil, serverError)
+                return
             }
-            let filedata = serverError ?? error == nil ? data : nil
-            completionHandler(filedata, serverError ?? error)
-        })
+            do {
+                let data = try Data(contentsOf: tempURL)
+                completionHandler(data, nil)
+            } catch let e {
+                completionHandler(nil, e)
+            }
+        }
         task.taskDescription = opType.json
         task.resume()
         return RemoteOperationHandle(operationType: opType, tasks: [task])

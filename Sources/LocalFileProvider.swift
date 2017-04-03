@@ -140,12 +140,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return copy
     }
     
-    /// **OBSOLETED:** No longer is in use and overriding this method has no effect anymore.
-    @available(*, obsoleted: 1.0, message: "Overriding this method has no effect anymore.")
-    open class func defaultBaseURL() -> URL {
-        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-    }
-    
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         dispatch_queue.async {
             do {

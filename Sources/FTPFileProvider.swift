@@ -41,35 +41,27 @@ open class FTPFileProvider: FileProviderBasicRemote {
     fileprivate var _session: URLSession?
     internal var sessionDelegate: SessionDelegate?
     public var session: URLSession {
-        if _session == nil {
-            self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
-            let config = URLSessionConfiguration.default
-            config.urlCache = cache
-            config.requestCachePolicy = .returnCacheDataElseLoad
-            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
-            
-            
-            sessionDelegate?.didReceivedData = { [weak self] (session: URLSession, downloadTask: URLSessionDownloadTask, bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) -> Void in
-                guard let `self` = self else { return }
-                guard let opDic = downloadTask.taskDescription?.deserializeJSON(),
-                    let opType = FileOperationType(json: opDic) else { return }
-                DispatchQueue.main.async {
-                    let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
-                }
+        get {
+            if _session == nil {
+                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                let config = URLSessionConfiguration.default
+                config.urlCache = cache
+                config.requestCachePolicy = .returnCacheDataElseLoad
+                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
+                _session?.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session!.sessionDescription!)
             }
-            
-            sessionDelegate?.didSendDataHandler = { [weak self] (session: Foundation.URLSession, task: URLSessionTask, bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) -> Void in
-                guard let `self` = self else { return }
-                guard let opDic = task.taskDescription?.deserializeJSON(),
-                    let opType = FileOperationType(json: opDic) else { return }
-                DispatchQueue.main.async {
-                    let progress = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
-                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
-                }
-            }
+            return _session!
         }
-        return _session!
+        
+        set {
+            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
+            _session = newValue
+            if session.sessionDescription?.isEmpty ?? true {
+                _session?.sessionDescription = UUID().uuidString
+            }
+            initEmptySessionHandler(_session!.sessionDescription!)
+        }
     }
     
     /**
@@ -127,10 +119,15 @@ open class FTPFileProvider: FileProviderBasicRemote {
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
         copy.validatingCache = self.validatingCache
+        copy.useAppleImplementation = self.useAppleImplementation
         return copy
     }
     
     deinit {
+        if let sessionuuid = _session?.sessionDescription {
+            removeSessionHandler(for: sessionuuid)
+        }
+        
         if fileProviderCancelTasksOnInvalidating {
             _session?.invalidateAndCancel()
         } else {
@@ -485,6 +482,7 @@ extension FTPFileProvider: FileProviderOperations {
             
             self.ftpStore(task, filePath: self.ftpPath(toPath), fromData: nil, fromFile: localFile, onTask: {
                 operation.add(task: $0)
+                $0.taskDescription = opType.json
             }, completionHandler: { (error) in
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
@@ -505,28 +503,18 @@ extension FTPFileProvider: FileProviderOperations {
         let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
         if self.useAppleImplementation {
-            let task = session.downloadTask(with: url(of: path)) { (tempDest, response, error) in
-                if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                    }
-                    return
-                }
-                
-                if let tempDest = tempDest {
-                    do {
-                        try FileManager.default.moveItem(at: tempDest, to: destURL)
-                        self.dispatch_queue.async {
-                            completionHandler?(nil)
-                        }
-                    } catch let error {
-                        self.dispatch_queue.async {
-                            completionHandler?(error)
-                        }
-                    }
+            let task = session.downloadTask(with: url(of: path))
+            completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+            downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destURL)
+                    completionHandler?(nil)
+                } catch let e {
+                    completionHandler?(e)
                 }
             }
             operation.add(task: task)
+            task.taskDescription = opType.json
             task.resume()
         } else {
             let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -540,6 +528,7 @@ extension FTPFileProvider: FileProviderOperations {
                 
                 self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: {
                     operation.add(task: $0)
+                    $0.taskDescription = opType.json
                 }, onProgress: { recevied, totalReceived, totalSize in
                     let progress = Double(totalReceived) / Double(totalSize)
                     self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
@@ -574,22 +563,19 @@ extension FTPFileProvider: FileProviderReadWrite {
         }
         
         if self.useAppleImplementation {
-            let task = session.dataTask(with: url(of: path)) { (data, response, error) in
-                if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler(nil, error)
-                        self.delegateNotify(opType, error: error)
-                    }
-                    return
-                }
-                
-                if let data = data {
-                    self.dispatch_queue.async {
-                        completionHandler(data, nil)
-                        self.delegateNotify(opType, error: nil)
-                    }
+            let task = session.downloadTask(with: url(of: path))
+            completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+                completionHandler(nil, error)
+            }
+            downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+                do {
+                    let data = try Data(contentsOf: tempURL)
+                    completionHandler(data, nil)
+                } catch let e {
+                    completionHandler(nil, e)
                 }
             }
+            task.taskDescription = opType.json
             task.resume()
             return RemoteOperationHandle(operationType: opType, tasks: [task])
         } else {
@@ -619,6 +605,7 @@ extension FTPFileProvider: FileProviderReadWrite {
             
             self.ftpRetrieveData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: {
                 operation.add(task: $0)
+                $0.taskDescription = opType.json
             }, onProgress: { recevied, totalReceived, totalSize in
                 let progress = Double(totalReceived) / Double(totalSize)
                 self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
@@ -663,6 +650,7 @@ extension FTPFileProvider: FileProviderReadWrite {
             let storeHandler = {
                 self.ftpStore(task, filePath: self.ftpPath(path), fromData: data ?? Data(), fromFile: nil, onTask: {
                     operation.add(task: $0)
+                    $0.taskDescription = opType.json
                 }, completionHandler: { (error) in
                     self.ftpQuit(task)
                     self.dispatch_queue.async {

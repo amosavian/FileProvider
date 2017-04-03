@@ -42,15 +42,32 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
     public var session: URLSession {
-        if _session == nil {
-            self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
-            let config = URLSessionConfiguration.default
-            config.urlCache = cache
-            config.requestCachePolicy = .returnCacheDataElseLoad
-            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
+        get {
+            if _session == nil {
+                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                let config = URLSessionConfiguration.default
+                config.urlCache = cache
+                config.requestCachePolicy = .returnCacheDataElseLoad
+                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
+                _session!.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session!.sessionDescription!)
+            }
+            return _session!
         }
-        return _session!
+        
+        set {
+            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
+            _session = newValue
+            if session.sessionDescription?.isEmpty ?? true {
+                _session?.sessionDescription = UUID().uuidString
+            }
+            initEmptySessionHandler(_session!.sessionDescription!)
+        }
     }
+    
+    internal var completionHandlersForTasks = [Int: SimpleCompletionHandler]()
+    internal var downloadCompletionHandlersForTasks = [Int: (URL) -> Void]()
+    internal var dataCompletionHandlersForTasks = [Int: (Data) -> Void]()
     
     fileprivate var _longpollSession: URLSession?
     internal var longpollSession: URLSession {
@@ -117,11 +134,16 @@ open class DropboxFileProvider: FileProviderBasicRemote {
     }
     
     deinit {
+        if let sessionuuid = _session?.sessionDescription {
+            removeSessionHandler(for: sessionuuid)
+        }
+        
         if fileProviderCancelTasksOnInvalidating {
             _session?.invalidateAndCancel()
         } else {
             _session?.finishTasksAndInvalidate()
         }
+        
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
@@ -283,7 +305,6 @@ extension DropboxFileProvider: FileProviderOperations {
         }
         let url = URL(string: "files/download", relativeTo: contentURL)!
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         let requestDictionary: [String: AnyObject] = ["path": path as NSString]
         let requestJson = String(jsonDictionary: requestDictionary) ?? ""
@@ -323,7 +344,6 @@ extension DropboxFileProvider: FileProviderReadWrite {
         let opType = FileOperationType.fetch(path: path)
         let url = URL(string: "files/download", relativeTo: contentURL)!
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         if length > 0 {
             request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
@@ -332,14 +352,25 @@ extension DropboxFileProvider: FileProviderReadWrite {
         }
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
-            if let httpResponse = response as? HTTPURLResponse , httpResponse.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: httpResponse.statusCode) {
-                serverError = FileProviderDropboxError(code: code, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+        let task = session.downloadTask(with: request)
+        completionHandlersForTasks[task.taskIdentifier] = { error in
+            completionHandler(nil, error)
+        }
+        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
+                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
+                let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
+                let serverError : FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                completionHandler(nil, serverError)
+                return
             }
-            let filedata = serverError ?? error == nil ? data : nil
-            completionHandler(filedata, serverError ?? error)
-        })
+            do {
+                let data = try Data(contentsOf: tempURL)
+                completionHandler(data, nil)
+            } catch let e {
+                completionHandler(nil, e)
+            }
+        }
         task.taskDescription = opType.json
         task.resume()
         return RemoteOperationHandle(operationType: opType, tasks: [task])
@@ -372,22 +403,6 @@ extension DropboxFileProvider: FileProviderReadWrite {
 }
 
 extension DropboxFileProvider {
-    /// *OBSOLETED:* Use `publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?))` function instead.
-    @available(*, obsoleted: 1.0, renamed: "publicLink(to:completionHandler:)", message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
-    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
-        self.publicLink(to: path) { (url, file, _, error) in
-            completionHandler(url, file, error)
-        }
-    }
-    
-    /// *OBSOLETED:* Use `publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?))` function instead.
-    @available(*, obsoleted: 1.0, renamed: "publicLink(to:completionHandler:)", message: "Use publicLink(to:, completionHandler: (URL?, DropboxFileObject?, Date?,  Error?)) function instead.")
-    open func temporaryLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: DropboxFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
-        self.publicLink(to: path) { (url, file, expiration, error) in
-            completionHandler(url, file, expiration, error)
-        }
-    }
-    
     /**
      Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
      

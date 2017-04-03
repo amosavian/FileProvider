@@ -136,7 +136,7 @@ internal extension OneDriveFileProvider {
             return nil
         }
         
-        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderOneDriveError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 // We can't fetch server result from delegate!

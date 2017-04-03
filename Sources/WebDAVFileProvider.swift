@@ -44,16 +44,29 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     fileprivate var _session: URLSession?
     fileprivate var sessionDelegate: SessionDelegate?
     public var session: URLSession {
-        if _session == nil {
-            self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
-            let queue = OperationQueue()
-            //queue.underlyingQueue = dispatch_queue
-            let config = URLSessionConfiguration.default
-            config.urlCache = cache
-            config.requestCachePolicy = .returnCacheDataElseLoad
-            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDownloadDelegate?, delegateQueue: queue)
+        get {
+            if _session == nil {
+                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                let queue = OperationQueue()
+                //queue.underlyingQueue = dispatch_queue
+                let config = URLSessionConfiguration.default
+                config.urlCache = cache
+                config.requestCachePolicy = .returnCacheDataElseLoad
+                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDownloadDelegate?, delegateQueue: queue)
+                _session?.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session!.sessionDescription!)
+            }
+            return _session!
         }
-        return _session!
+        
+        set {
+            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
+            _session = newValue
+            if session.sessionDescription?.isEmpty ?? true {
+                _session?.sessionDescription = UUID().uuidString
+            }
+            initEmptySessionHandler(_session!.sessionDescription!)
+        }
     }
     
     /**
@@ -94,8 +107,8 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.credential, forKey: "credential")
         aCoder.encode(self.currentPath, forKey: "currentPath")
-        aCoder.encode(self.useCache, forKey: "isCoorinating")
-        aCoder.encode(self.validatingCache, forKey: "undoManager")
+        aCoder.encode(self.useCache, forKey: "useCache")
+        aCoder.encode(self.validatingCache, forKey: "validatingCache")
     }
     
     public static var supportsSecureCoding: Bool {
@@ -113,6 +126,10 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     }
     
     deinit {
+        if let sessionuuid = _session?.sessionDescription {
+            removeSessionHandler(for: sessionuuid)
+        }
+        
         if fileProviderCancelTasksOnInvalidating {
             _session?.invalidateAndCancel()
         } else {
@@ -386,7 +403,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         }
         request.httpMethod = "PUT"
         let task = session.uploadTask(with: request, fromFile: localFile)
-        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderWebDavError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 // We can't fetch server result from delegate!
@@ -409,8 +426,8 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = self.url(of:path)
         let request = URLRequest(url: url)
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let serverError : FileProviderWebDavError? = code != nil ? FileProviderWebDavError(code: code!, path: path, errorDescription: code?.description, url: url) : nil
@@ -443,20 +460,33 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
         if length > 0 {
             request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
             request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
-        let handle = RemoteOperationHandle(operationType: opType, tasks: [])
-        runDataTask(with: request, operationHandle: handle, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+        
+        let task = session.downloadTask(with: request)
+        let handle = RemoteOperationHandle(operationType: opType, tasks: [task])
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            completionHandler(nil, error)
+        }
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
+                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
+                let serverError : FileProviderWebDavError? = code != nil ? FileProviderWebDavError(code: code!, path: path, errorDescription: code?.description, url: url) : nil
+                completionHandler(nil, serverError)
+                return
             }
-            completionHandler(data, responseError ?? error)
-        })
+            do {
+                let data = try Data(contentsOf: tempURL)
+                self.dispatch_queue.async {
+                    completionHandler(data, nil)
+                }
+            } catch let e {
+                completionHandler(nil, e)
+            }
+        }
         return handle
     }
     
@@ -474,14 +504,14 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         let task = session.uploadTask(with: request, from: data ?? Data())
-        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderWebDavError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 // We can't fetch server result from delegate!
                 responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: nil, url: url)
             }
             completionHandler?(responseError ?? error)
-            self?.delegateNotify(.create(path: path), error: responseError ?? error)
+            self?.delegateNotify(opType, error: responseError ?? error)
         }
         task.taskDescription = opType.json
         task.resume()
