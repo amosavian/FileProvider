@@ -116,9 +116,9 @@
 		79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BD1E2CC3C20035128C /* ImageIO.framework */; };
 		79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */; };
 		79BD63C21E2CC3D30035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63C11E2CC3D30035128C /* AVFoundation.framework */; };
-		79BD63C51E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
-		79BD63C61E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
-		79BD63C71E2D17880035128C /* OneDriveFileProvide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */; };
+		79BD63C51E2D17880035128C /* OneDriveFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */; };
+		79BD63C61E2D17880035128C /* OneDriveFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */; };
+		79BD63C71E2D17880035128C /* OneDriveFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */; };
 		79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
@@ -182,7 +182,7 @@
 		79BD63BD1E2CC3C20035128C /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63C11E2CC3D30035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
-		79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveFileProvide.swift; sourceTree = "<group>"; };
+		79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveFileProvider.swift; sourceTree = "<group>"; };
 		79BD63C41E2D17880035128C /* OneDriveHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveHelper.swift; sourceTree = "<group>"; };
 		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -304,7 +304,7 @@
 				794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */,
 				7936BC111E880F5700A6C81C /* FTPFileProvider.swift */,
 				798654321E8874BC002FA550 /* FTPHelper.swift */,
-				79BD63C31E2D17880035128C /* OneDriveFileProvide.swift */,
+				79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */,
 				79BD63C41E2D17880035128C /* OneDriveHelper.swift */,
 				7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
@@ -498,7 +498,7 @@
 				7936BC121E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF61E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */,
-				79BD63C51E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
+				79BD63C51E2D17880035128C /* OneDriveFileProvider.swift in Sources */,
 				7924B1991D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C81D48C02300086753 /* SMB2IOCtl.swift in Sources */,
 				799396D71D48C02300086753 /* SMB2Types.swift in Sources */,
@@ -541,7 +541,7 @@
 				7936BC131E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF71E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */,
-				79BD63C61E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
+				79BD63C61E2D17880035128C /* OneDriveFileProvider.swift in Sources */,
 				7924B1B01D89F7DE00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19A1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396C91D48C02300086753 /* SMB2IOCtl.swift in Sources */,
@@ -584,7 +584,7 @@
 				7936BC141E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF81E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
 				79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */,
-				79BD63C71E2D17880035128C /* OneDriveFileProvide.swift in Sources */,
+				79BD63C71E2D17880035128C /* OneDriveFileProvider.swift in Sources */,
 				7924B1B11D89F7DF00589DB7 /* FPSStreamTask.swift in Sources */,
 				7924B19B1D89DAE000589DB7 /* Element.swift in Sources */,
 				799396CA1D48C02300086753 /* SMB2IOCtl.swift in Sources */,

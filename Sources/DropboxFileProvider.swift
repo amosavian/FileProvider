@@ -296,6 +296,14 @@ extension DropboxFileProvider: FileProviderOperations {
     }
     
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+        // check file is not a folder
+        guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
+            dispatch_queue.async {
+                completionHandler?(self.throwError(localFile.path, code: URLError.fileIsDirectory))
+            }
+            return nil
+        }
+        
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil

@@ -101,9 +101,9 @@ internal func initEmptySessionHandler(_ uuid: String) {
 }
 
 internal func removeSessionHandler(for uuid: String) {
-    completionHandlersForTasks.removeValue(forKey: uuid)
-    downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
-    dataCompletionHandlersForTasks.removeValue(forKey: uuid)
+    _ = completionHandlersForTasks.removeValue(forKey: uuid)
+    _ = downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
+    _ = dataCompletionHandlersForTasks.removeValue(forKey: uuid)
 }
 
 /// All objects set to `FileProviderRemote.session` must be an instance of this class
@@ -131,7 +131,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         if !(error == nil && task is URLSessionDownloadTask) {
             let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
             completionHandler?(error)
-            completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+            _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
         }
         
         guard let json = task.taskDescription?.deserializeJSON(),
@@ -151,7 +151,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         let completionHandler = dataCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] ?? nil
         completionHandler?(data)
-        dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
+        _ = dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
@@ -159,8 +159,8 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         
         let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
         dcompletionHandler?(location)
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
-        completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        _ = downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
     }
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
