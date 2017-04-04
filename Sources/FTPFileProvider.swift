@@ -47,7 +47,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     public var session: URLSession {
         get {
             if _session == nil {
-                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                self.sessionDelegate = SessionDelegate(fileProvider: self)
                 let config = URLSessionConfiguration.default
                 config.urlCache = cache
                 config.requestCachePolicy = .returnCacheDataElseLoad

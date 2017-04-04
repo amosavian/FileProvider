@@ -58,7 +58,7 @@ Pod::Spec.new do |s|
   s.author             = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
   # Or just: s.author    = "Amir Abbas Mousavian"
   # s.authors            = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
-  s.social_media_url   = "https://twitter.com/amosavian"
+  # s.social_media_url   = "https://twitter.com/amosavian"
 
   # ――― Platform Specifics ――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
   #

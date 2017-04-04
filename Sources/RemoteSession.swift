@@ -121,9 +121,9 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     /// Forwardng URLSessionStreamTaskDelegate call
     public var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
     
-    init(fileProvider: FileProviderBasicRemote & FileProviderOperations, credential: URLCredential?) {
+    public init(fileProvider: FileProviderBasicRemote & FileProviderOperations) {
         self.fileProvider = fileProvider
-        self.credential = credential
+        self.credential = fileProvider.credential
     }
     
     // codebeat:disable[ARITY]

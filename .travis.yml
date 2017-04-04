@@ -56,7 +56,7 @@ script:
 after_success:
   # Run `pod trunk push` if specified
   - if [ $POD == "YES" ] && [ -n "$TRAVIS_TAG" ]; then
-      pod trunk push;
+      pod trunk push --allow-warnings;
     fi
 
 #   - bash <(curl -s https://codecov.io/bash)

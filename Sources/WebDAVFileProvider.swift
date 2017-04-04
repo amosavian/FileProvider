@@ -46,7 +46,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     public var session: URLSession {
         get {
             if _session == nil {
-                self.sessionDelegate = SessionDelegate(fileProvider: self, credential: credential)
+                self.sessionDelegate = SessionDelegate(fileProvider: self)
                 let queue = OperationQueue()
                 //queue.underlyingQueue = dispatch_queue
                 let config = URLSessionConfiguration.default
