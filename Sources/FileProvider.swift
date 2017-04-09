@@ -939,6 +939,8 @@ public enum FileOperationType: CustomStringConvertible {
         }
         let dest = json["dest"] as? String
         switch type {
+        case "Fetch":
+            self = .fetch(path: source)
         case "Create":
             self = .create(path: source)
         case "Modify":

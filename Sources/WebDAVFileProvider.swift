@@ -496,6 +496,8 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 completionHandler(nil, e)
             }
         }
+        task.taskDescription = opType.json
+        task.resume()
         return handle
     }
     

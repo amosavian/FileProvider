@@ -69,8 +69,7 @@ extension FTPFileProvider {
                 if let data = data, let response = String(data: data, encoding: .utf8) {
                     completionHandler(response.trimmingCharacters(in: CharacterSet(charactersIn: FTPFileProvider.carriage)), nil)
                 } else {
-                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                    completionHandler(nil, badResponseError)
+                    completionHandler(nil, self.throwError("", code: URLError.cannotParseResponse))
                     return
                 }
             }
@@ -92,8 +91,7 @@ extension FTPFileProvider {
             }
             
             guard let data = data, let response = String(data: data, encoding: .utf8) else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                completionHandler(error)
+                completionHandler(self.throwError("", code: URLError.cannotParseResponse))
                 return
             }
             
@@ -114,8 +112,7 @@ extension FTPFileProvider {
                     }
                     
                     guard let response = response else {
-                        let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                        completionHandler(error)
+                        completionHandler(self.throwError("", code: URLError.badServerResponse))
                         return
                     }
                     
@@ -131,8 +128,7 @@ extension FTPFileProvider {
                             if response?.hasPrefix("2") ?? false {
                                 completionHandler(nil)
                             } else {
-                                let error = NSError(domain: URLError.errorDomain, code: URLError.userAuthenticationRequired.rawValue, userInfo: nil)
-                                completionHandler(error)
+                                completionHandler(self.throwError("", code: URLError.userAuthenticationRequired))
                             }
                         }
                         return
@@ -166,8 +162,7 @@ extension FTPFileProvider {
             }
             
             guard let response = response else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(error)
+                completionHandler(self.throwError(path, code: URLError.badServerResponse))
                 return
             }
             
@@ -200,15 +195,13 @@ extension FTPFileProvider {
             }
             
             guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(nil, error)
+                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
                 return
             }
             
             let destArray = destString.components(separatedBy: ",").flatMap({ UInt32(trimmedNumber($0)) })
             guard destArray.count == 6 else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(nil, error)
+                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
                 return
             }
             
@@ -239,14 +232,12 @@ extension FTPFileProvider {
             }
             
             guard let response = response else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(nil, error)
+                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
                 return
             }
             
             guard !response.hasPrefix("5") else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.cannotConnectToHost.rawValue, userInfo: nil)
-                completionHandler(nil, error)
+                completionHandler(nil, self.throwError("", code: URLError.cannotConnectToHost))
                 return
             }
             
@@ -296,8 +287,7 @@ extension FTPFileProvider {
             }
             
             guard let dataTask = dataTask else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler([], error)
+                completionHandler([], self.throwError(path, code: URLError.badServerResponse))
                 return
             }
             
@@ -329,15 +319,13 @@ extension FTPFileProvider {
                         }
                         
                         if waitResult == .timedOut {
-                            error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
-                            completionHandler([], error)
+                            completionHandler([], self.throwError(path, code: URLError.timedOut))
                             return
                         }
                     }
                     
                     guard let response = String(data: finalData, encoding: .utf8) else {
-                        error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                        completionHandler([], error)
+                        completionHandler([], self.throwError(path, code: URLError.badServerResponse))
                         return
                     }
                     
@@ -353,8 +341,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                    completionHandler([], badResponseError)
+                    completionHandler([], self.throwError(path, code: URLError.cannotParseResponse))
                     return
                 }
                 
@@ -402,8 +389,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let dataTask = dataTask else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                    completionHandler(nil, error)
+                    completionHandler(nil, self.throwError(filePath, code: URLError.badServerResponse))
                     return
                 }
                 
@@ -440,8 +426,7 @@ extension FTPFileProvider {
                             }
                             
                             if waitResult == .timedOut {
-                                error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
-                                completionHandler(nil, error)
+                                completionHandler(nil, self.throwError(filePath, code: URLError.timedOut))
                                 return
                             }
                         }
@@ -463,8 +448,7 @@ extension FTPFileProvider {
                     }
                     
                     guard let response = response else {
-                        let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                        completionHandler(nil, badResponseError)
+                        completionHandler(nil, self.throwError(filePath, code: URLError.cannotParseResponse))
                         return
                     }
                     
@@ -511,8 +495,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let dataTask = dataTask else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                    completionHandler(nil, error)
+                    completionHandler(nil, self.throwError(filePath, code: URLError.badServerResponse))
                     return
                 }
                 
@@ -549,7 +532,7 @@ extension FTPFileProvider {
                             }
                             
                             if waitResult == .timedOut {
-                                error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
+                                error = self.throwError("", code: URLError.timedOut)
                                 completionHandler(nil, error)
                                 return
                             }
@@ -580,8 +563,7 @@ extension FTPFileProvider {
                     }
                     
                     guard let response = response else {
-                        let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                        completionHandler(nil, badResponseError)
+                        completionHandler(nil, self.throwError(filePath, code: URLError.cannotParseResponse))
                         return
                     }
                     
@@ -610,8 +592,7 @@ extension FTPFileProvider {
             }
             
             guard let dataTask = dataTask else {
-                let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
-                completionHandler(error)
+                completionHandler(self.throwError(filePath, code: URLError.badServerResponse))
                 return
             }
             
@@ -658,7 +639,7 @@ extension FTPFileProvider {
                         }
                         
                         if waitResult == .timedOut {
-                            error = NSError(domain: URLError.errorDomain, code: URLError.timedOut.rawValue, userInfo: nil)
+                            error = self.throwError(filePath, code: URLError.timedOut)
                             completionHandler(error)
                             return
                         }
@@ -674,8 +655,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    let badResponseError = NSError(domain: URLError.errorDomain, code: URLError.cannotParseResponse.rawValue, userInfo: nil)
-                    completionHandler(badResponseError)
+                    completionHandler(self.throwError(filePath, code: URLError.cannotParseResponse))
                     return
                 }
                 

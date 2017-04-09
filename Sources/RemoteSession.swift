@@ -139,6 +139,9 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
                 return
         }
         
+        if !(task is URLSessionDownloadTask), case FileOperationType.fetch = op {
+            return
+        }
         DispatchQueue.main.async {
             if error != nil {
                 fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op)
@@ -168,6 +171,15 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         
         guard let json = task.taskDescription?.deserializeJSON(),
               let op = FileOperationType(json: json), let fileProvider = fileProvider else {
+            return
+        }
+        
+        switch op {
+        case .create(path: let path):
+            if path.hasSuffix("/") { return }
+        case .modify:
+            break
+        default:
             return
         }
         

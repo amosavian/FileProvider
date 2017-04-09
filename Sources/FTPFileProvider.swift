@@ -231,9 +231,8 @@ open class FTPFileProvider: FileProviderBasicRemote {
                 }
                 
                 guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
-                        completionHandler(nil, error)
+                        completionHandler(nil, self.throwError(path, code: URLError.badServerResponse))
                     }
                     return
                 }
@@ -244,9 +243,8 @@ open class FTPFileProvider: FileProviderBasicRemote {
                 
                 let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 guard lines.count > 2 else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
-                        completionHandler(nil, error)
+                        completionHandler(nil, self.throwError(path, code: URLError.badServerResponse))
                     }
                     return
                 }
@@ -348,10 +346,9 @@ extension FTPFileProvider: FileProviderOperations {
                 }
                 
                 guard let response = response else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(opType, error: self.throwError(sourcePath, code: URLError.badServerResponse))
                     }
                     return
                 }
@@ -383,9 +380,7 @@ extension FTPFileProvider: FileProviderOperations {
                     default:
                         errorCode = URLError.cannotOpenFile
                     }
-                    let escapedPath = sourcePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sourcePath
-                    let url = NSURL(string: escapedPath, relativeTo: self.baseURL) ?? self.baseURL! as NSURL
-                    let error = NSError(domain: URLError.errorDomain, code: errorCode.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
+                    let error = self.throwError(sourcePath, code: errorCode)
                     self.dispatch_queue.async {
                         completionHandler?(error)
                         self.delegateNotify(opType, error: error)
@@ -443,7 +438,7 @@ extension FTPFileProvider: FileProviderOperations {
                 }
                 
                 guard let response = response else {
-                    let error = NSError(domain: URLError.errorDomain, code: URLError.badServerResponse.rawValue, userInfo: nil)
+                    let error = self.throwError(sourcePath, code: URLError.badServerResponse)
                     self.dispatch_queue.async {
                         completionHandler?(error)
                         self.delegateNotify(opType, error: error)
@@ -456,9 +451,7 @@ extension FTPFileProvider: FileProviderOperations {
                     return
                 }
                 
-                let escapedPath = sourcePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sourcePath
-                let url = NSURL(string: escapedPath, relativeTo: self.baseURL) ?? self.baseURL! as NSURL
-                let error = NSError(domain: URLError.errorDomain, code: URLError.cannotRemoveFile.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: url])
+                let error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
                 self.dispatch_queue.async {
                     completionHandler?(error)
                     self.delegateNotify(opType, error: error)
