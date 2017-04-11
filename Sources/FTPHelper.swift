@@ -9,8 +9,6 @@
 import Foundation
 
 extension FTPFileProvider {
-    private static let carriage = "\r\n"
-    
     func delegateNotify(_ operation: FileOperationType, error: Error?) {
         DispatchQueue.main.async(execute: {
             if error == nil {
@@ -48,7 +46,7 @@ extension FTPFileProvider {
     
     func execute(command: String, on task: FileProviderStreamTask, minLength: Int = 4, afterSend: ((_ error: Error?) -> Void)? = nil, completionHandler: @escaping (_ response: String?, _ error: Error?) -> Void) {
         let timeout = session.configuration.timeoutIntervalForRequest
-        let terminalcommand = command + FTPFileProvider.carriage
+        let terminalcommand = command + "\r\n"
         task.write(terminalcommand.data(using: .utf8)!, timeout: timeout) { (error) in
             if let error = error {
                 completionHandler(nil, error)
@@ -67,7 +65,7 @@ extension FTPFileProvider {
                 }
                 
                 if let data = data, let response = String(data: data, encoding: .utf8) {
-                    completionHandler(response.trimmingCharacters(in: CharacterSet(charactersIn: FTPFileProvider.carriage)), nil)
+                    completionHandler(response.trimmingCharacters(in: CharacterSet(charactersIn: "\r\n")), nil)
                 } else {
                     completionHandler(nil, self.throwError("", code: URLError.cannotParseResponse))
                     return
@@ -223,10 +221,21 @@ extension FTPFileProvider {
     }
     
     func ftpActive(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
-        NotImplemented()
-        let port = 0
+        var port: Int32 = 0
+        var _activeTask: FileProviderStreamTask?
+        while (_activeTask?.state ?? .suspended) == .suspended {
+            port = 32000 + Int32(arc4random_uniform(16384))
+            let service = NetService(domain: "", type: "_tcp.", name: "", port: port)
+            _activeTask = self.session.fpstreamTask(withNetService: service)
+            _activeTask?.resume()
+        }
+        guard let activeTask = _activeTask else { return }
+        if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
+            task.startSecureConnection()
+        }
         self.execute(command: "PORT \(port)", on: task) { (response, error) in
             if let error = error {
+                activeTask.cancel()
                 completionHandler(nil, error)
                 return
             }
@@ -241,11 +250,6 @@ extension FTPFileProvider {
                 return
             }
             
-            let activeTask = self.session.fpstreamTask(withHostName: self.baseURL!.host!, port: 20)
-            activeTask.resume()
-            if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
-                task.startSecureConnection()
-            }
             completionHandler(activeTask, nil)
         }
     }
@@ -291,6 +295,7 @@ extension FTPFileProvider {
                 return
             }
             
+            var success = false
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
             self.execute(command: command, on: task, minLength: 70, afterSend: { error in
                 // starting passive task
@@ -330,7 +335,7 @@ extension FTPFileProvider {
                     }
                     
                     let contents = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-                    
+                    success = true
                     completionHandler(contents, nil)
                     return
                 }
@@ -350,11 +355,11 @@ extension FTPFileProvider {
                     return
                 }
                 
-                if !response.hasPrefix("25") {
-                    let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
+                if !success && !(response.hasPrefix("25") || response.hasPrefix("15")) {
+                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
                     let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
                     let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    let error = FileProviderFTPError(code: code, path: path, errorDescription: description)
 
                     self.dispatch_queue.async {
                         completionHandler([], error)
@@ -365,8 +370,50 @@ extension FTPFileProvider {
         }
     }
     
-    func ftpRecursiveList(_ task: FileProviderStreamTask, of path: String, useMLST: Bool, completionHandler: @escaping (_ contents: [String], _ error: Error?) -> Void) {
-        // TODO: Implement recursive listing for search and removing function
+    func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+        let queue = DispatchQueue(label: "test")
+        queue.async {
+            let group = DispatchGroup()
+            var result = [FileObject]()
+            var success = true
+            group.enter()
+            self.contentsOfDirectory(path: path, completionHandler: { (files, error) in
+                success = success && (error == nil)
+                if let error = error {
+                    completionHandler([], error)
+                    group.leave()
+                    return
+                }
+                
+                result.append(contentsOf: files)
+                foundItemsHandler?(files)
+                
+                let directories: [FileObject] = files.filter { $0.isDirectory }
+                for dir in directories {
+                    group.enter()
+                    self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler, completionHandler: { (contents, error) in
+                        success = success && (error == nil)
+                        if let error = error {
+                            completionHandler([], error)
+                            group.leave()
+                            return
+                        }
+                        
+                        foundItemsHandler?(files)
+                        result.append(contentsOf: contents)
+                        group.leave()
+                    })
+                }
+                group.leave()
+            })
+            group.wait()
+            
+            if success {
+                self.dispatch_queue.async {
+                    completionHandler(result, nil)
+                }
+            }
+        }
     }
     
     func ftpRetrieveData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
@@ -394,7 +441,7 @@ extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                self.execute(command: "TYPE L" + FTPFileProvider.carriage + "REST \(position)" + FTPFileProvider.carriage + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
                     
@@ -500,7 +547,7 @@ extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                self.execute(command: "TYPE I"  + FTPFileProvider.carriage + "REST \(position)" + FTPFileProvider.carriage + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
                     
@@ -583,7 +630,7 @@ extension FTPFileProvider {
         }
     }
     
-    func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FileProviderStreamTask) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
+    func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FileProviderStreamTask) -> Void)?,  onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
         
         self.ftpDataConnect(task) { (dataTask, error) in
             if let error = error {
@@ -597,7 +644,7 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            self.execute(command: "TYPE L"  + FTPFileProvider.carriage + "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
+            self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
@@ -607,31 +654,64 @@ extension FTPFileProvider {
                 
                 DispatchQueue.global().async {
                     var error: Error?
+                    let chunkSize = 65536
                     
-                    if let data = fromData {
-                        dataTask.write(data, timeout: timeout, completionHandler: { (error) in
-                            completionHandler(error)
-                        })
+                    if let data = fromData, data.count > 0 {
+                        var eof = false
+                        var sent: Int = 0
+                        while !eof {
+                            let group = DispatchGroup()
+                            group.enter()
+                            let endIndex = min(data.count, sent + chunkSize)
+                            eof = endIndex == data.count
+                            let subdata = data.subdata(in: sent..<endIndex)
+                            dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
+                                error = serror
+                                sent += subdata.count
+                                group.leave()
+                            })
+                            
+                            let waitResult = group.wait(timeout: .now() + timeout)
+                            onProgress?(Int64(subdata.count), Int64(sent), Int64(data.count))
+                            
+                            if let error = error {
+                                completionHandler(error)
+                                return
+                            }
+                            
+                            if waitResult == .timedOut {
+                                error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
+                                completionHandler(error)
+                                return
+                            }
+                        }
+                        
+                        dataTask.closeRead()
                         dataTask.closeWrite()
+                        completionHandler(nil)
                         return
                     }
                     
                     guard let file = fromFile, let fileHandle = FileHandle(forReadingAtPath: file.path) else { return }
-                    
+                    let size = file.fileSize
                     
                     fileHandle.seek(toFileOffset: 0)
                     var eof = false
+                    var sent: Int64 = 0
                     while !eof {
                         let group = DispatchGroup()
                         group.enter()
-                        let data = fileHandle.readData(ofLength: 65536)
-                        eof = data.count < 65536
+                        let data = fileHandle.readData(ofLength: chunkSize)
+                        eof = Int64(fileHandle.offsetInFile) == size
+                        
                         dataTask.write(data, timeout: timeout, completionHandler: { (serror) in
                             error = serror
+                            sent += Int64(data.count)
                             group.leave()
                         })
                         
                         let waitResult = group.wait(timeout: .now() + timeout)
+                        onProgress?(Int64(data.count), sent, size)
                         
                         if let error = error {
                             completionHandler(error)
@@ -639,11 +719,12 @@ extension FTPFileProvider {
                         }
                         
                         if waitResult == .timedOut {
-                            error = self.throwError(filePath, code: URLError.timedOut)
+                            error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
                             completionHandler(error)
                             return
                         }
                     }
+                    dataTask.closeRead()
                     dataTask.closeWrite()
                     completionHandler(nil)
                     return
@@ -659,7 +740,7 @@ extension FTPFileProvider {
                     return
                 }
                 
-                if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                if !(response.hasPrefix("1") || response.hasPrefix("2")) {
                     let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
                     let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
                     let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -758,13 +839,17 @@ extension FTPFileProvider {
         guard components.count > 1 else { return nil }
         
         let nameOrPath = components.removeLast().trimmingCharacters(in: .whitespacesAndNewlines)
-        let correctedPath: String, name: String
+        var correctedPath: String
+        let name: String
         if nameOrPath.hasPrefix("/") {
             correctedPath = nameOrPath.replacingOccurrences(of: baseURL!.path, with: "", options: .anchored)
             name = (nameOrPath as NSString).lastPathComponent
         } else {
             name = nameOrPath
             correctedPath = (path as NSString).appendingPathComponent(nameOrPath)
+        }
+        if correctedPath.hasPrefix("/") {
+            correctedPath.characters.removeFirst()
         }
         
         var attributes = [String: String]()
@@ -774,7 +859,7 @@ extension FTPFileProvider {
             attributes[keyValue[0].lowercased()] = keyValue.dropFirst().joined(separator: "=")
         }
         
-        let file = FileObject(url: url(of: path), name: name, path: correctedPath)
+        let file = FileObject(url: url(of: correctedPath), name: name, path: correctedPath)
         let dateFormatter = DateFormatter()
         dateFormatter.calendar = Calendar(identifier: .gregorian)
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")

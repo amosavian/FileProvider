@@ -83,7 +83,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         urlComponents.port = urlComponents.port ?? 21
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
         
-        self.baseURL = urlComponents.url!
+        self.baseURL =  (urlComponents.url!.path.hasSuffix("/") ? urlComponents.url! : urlComponents.url!.appendingPathComponent("")).absoluteURL
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
@@ -263,7 +263,21 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
-        NotImplemented()
+        self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
+            if let foundItemHandler = foundItemHandler {
+                for item in items where query.evaluate(with: item.mapPredicate()) {
+                    foundItemHandler(item)
+                }
+            }
+        }, completionHandler: {files, error in
+            if let error = error {
+                completionHandler([], error)
+                return
+            }
+            
+            let foundFiles = files.filter { query.evaluate(with: $0.mapPredicate()) }
+            completionHandler(foundFiles, nil)
+        })
     }
     
     public func url(of path: String?) -> URL {
@@ -272,7 +286,21 @@ open class FTPFileProvider: FileProviderBasicRemote {
         var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
         baseUrlComponent?.user = credential?.user
         baseUrlComponent?.password = credential?.password
-        return URL(string: path, relativeTo: baseURL) ?? baseURL!
+        return URL(string: path, relativeTo: baseUrlComponent?.url ?? baseURL) ?? baseUrlComponent?.url ?? baseURL!
+    }
+    
+    public func relativePathOf(url: URL) -> String {
+        // check if url derieved from current base url
+        let relativePath = url.relativePath
+        if !relativePath.isEmpty, url.baseURL == self.baseURL {
+            return (relativePath.removingPercentEncoding ?? relativePath).replacingOccurrences(of: "/", with: "", options: .anchored)
+        }
+        
+        if !relativePath.isEmpty, self.baseURL == self.url(of: "/") {
+            return (relativePath.removingPercentEncoding ?? relativePath).replacingOccurrences(of: "/", with: "", options: .anchored)
+        }
+        
+        return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
@@ -421,44 +449,69 @@ extension FTPFileProvider: FileProviderOperations {
         return operationHandle
     }
     
-    private func fallbackRemove(_ opType: FileOperationType, on task: FileProviderStreamTask, recursive: Bool = false, completionHandler: SimpleCompletionHandler) {
+    private func fallbackRemove(_ opType: FileOperationType, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
         guard let sourcePath = opType.source else { return }
         
-        switch recursive {
-        case true:
-            NotImplemented()
-        case false:
-            self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
-                if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
-                    }
-                    return
-                }
-                
-                guard let response = response else {
-                    let error = self.throwError(sourcePath, code: URLError.badServerResponse)
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
-                    }
-                    return
-                }
-                
-                if response.hasPrefix("50") {
-                    self.fallbackRemove(opType, on: task, recursive: true, completionHandler: completionHandler)
-                    return
-                }
-                
-                let error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+        self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
+            if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
                     self.delegateNotify(opType, error: error)
                 }
+                return
+            }
+            
+            guard let response = response else {
+                let error = self.throwError(sourcePath, code: URLError.badServerResponse)
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                return
+            }
+            
+            if response.hasPrefix("50") {
+                self.fallbackRecursiveRemove(opType, on: task, completionHandler: completionHandler)
+                return
+            }
+            
+            let error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+            self.dispatch_queue.async {
+                completionHandler?(error)
+                self.delegateNotify(opType, error: error)
             }
         }
-        return
+    }
+    
+    private func fallbackRecursiveRemove(_ opType: FileOperationType, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
+        guard let sourcePath = opType.source else { return }
+        
+        self.recursiveList(path: sourcePath, useMLST: true, completionHandler: { (contents, error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                return
+            }
+            
+            let sortedContents = contents.sorted(by: {
+                $0.path.localizedStandardCompare($1.path) == .orderedDescending
+            })
+            var command = ""
+            for file in sortedContents {
+                command += (file.isDirectory ? "RMD \(self.ftpPath(file.path))" : "DELE \(self.ftpPath(file.path))") + "\r\n"
+            }
+            command += "RMD \(self.ftpPath(sourcePath))"
+            
+            self.execute(command: command, on: task, completionHandler: { (response, error) in
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                // TODO: Digest response
+            })
+        })
     }
     
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
@@ -489,6 +542,10 @@ extension FTPFileProvider: FileProviderOperations {
             self.ftpStore(task, filePath: self.ftpPath(toPath), fromData: nil, fromFile: localFile, onTask: {
                 operation.add(task: $0)
                 $0.taskDescription = opType.json
+            }, onProgress: { bytesSent, totalSent, expectedBytes in
+                DispatchQueue.main.async {
+                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(Double(totalSent) / Double(expectedBytes)))
+                }
             }, completionHandler: { (error) in
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
@@ -509,19 +566,38 @@ extension FTPFileProvider: FileProviderOperations {
         let operation = RemoteOperationHandle(operationType: opType, tasks: [])
         
         if self.useAppleImplementation {
-            let task = session.downloadTask(with: url(of: path))
-            completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
-            downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-                do {
-                    try FileManager.default.moveItem(at: tempURL, to: destURL)
-                    completionHandler?(nil)
-                } catch let e {
-                    completionHandler?(e)
+            self.attributesOfItem(path: path, completionHandler: { (file, error) in
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
+                    }
+                    return
                 }
-            }
-            operation.add(task: task)
-            task.taskDescription = opType.json
-            task.resume()
+                
+                if file?.isDirectory ?? false {
+                    self.dispatch_queue.async {
+                        let error = self.throwError(path, code: URLError.fileIsDirectory)
+                        completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
+                    }
+                    return
+                }
+                
+                let task = self.session.downloadTask(with: self.url(of: path))
+                completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+                downloadCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+                    do {
+                        try FileManager.default.moveItem(at: tempURL, to: destURL)
+                        completionHandler?(nil)
+                    } catch let e {
+                        completionHandler?(e)
+                    }
+                }
+                operation.add(task: task)
+                task.taskDescription = opType.json
+                task.resume()
+            })
         } else {
             let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
             self.ftpLogin(task) { (error) in
@@ -657,6 +733,10 @@ extension FTPFileProvider: FileProviderReadWrite {
                 self.ftpStore(task, filePath: self.ftpPath(path), fromData: data ?? Data(), fromFile: nil, onTask: {
                     operation.add(task: $0)
                     $0.taskDescription = opType.json
+                }, onProgress: { bytesSent, totalSent, expectedBytes in
+                    DispatchQueue.main.async {
+                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(Double(totalSent) / Double(expectedBytes)))
+                    }
                 }, completionHandler: { (error) in
                     self.ftpQuit(task)
                     self.dispatch_queue.async {

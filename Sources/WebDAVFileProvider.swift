@@ -138,7 +138,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         }
     }
     
-    public func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
         self.contentsOfDirectory(path: path, including: [], completionHandler: completionHandler)
     }
     

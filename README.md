@@ -28,10 +28,9 @@ All functions do async calls and it wont block your main thread.
 
 - [x] **LocalFileProvider** a wrapper around `FileManager` with some additions like builtin coordinating, searching and reading a portion of file.
 - [x] **CloudFileProvider** A wrapper around app's ubiquitous container API of iCloud Drive.
-- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, supported by some cloud services like `Box.com` and `Yandex.disk`.
+- [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, supported by some cloud services like `ownCloud`, `Box.com` and `Yandex.disk`.
 - [x] **FTPFileProvider** While deprecated in 1990s due to serious security concerns, it's still in use on some Web hosts.
-    * Recursive directory removing & searching is not implemented yet.
-    * Active mode is not implemented yet (and probably won`t).
+    * Active mode is not implemented yet.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
@@ -69,7 +68,7 @@ github "amosavian/FileProvider"
 Or to use in Swift Package Manager add this line in `Dependencies`:
 
 ```swift
-.Package(url: "https://github.com/amosavian/FileProvider.git", majorVersion: 0, minorVersion: 12)
+.Package(url: "https://github.com/amosavian/FileProvider.git", majorVersion: 0)
 ```
 
 ### Manually
