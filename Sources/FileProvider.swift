@@ -132,6 +132,15 @@ public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
     */
     func url(of path: String?) -> URL
     
+    
+    /// Returns the relative path of url, wothout percent encoding. Even if url is absolute or
+    /// retrieved from another provider, it will try to resolve the url against `baseURL` of
+    /// current provider. It's highly recomended to use this method for displaying purposes.
+    ///
+    /// - Parameter url: Absolute url to file or directory.
+    /// - Returns: A `String` contains relative path of url against base url.
+    func relativePathOf(url: URL) -> String
+    
     /// Checks the connection to server or permission on local
     func isReachable(completionHandler: @escaping(_ success: Bool) -> Void)
 }
@@ -625,26 +634,29 @@ extension FileProviderBasic {
         }
     }
     
-    
-    /// Returns the relative path of url, wothout percent encoding. Even if url is absolute or
-    /// retrieved from another provider, it will try to resolve the url against `baseURL` of
-    /// current provider. It's highly recomended to use this method for displaying purposes.
-    ///
-    /// - Parameter url: Absolute url to file or directory.
-    /// - Returns: A `String` contains relative path of url against base url.
     public func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
         let relativePath = url.relativePath
         if !relativePath.isEmpty, url.baseURL == self.baseURL {
-            return relativePath.removingPercentEncoding ?? relativePath
+            return (relativePath.removingPercentEncoding ?? relativePath).replacingOccurrences(of: "/", with: "", options: .anchored)
         }
         
         // resolve url string against baseurl
-        guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
-        let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
-        let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
-        let standardRelativePath = standardPath.replacingOccurrences(of: standardBase, with: "/")
-        return standardRelativePath.removingPercentEncoding ?? standardRelativePath
+        if baseURL?.isFileURL ?? false {
+            guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
+            let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+            let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+            let standardRelativePath = standardPath.replacingOccurrences(of: standardBase, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+            return standardRelativePath.removingPercentEncoding ?? standardRelativePath
+        } else {
+            guard let baseURL = self.baseURL else { return url.absoluteString }
+            let standardRelativePath = url.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+            if URLComponents(string: standardRelativePath)?.host?.isEmpty ?? true {
+                return standardRelativePath.removingPercentEncoding ?? standardRelativePath
+            } else {
+                return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
+            }
+        }
     }
     
     internal func correctPath(_ path: String?) -> String? {

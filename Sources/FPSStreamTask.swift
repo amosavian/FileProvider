@@ -23,6 +23,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return (_underlyingSession.delegate as? FPSStreamDelegate)
     }
     fileprivate var _taskIdentifier: Int
+    fileprivate var _taskDescription: String?
     
     /// Force using `URLSessionStreamTask` for iOS 9 and later
     public var useURLSession = true
@@ -48,6 +49,32 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         return _taskIdentifier
+    }
+    
+    /// An app-provided description of the current task.
+    ///
+    /// This value may be nil. It is intended to contain human-readable strings that you can
+    /// then display to the user as part of your app’s user interface.
+    open override var taskDescription: String? {
+        get {
+            if #available(iOS 9.0, OSX 10.11, *) {
+                if self.useURLSession {
+                    return _underlyingTask!.taskDescription
+                }
+            }
+            
+            return _taskDescription
+        }
+        set {
+            if #available(iOS 9.0, OSX 10.11, *) {
+                if self.useURLSession {
+                    _underlyingTask!.taskDescription = newValue
+                    return
+                }
+            }
+            
+            _taskDescription = newValue
+        }
     }
     
     fileprivate var _state: URLSessionTask.State = .suspended
