@@ -70,10 +70,6 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         }
     }
     
-    internal var completionHandlersForTasks = [Int: SimpleCompletionHandler]()
-    internal var downloadCompletionHandlersForTasks = [Int: (URL) -> Void]()
-    internal var dataCompletionHandlersForTasks = [Int: (Data) -> Void]()
-    
     fileprivate var _longpollSession: URLSession?
     internal var longpollSession: URLSession {
         if _longpollSession == nil {
@@ -323,8 +319,8 @@ extension DropboxFileProvider: FileProviderOperations {
         let requestJson = String(jsonDictionary: requestDictionary) ?? ""
         request.setValue(requestJson, forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[task.taskIdentifier] = completionHandler
-        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
@@ -366,10 +362,10 @@ extension DropboxFileProvider: FileProviderReadWrite {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[task.taskIdentifier] = { error in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
             completionHandler(nil, error)
         }
-        downloadCompletionHandlersForTasks[task.taskIdentifier] = { tempURL in
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description

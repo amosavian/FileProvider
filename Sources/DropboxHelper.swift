@@ -149,7 +149,7 @@ internal extension DropboxFileProvider {
             return nil
         }
         
-        completionHandlersForTasks[task.taskIdentifier] = { [weak self] error in
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderDropboxError?
             if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 // We can't fetch server result from delegate!

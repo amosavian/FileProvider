@@ -128,7 +128,7 @@ open class CloudFileProvider: LocalFileProvider {
             query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
                 defer {
                     query.stop()
                     NotificationCenter.default.removeObserver(finishObserver!)
@@ -195,7 +195,7 @@ open class CloudFileProvider: LocalFileProvider {
             query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
                 defer {
                     query.stop()
                     NotificationCenter.default.removeObserver(finishObserver!)

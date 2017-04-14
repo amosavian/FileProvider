@@ -441,7 +441,8 @@ extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 53 + filePath.characters.count + String(totalSize).characters.count /* RETR open response */ + 26 /* RETR Transfer complete message. */
+                self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: len, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
                     
@@ -547,7 +548,8 @@ extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: 75, afterSend: { error in
+                let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 53 + filePath.characters.count + String(totalSize).characters.count /* RETR open response */ + 26 /* RETR Transfer complete message. */
+                self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: len, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
                     
@@ -614,7 +616,7 @@ extension FTPFileProvider {
                         return
                     }
                     
-                    if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                    if !(response.hasPrefix("1") || response.hasPrefix("2")) {
                         let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
                         let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
                         let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -644,7 +646,8 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, minLength: 75, afterSend: { error in
+            let len = 17 /* */
+            self.execute(command: "TYPE I"  + "\r\n" + "REST 0"  + "\r\n" + "STOR \(filePath)", on: task, minLength: 90 + filePath.characters.count, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
@@ -656,74 +659,53 @@ extension FTPFileProvider {
                     var error: Error?
                     let chunkSize = 65536
                     
-                    if let data = fromData, data.count > 0 {
-                        var eof = false
-                        var sent: Int = 0
-                        while !eof {
-                            let group = DispatchGroup()
-                            group.enter()
-                            let endIndex = min(data.count, sent + chunkSize)
-                            eof = endIndex == data.count
-                            let subdata = data.subdata(in: sent..<endIndex)
-                            dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
-                                error = serror
-                                sent += subdata.count
-                                group.leave()
-                            })
-                            
-                            let waitResult = group.wait(timeout: .now() + timeout)
-                            onProgress?(Int64(subdata.count), Int64(sent), Int64(data.count))
-                            
-                            if let error = error {
-                                completionHandler(error)
-                                return
-                            }
-                            
-                            if waitResult == .timedOut {
-                                error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
-                                completionHandler(error)
-                                return
-                            }
-                        }
+                    guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
+                    var fileHandle: FileHandle?
+                    if let file = fromFile {
+                        fileHandle = FileHandle(forReadingAtPath: file.path)
+                    }
+                    defer {
+                        fileHandle?.closeFile()
+                    }
+                    var eof = false
+                    var sent: Int64 = 0
+                    let group = DispatchGroup()
+                    while !eof {
+                        group.enter()
                         
-                        dataTask.closeRead()
-                        dataTask.closeWrite()
-                        completionHandler(nil)
+                        let subdata: Data
+                        if let data = fromData {
+                            let endIndex = min(data.count, Int(sent) + chunkSize)
+                            eof = endIndex == data.count
+                            subdata = data.subdata(in: Int(sent)..<endIndex)
+                        }else if let fileHandle = fileHandle {
+                            subdata = fileHandle.readData(ofLength: chunkSize)
+                            eof = Int64(fileHandle.offsetInFile) == size
+                        } else {
+                            return
+                        }
+                        if subdata.count == 0 { continue }
+                        
+                        dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
+                            error = serror
+                            sent += Int64(subdata.count)
+                            onProgress?(Int64(subdata.count), sent, size)
+                            group.leave()
+                        })
+                    }
+                    let waitResult = group.wait(timeout: .now() + timeout)
+                    
+                    if let error = error {
+                        completionHandler(error)
                         return
                     }
                     
-                    guard let file = fromFile, let fileHandle = FileHandle(forReadingAtPath: file.path) else { return }
-                    let size = file.fileSize
-                    
-                    fileHandle.seek(toFileOffset: 0)
-                    var eof = false
-                    var sent: Int64 = 0
-                    while !eof {
-                        let group = DispatchGroup()
-                        group.enter()
-                        let data = fileHandle.readData(ofLength: chunkSize)
-                        eof = Int64(fileHandle.offsetInFile) == size
-                        
-                        dataTask.write(data, timeout: timeout, completionHandler: { (serror) in
-                            error = serror
-                            sent += Int64(data.count)
-                            group.leave()
-                        })
-                        
-                        let waitResult = group.wait(timeout: .now() + timeout)
-                        onProgress?(Int64(data.count), sent, size)
-                        
-                        if let error = error {
-                            completionHandler(error)
-                            return
-                        }
-                        
-                        if waitResult == .timedOut {
-                            error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
-                            completionHandler(error)
-                            return
-                        }
+                    if waitResult == .timedOut {
+                        error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
+                        completionHandler(error)
+                        return
                     }
+                    
                     dataTask.closeRead()
                     dataTask.closeWrite()
                     completionHandler(nil)
