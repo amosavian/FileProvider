@@ -142,7 +142,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         if !(task is URLSessionDownloadTask), case FileOperationType.fetch = op {
             return
         }
-        if #available(iOSApplicationExtension 9.0, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if task is URLSessionStreamTask {
                 return
             }

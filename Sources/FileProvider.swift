@@ -691,7 +691,7 @@ extension FileProviderBasic {
             }
             var i = number ?? 2
             let similiar = contents.map {
-                $0.url.lastPathComponent ?? $0.name
+                $0.url.lastPathComponent.isEmpty ? $0.name : $0.url.lastPathComponent
             }.filter {
                 $0.hasPrefix(result)
             }
