@@ -842,19 +842,20 @@ extension ExtendedFileProvider {
             return resultingImage
         #else
             let ppp = Int(UIScreen.main.scale) // fetch device is retina or not
-            guard let context = UIGraphicsGetCurrentContext() else {
-                return nil
-            }
             size.width  *= CGFloat(ppp)
             size.height *= CGFloat(ppp)
             UIGraphicsBeginImageContext(size)
-            
+            guard let context = UIGraphicsGetCurrentContext() else {
+                return nil
+            }
             context.saveGState()
             let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
             context.concatenate(transform)
             
             context.translateBy(x: 0, y: size.height)
             context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+            context.setFillColor(UIColor.white.cgColor)
+            context.fill(rect)
             context.drawPDFPage(pdfPage)
             
             context.restoreGState()

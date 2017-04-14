@@ -559,24 +559,35 @@ extension DropboxFileProvider: ExtendedFileProvider {
     /// Default value for dimension is 64x64, according to Dropbox documentation
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let url: URL
+        let thumbAPI: Bool
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             url = URL(string: "files/get_thumbnail", relativeTo: contentURL)!
+            thumbAPI = true
         case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
             fallthrough
         case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
             fallthrough
         case "rtf":
             url = URL(string: "files/get_preview", relativeTo: contentURL)!
+            thumbAPI = false
         default:
             return
         }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
         var requestDictionary: [String: AnyObject] = ["path": path as NSString]
-        requestDictionary["format"] = "jpeg" as NSString
-        if let dimension = dimension {
-            requestDictionary["size"] = "w\(Int(dimension.width))h\(Int(dimension.height))" as NSString
+        if thumbAPI {
+            requestDictionary["format"] = "jpeg" as NSString
+            let size: String
+            switch dimension?.height ?? 64 {
+            case 0...32:    size = "w32h32"
+            case 33...64:   size = "w64h64"
+            case 65...128:  size = "w128h128"
+            case 129...480: size = "w640h480"
+            default: size = "w1024h768"
+            }
+            requestDictionary["size"] = size as NSString
         }
         request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -591,8 +602,12 @@ extension DropboxFileProvider: ExtendedFileProvider {
                     image = pageImage
                 } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
                      // TODO: Implement converting html returned type of get_preview to image
-                } else {
-                    image = ImageClass(data: data)
+                } else if let fetchedimage = ImageClass(data: data){
+                    if let dimension = dimension {
+                        image = DropboxFileProvider.scaleDown(image: fetchedimage, toSize: dimension)
+                    } else {
+                        image = fetchedimage
+                    }
                 }
             }
             completionHandler(image, error)
