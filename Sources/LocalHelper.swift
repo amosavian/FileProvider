@@ -10,7 +10,7 @@ import Foundation
 
 /// Containts path, url and attributes of a local file or resource.
 public final class LocalFileObject: FileObject {
-    internal override init(url: URL, name: String, path: String) {
+    internal override init(url: URL?, name: String, path: String) {
         super.init(url: url, name: name, path: path)
     }
     
@@ -24,7 +24,8 @@ public final class LocalFileObject: FileObject {
         if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
             fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
         } else {
-            fileURL = URL(string: rpath.isEmpty ? "./" : rpath, relativeTo: relativeURL)
+            rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
+            fileURL = URL(string: rpath, relativeTo: relativeURL) ?? relativeURL
         }
         
         if let fileURL = fileURL {

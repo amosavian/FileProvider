@@ -17,19 +17,15 @@ public struct FileProviderDropboxError: FileProviderHTTPError {
 
 /// Containts path, url and attributes of a Dropbox file or resource.
 public final class DropboxFileObject: FileObject {
-    internal init(name: String, path: String) {
-        super.init(url: URL(string: path) ?? URL(string: "/")!, name: name, path: path)
-    }
-    
     internal convenience init? (jsonStr: String) {
         guard let json = jsonStr.deserializeJSON() else { return nil }
         self.init(json: json)
     }
     
-    internal convenience init? (json: [String: AnyObject]) {
+    internal init? (json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["path_display"] as? String else { return nil }
-        self.init(name: name, path: path)
+        super.init(url: nil, name: name, path: path)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         self.serverTime = Date(rfcString: json["server_modified"] as? String ?? "")
         self.modifiedDate = Date(rfcString: json["client_modified"] as? String ?? "")

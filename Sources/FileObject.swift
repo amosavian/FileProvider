@@ -17,18 +17,25 @@ open class FileObject: Equatable {
         self.allValues = allValues
     }
     
-    internal init(url: URL, name: String, path: String) {
+    internal init(url: URL?, name: String, path: String) {
         self.allValues = [URLResourceKey: Any]()
-        self.url = url
+        if let url = url {
+            self.url = url
+        }
         self.name = name
         self.path = path
     }
     
     /// URL to access the resource, can be a relative URL against base URL.
     /// not supported by Dropbox provider.
-    open internal(set) var url: URL? {
+    open internal(set) var url: URL {
         get {
-            return allValues[.fileURLKey] as? URL
+            if let url = allValues[.fileURLKey] as? URL {
+                return url
+            } else {
+                let path = self.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? self.path
+                return URL(string: path) ?? URL(string: "/")!
+            }
         }
         set {
             allValues[.fileURLKey] = newValue
@@ -133,13 +140,13 @@ open class FileObject: Equatable {
     
     /// Check `FileObject` equality
     public static func ==(lhs: FileObject, rhs: FileObject) -> Bool {
-        if rhs === lhs {
+        if rhs === lhs  {
             return true
         }
         if type(of: lhs) != type(of: rhs) {
             return false
         }
-        if let rurl = rhs.url, let lurl = lhs.url {
+        if let rurl = rhs.allValues[.fileURLKey] as? URL, let lurl = lhs.allValues[.fileURLKey] as? URL {
             return rurl == lurl
         }
         return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate

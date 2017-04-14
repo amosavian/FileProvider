@@ -628,7 +628,7 @@ open class CloudFileProvider: LocalFileProvider {
         
         let path = self.relativePathOf(url: url)
         let rpath = path.hasPrefix("/") ? path.substring(from: path.index(after: path.startIndex)) : path
-        let relativeUrl = URL(string: rpath, relativeTo: self.baseURL)
+        let relativeUrl = URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath, relativeTo: self.baseURL)
         let file = FileObject(url: relativeUrl ?? url, name: name, path: path)
         
         file.size = (attribs[NSMetadataItemFSSizeKey] as? NSNumber)?.int64Value ?? -1
