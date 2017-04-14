@@ -442,7 +442,10 @@ extension FTPFileProvider: FileProviderOperations {
                 return
             }
             
-            let secondOp = self.copyItem(localFile: localURL, to: destPath, completionHandler: completionHandler) as? RemoteOperationHandle
+            let secondOp = self.copyItem(localFile: localURL, to: destPath, completionHandler: { error in
+                completionHandler?(nil)
+                self.delegateNotify(opType, error: nil)
+            }) as? RemoteOperationHandle
             operationHandle.tasks = secondOp?.tasks ?? []
         }) as? RemoteOperationHandle
         operationHandle.tasks = firstOp?.tasks ?? []
@@ -475,7 +478,10 @@ extension FTPFileProvider: FileProviderOperations {
                 return
             }
             
-            let error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+            var error: Error?
+            if !response.hasPrefix("2") {
+                error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+            }
             self.dispatch_queue.async {
                 completionHandler?(error)
                 self.delegateNotify(opType, error: error)
@@ -541,7 +547,6 @@ extension FTPFileProvider: FileProviderOperations {
             
             self.ftpStore(task, filePath: self.ftpPath(toPath), fromData: nil, fromFile: localFile, onTask: {
                 operation.add(task: $0)
-                $0.taskDescription = opType.json
             }, onProgress: { bytesSent, totalSent, expectedBytes in
                 DispatchQueue.main.async {
                     self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(Double(totalSent) / Double(expectedBytes)))
@@ -610,7 +615,6 @@ extension FTPFileProvider: FileProviderOperations {
                 
                 self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: {
                     operation.add(task: $0)
-                    $0.taskDescription = opType.json
                 }, onProgress: { recevied, totalReceived, totalSize in
                     let progress = Double(totalReceived) / Double(totalSize)
                     self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
@@ -687,7 +691,6 @@ extension FTPFileProvider: FileProviderReadWrite {
             
             self.ftpRetrieveData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: {
                 operation.add(task: $0)
-                $0.taskDescription = opType.json
             }, onProgress: { recevied, totalReceived, totalSize in
                 let progress = Double(totalReceived) / Double(totalSize)
                 self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress))
@@ -732,7 +735,6 @@ extension FTPFileProvider: FileProviderReadWrite {
             let storeHandler = {
                 self.ftpStore(task, filePath: self.ftpPath(path), fromData: data ?? Data(), fromFile: nil, onTask: {
                     operation.add(task: $0)
-                    $0.taskDescription = opType.json
                 }, onProgress: { bytesSent, totalSent, expectedBytes in
                     DispatchQueue.main.async {
                         self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(Double(totalSent) / Double(expectedBytes)))

@@ -633,7 +633,70 @@ extension FTPFileProvider {
     }
     
     func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FileProviderStreamTask) -> Void)?,  onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
-        
+        let timeout = self.session.configuration.timeoutIntervalForRequest
+        operation_queue.addOperation {
+            guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
+            
+            var error: Error?
+            let chunkSize: Int
+            switch size {
+            case 0..<262_144: chunkSize = 32_768 // 0KB To 256KB, page size is 32KB
+            case 262_144..<1_048_576: chunkSize = 65_536 // 256KB To 1MB, page size is 64KB
+            case 1_048_576..<10_485_760: chunkSize = 131_072 // 1MB To 10MB, page size is 128KB
+            case 10_048_576..<33_554_432: chunkSize = 262_144 // 1MB To 10MB, page size is 256KB
+            default: chunkSize = 524_288 // Larger than 32MB, page size is 512KB
+            }
+            
+            var fileHandle: FileHandle?
+            if let file = fromFile {
+                fileHandle = FileHandle(forReadingAtPath: file.path)
+            }
+            defer {
+                fileHandle?.closeFile()
+            }
+            
+            var eof = false
+            var sent: Int64 = 0
+            
+            while !eof {
+                let subdata: Data
+                if let data = fromData {
+                    let endIndex = min(data.count, Int(sent) + chunkSize)
+                    eof = endIndex == data.count
+                    subdata = data.subdata(in: Int(sent)..<endIndex)
+                }else if let fileHandle = fileHandle {
+                    subdata = fileHandle.readData(ofLength: chunkSize)
+                    eof = Int64(fileHandle.offsetInFile) == size
+                } else {
+                    return
+                }
+                if subdata.count == 0 { continue }
+                
+                let group = DispatchGroup()
+                group.enter()
+                self.ftpStore(task, data: subdata, to: filePath, from: sent, onTask: onTask, completionHandler: { (serror) in
+                    error = serror
+                    sent += Int64(subdata.count)
+                    group.leave()
+                    onProgress?(Int64(subdata.count), sent, size)
+                })
+                let waitResult = group.wait(timeout: .now() + timeout)
+                
+                if waitResult == .timedOut {
+                    error = self.throwError(filePath, code: URLError.timedOut)
+                    completionHandler(error)
+                    return
+                }
+                if let error = error {
+                    completionHandler(error)
+                    return
+                }
+            }
+            completionHandler(nil)
+        }
+    }
+    
+    func ftpStore(_ task: FileProviderStreamTask, data: Data, to filePath: String, from position: Int64, onTask: ((_ task: FileProviderStreamTask) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
         self.ftpDataConnect(task) { (dataTask, error) in
             if let error = error {
                 completionHandler(error)
@@ -646,8 +709,9 @@ extension FTPFileProvider {
             }
             
             // Send retreive command
-            let len = 17 /* */
-            self.execute(command: "TYPE I"  + "\r\n" + "REST 0"  + "\r\n" + "STOR \(filePath)", on: task, minLength: 90 + filePath.characters.count, afterSend: { error in
+            var success = false
+            let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 44 + filePath.characters.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
+            self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
@@ -655,63 +719,21 @@ extension FTPFileProvider {
                 }
                 onTask?(dataTask)
                 
-                DispatchQueue.global().async {
-                    var error: Error?
-                    let chunkSize = 65536
-                    
-                    guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
-                    var fileHandle: FileHandle?
-                    if let file = fromFile {
-                        fileHandle = FileHandle(forReadingAtPath: file.path)
-                    }
-                    defer {
-                        fileHandle?.closeFile()
-                    }
-                    var eof = false
-                    var sent: Int64 = 0
-                    let group = DispatchGroup()
-                    while !eof {
-                        group.enter()
-                        
-                        let subdata: Data
-                        if let data = fromData {
-                            let endIndex = min(data.count, Int(sent) + chunkSize)
-                            eof = endIndex == data.count
-                            subdata = data.subdata(in: Int(sent)..<endIndex)
-                        }else if let fileHandle = fileHandle {
-                            subdata = fileHandle.readData(ofLength: chunkSize)
-                            eof = Int64(fileHandle.offsetInFile) == size
-                        } else {
-                            return
-                        }
-                        if subdata.count == 0 { continue }
-                        
-                        dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
-                            error = serror
-                            sent += Int64(subdata.count)
-                            onProgress?(Int64(subdata.count), sent, size)
-                            group.leave()
-                        })
-                    }
-                    let waitResult = group.wait(timeout: .now() + timeout)
-                    
+                if data.count == 0 { return }
+                
+                dataTask.write(data, timeout: timeout, completionHandler: { (error) in
                     if let error = error {
                         completionHandler(error)
                         return
                     }
-                    
-                    if waitResult == .timedOut {
-                        error = self.throwError(fromFile?.relativePath ?? filePath, code: URLError.timedOut)
-                        completionHandler(error)
-                        return
-                    }
+                    success = true
                     
                     dataTask.closeRead()
                     dataTask.closeWrite()
-                    completionHandler(nil)
-                    return
-                }
+                })
             }) { (response, error) in
+                guard success else { return }
+                
                 if let error = error {
                     completionHandler(error)
                     return
@@ -733,6 +755,8 @@ extension FTPFileProvider {
                     }
                     return
                 }
+                
+                completionHandler(nil)
             }
         }
     }

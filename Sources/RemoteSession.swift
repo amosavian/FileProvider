@@ -142,6 +142,12 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         if !(task is URLSessionDownloadTask), case FileOperationType.fetch = op {
             return
         }
+        if #available(iOSApplicationExtension 9.0, *) {
+            if task is URLSessionStreamTask {
+                return
+            }
+        }
+        
         DispatchQueue.main.async {
             if error != nil {
                 fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op)
