@@ -17,7 +17,7 @@ import CoreGraphics
  - Note: Uploading files and data are limited to 150MB, for now.
  */
 open class DropboxFileProvider: FileProviderBasicRemote {
-    open class var type: String { return "DropBox" }
+    open class var type: String { return "Dropbox" }
     open let baseURL: URL?
     open var currentPath: String
     
