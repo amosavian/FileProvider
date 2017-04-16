@@ -33,6 +33,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
     }
     
     public weak var delegate: FileProviderDelegate?
+    public var credentialType: HTTPAuthenticationType = .digest
     open var credential: URLCredential? {
         didSet {
             sessionDelegate?.credential = credential
@@ -160,6 +161,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
@@ -202,6 +204,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
@@ -231,6 +234,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
@@ -253,6 +257,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         //request.setValue("1", forHTTPHeaderField: "Depth")
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -284,6 +289,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
@@ -306,6 +312,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let url = self.url(of: atPath).appendingPathComponent(folderName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? folderName, isDirectory: true)
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
+        request.set(httpAuthentication: credential, with: credentialType)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -364,6 +371,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             return nil
         }
         
+        request.set(httpAuthentication: credential, with: credentialType)
         if let overwrite = overwrite, !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
@@ -412,6 +420,7 @@ extension WebDAVFileProvider: FileProviderOperations {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
         request.httpMethod = "PUT"
+        request.set(httpAuthentication: credential, with: credentialType)
         let task = session.uploadTask(with: request, fromFile: localFile)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
             var responseError: FileProviderWebDavError?
@@ -434,7 +443,8 @@ extension WebDAVFileProvider: FileProviderOperations {
             return nil
         }
         let url = self.url(of:path)
-        let request = URLRequest(url: url)
+        var request = URLRequest(url: url)
+        request.set(httpAuthentication: credential, with: credentialType)
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
@@ -470,6 +480,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         var request = URLRequest(url: url)
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(rangeWithOffset: offset, length: length)
         
         let task = session.downloadTask(with: request)
@@ -508,6 +519,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let url = atomically ? self.url(of: path).appendingPathExtension("tmp") : self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        request.set(httpAuthentication: credential, with: credentialType)
         if !overwrite {
             request.setValue("F", forHTTPHeaderField: "Overwrite")
         }
@@ -563,6 +575,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         let url = URL(string: self.url(of: path).absoluteString + "?preview&size=\(dimension.width)x\(dimension.height)")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.set(httpAuthentication: credential, with: credentialType)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -598,7 +611,8 @@ extension WebDAVFileProvider: FileProviderSharing {
         
         let url = self.url(of: path)
         var request = URLRequest(url: url)
-        request.httpMethod = "PROPPATCG"
+        request.httpMethod = "PROPPATCH"
+        request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
         request.httpBody = body.data(using: .utf8)

@@ -91,7 +91,7 @@ extension FileProviderHTTPError {
 }
 
 /// Defines HTTP Authentication method required to access
-internal enum HTTPAuthenticationType {
+public enum HTTPAuthenticationType {
     /// Basic method for authentication
     case basic
     /// Digest method for authentication
