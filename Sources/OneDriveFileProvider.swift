@@ -152,7 +152,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderOneDriveError?
             var fileObject: OneDriveFileObject?
@@ -171,7 +171,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
         var request = URLRequest(url: url())
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var totalSize: Int64 = -1
             var usedSize: Int64 = 0
@@ -228,7 +228,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         var request = URLRequest(url: url())
         request.httpMethod = "HEAD"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
             completionHandler(status == 200)
@@ -279,10 +279,10 @@ extension OneDriveFileProvider: FileProviderOperations {
             return nil
         }
         
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         var requestDictionary = [String: AnyObject]()
         if let dest = correctPath(destPath) as NSString? {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.set(contentType: .json)
             requestDictionary["parentReference"] = ("/drive/\(drive):" + dest.deletingLastPathComponent) as NSString
             requestDictionary["name"] = dest.lastPathComponent as NSString
             request.httpBody = Data(jsonDictionary: requestDictionary)
@@ -322,7 +322,7 @@ extension OneDriveFileProvider: FileProviderOperations {
             return nil
         }
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
@@ -358,12 +358,8 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         let opType = FileOperationType.fetch(path: path)
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
-        } else if offset > 0 && length < 0 {
-            request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
-        }
+        request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(rangeWithOffset: offset, length: length)
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
             completionHandler(nil, error)
@@ -409,19 +405,10 @@ extension OneDriveFileProvider: FileProviderReadWrite {
     fileprivate func unregisterNotifcation(path: String) {
         NotImplemented()
     }
-    
-    /**
-     Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
-     
-     - Parameters:
-       - to: path of file, including file/directory name.
-       - completionHandler: a closure with result of directory entries or error.
-         `link`: a url returned by OneDrive to share.
-         `attribute`: `nil` for OneDrive.
-         `expiration`: `nil` for OneDrive, as it doesn't expires.
-         `error`: Error returned by OneDrive.
-     */
-    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: OneDriveFileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+}
+
+extension OneDriveFileProvider: FileProviderSharing {
+    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
         request.httpMethod = "POST"
         let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
@@ -474,7 +461,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         }
         
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -493,7 +480,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderOneDriveError?
             var dic = [String: Any]()

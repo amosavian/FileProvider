@@ -140,7 +140,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         }
     }
     
-    public func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
         self.contentsOfDirectory(path: path, rfc3659enabled: true, completionHandler: completionHandler)
     }
     
@@ -191,7 +191,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         }
     }
     
-    public func attributesOfItem(path: String, completionHandler: @escaping ((FileObject?, Error?) -> Void)) {
+    open func attributesOfItem(path: String, completionHandler: @escaping ((FileObject?, Error?) -> Void)) {
         self.attributesOfItem(path: path, rfc3659enabled: true, completionHandler: completionHandler)
     }
     
@@ -642,7 +642,7 @@ extension FTPFileProvider: FileProviderOperations {
 }
 
 extension FTPFileProvider: FileProviderReadWrite {
-    public func contents(path: String, completionHandler: @escaping ((Data?, Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, completionHandler: @escaping ((Data?, Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -715,7 +715,7 @@ extension FTPFileProvider: FileProviderReadWrite {
         return operation
     }
     
-    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -763,7 +763,7 @@ extension FTPFileProvider: FileProviderReadWrite {
     }
 }
 
-extension FTPFileProvider {
+public extension FTPFileProvider {
     /**
      Creates a symbolic link at the specified path that points to an item at the given path.
      This method does not traverse symbolic links contained in destination path, making it possible

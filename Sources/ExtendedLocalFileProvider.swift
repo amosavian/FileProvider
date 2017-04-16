@@ -12,7 +12,7 @@ import CoreGraphics
 import AVFoundation
 
 extension LocalFileProvider: ExtendedFileProvider {
-    public func thumbnailOfFileSupported(path: String) -> Bool {
+    open func thumbnailOfFileSupported(path: String) -> Bool {
         switch (path as NSString).pathExtension.lowercased() {
         case LocalFileInformationGenerator.imageThumbnailExtensions:
             return true
@@ -31,7 +31,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         }
     }
     
-    public func propertiesOfFileSupported(path: String) -> Bool {
+    open func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
         case LocalFileInformationGenerator.imagePropertiesExtensions:
@@ -54,7 +54,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         }
     }
     
-    public func thumbnailOfFile(path: String, dimension: CGSize? = nil, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize? = nil, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
         let dimension = dimension ?? CGSize(width: 64, height: 64)
         (dispatch_queue).async {
             var thumbnailImage: ImageClass? = nil
@@ -86,7 +86,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         }
     }
     
-    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void)) {
         (dispatch_queue).async {
             let fileExt = (path as NSString).pathExtension.lowercased()
             var getter: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))?

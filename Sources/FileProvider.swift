@@ -611,6 +611,25 @@ public extension FileProvideUndoable {
     }
 }
 
+/// This protocol defines method to share a public link with other users
+public protocol FileProviderSharing {
+    /**
+     Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
+     
+     - Important: In some providers url will be available for a limitied time, determined in `expiration` argument.
+         e.g. Dropbox links will be expired after 4 hours.
+     
+     - Parameters:
+         - to: path of file, including file/directory name.
+         - completionHandler: a closure with result of directory entries or error.
+             - `link`: a url returned by Dropbox to share.
+             - `attribute`: a `FileObject` containing the attributes of the item.
+             - `expiration`: a `Date` object, determines when the public url will expires.
+             - `error`: Error returned by server.
+     */
+    func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void))
+}
+
 /// Defines protocol for provider allows all common operations.
 public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
 }

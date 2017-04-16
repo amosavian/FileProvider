@@ -84,8 +84,8 @@ internal extension DropboxFileProvider {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(contentType: .json)
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = (session ?? self.session).dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
@@ -133,9 +133,9 @@ internal extension DropboxFileProvider {
         requestDictionary["client_modified"] = modifiedDate.rfc3339utc() as NSString
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        request.setValue(String(jsonDictionary: requestDictionary), forHTTPHeaderField: "Dropbox-API-Arg")
+        request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(contentType: .stream)
+        request.set(dropboxArgKey: requestDictionary)
         let task: URLSessionUploadTask
         if let data = data {
             task = session.uploadTask(with: request, from: data)
@@ -163,8 +163,8 @@ internal extension DropboxFileProvider {
         let url = URL(string: "files/search", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(contentType: .json)
         var requestDictionary: [String: AnyObject] = ["path": startPath as NSString]
         requestDictionary["query"] = query as NSString
         requestDictionary["start"] = start as NSNumber

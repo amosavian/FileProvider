@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 /**
  Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
@@ -159,7 +160,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, operationHandle: RemoteOperationHandle(operationType: opType, tasks: []), completionHandler: { (data, response, error) in
@@ -201,7 +202,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -230,7 +231,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -252,7 +253,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         //request.setValue("1", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         runDataTask(with: request, completionHandler: { (data, response, error) in
             // FIXME: paginating results
@@ -283,7 +284,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
-        request.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
+        request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -345,7 +346,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         return self.doOperation(operation: opType, completionHandler: completionHandler)
     }
     
-    func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
+    fileprivate func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
         let source = opType.source!
         let sourceURL = self.url(of: source)
         var request = URLRequest(url: sourceURL)
@@ -469,11 +470,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         var request = URLRequest(url: url)
-        if length > 0 {
-            request.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
-        } else if offset > 0 && length < 0 {
-            request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
-        }
+        request.set(rangeWithOffset: offset, length: length)
         
         let task = session.downloadTask(with: request)
         let handle = RemoteOperationHandle(operationType: opType, tasks: [task])
@@ -543,6 +540,84 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         NotImplemented()
     }*/
     // TODO: implements methods for lock mechanism
+}
+
+extension WebDAVFileProvider: ExtendedFileProvider {
+    open func thumbnailOfFileSupported(path: String) -> Bool {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+            return false
+        }
+        let supportedExt: [String] = ["jpg", "jpeg", "png", "gif"]
+        return supportedExt.contains((path as NSString).pathExtension)
+    }
+    
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+            dispatch_queue.async {
+                completionHandler(nil, self.throwError(path, code: URLError.resourceUnavailable))
+            }
+            return
+        }
+        
+        let dimension = dimension ?? CGSize(width: 64, height: 64)
+        let url = URL(string: self.url(of: path).absoluteString + "?preview&size=\(dimension.width)x\(dimension.height)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, path: url.relativePath, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                completionHandler(nil, responseError ?? error)
+                return
+            }
+            
+            completionHandler(data.flatMap({ ImageClass(data: $0) }), nil)
+        })
+        task.resume()
+    }
+    
+    open func propertiesOfFileSupported(path: String) -> Bool {
+        return false
+    }
+    
+    open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) {
+        dispatch_queue.async {
+            completionHandler([:], [], self.throwError(path, code: URLError.resourceUnavailable))
+        }
+    }
+}
+
+extension WebDAVFileProvider: FileProviderSharing {
+    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+            dispatch_queue.async {
+                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
+            }
+            return
+        }
+        
+        let url = self.url(of: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PROPPATCG"
+        request.set(contentType: .xml)
+        let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
+        request.httpBody = body.data(using: .utf8)
+        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
+        runDataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+            }
+            if let data = data {
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+                if let urlStr = xresponse.first?.prop["public_url"], let url = URL(string: urlStr) {
+                    completionHandler(url, nil, nil, nil)
+                    return
+                }
+            }
+            completionHandler(nil, nil, nil, responseError ?? error)
+        })
+    }
 }
 
 extension WebDAVFileProvider: FileProvider { }

@@ -15,7 +15,7 @@ import Foundation
  To setup a functional iCloud container, please
  [read this page](https://medium.com/ios-os-x-development/icloud-drive-documents-1a46b5706fe1).
  */
-open class CloudFileProvider: LocalFileProvider {
+open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     /// An string to identify type of provider.
     open override class var type: String { return "iCloudDrive" }
     
@@ -655,19 +655,6 @@ open class CloudFileProvider: LocalFileProvider {
         }
     }
     
-    /**
-     Genrates a public url to a file to be shared with other users and can be downloaded without authentication.
-     
-     - Important: URL will be available for a limitied time, determined in `expiration` argument.
-     
-     - Parameters:
-     - to: path of file, including file/directory name.
-     - completionHandler: a closure with result of directory entries or error.
-     `link`: a url returned by Dropbox to share.
-     `attribute`: a `FileObject` containing the attributes of the item.
-     `expiration`: a `Date` object, determines when the public url will expires.
-     `error`: Error returned by Dropbox.
-     */
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {
@@ -685,6 +672,7 @@ open class CloudFileProvider: LocalFileProvider {
     }
 }
 
+/// Scope of iCloud, wrapper for NSMetadataQueryUbiquitous...Scope constants
 public enum UbiquitousScope: RawRepresentable {
     /// Search all files not in the Documents directories of the app’s iCloud container directories.
     /// Use this scope to store user-related data files that your app needs to share 

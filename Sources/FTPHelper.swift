@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension FTPFileProvider {
+internal extension FTPFileProvider {
     func delegateNotify(_ operation: FileOperationType, error: Error?) {
         DispatchQueue.main.async(execute: {
             if error == nil {

@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension Array where Element: FileObject {
+public extension Array where Element: FileObject {
     /// Returns a sorted array of `FileObject`s by criterias set in attributes.
     public func sort(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
         let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
@@ -21,8 +21,8 @@ extension Array where Element: FileObject {
     }
 }
 
-extension URLFileResourceType {
-    /// Returns corresponding `URLFileResourceType` of a `FileAttributeType` value
+public extension URLFileResourceType {
+    /// **FileProvider** returns corresponding `URLFileResourceType` of a `FileAttributeType` value
     public init(fileTypeValue: FileAttributeType) {
         switch fileTypeValue {
         case FileAttributeType.typeCharacterSpecial: self = .characterSpecial
@@ -37,20 +37,15 @@ extension URLFileResourceType {
     }
 }
 
-internal extension URLResourceKey {
-    static let fileURLKey = URLResourceKey(rawValue: "NSURLFileURLKey")
-    static let serverDateKey = URLResourceKey(rawValue: "NSURLServerDateKey")
-    static let entryTagKey = URLResourceKey(rawValue: "NSURLEntryTagKey")
-    static let mimeTypeKey = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
-    
-    @available(*, deprecated, renamed: "fileURLKey")
-    static let fileURL = fileURLKey
-    @available(*, deprecated, renamed: "serverDateKey")
-    static let serverDate = serverDateKey
-    @available(*, deprecated, renamed: "entryTagKey")
-    static let entryTag = entryTagKey
-    @available(*, deprecated, renamed: "mimeTypeKey")
-    static let mimeType = mimeTypeKey
+public extension URLResourceKey {
+    /// **FileProvider** returns url of file object.
+    public static let fileURLKey = URLResourceKey(rawValue: "NSURLFileURLKey")
+    /// **FileProvider** returns modification date of file in server
+    public static let serverDateKey = URLResourceKey(rawValue: "NSURLServerDateKey")
+    /// **FileProvider** returns HTTP ETag string of remote resource
+    public static let entryTagKey = URLResourceKey(rawValue: "NSURLEntryTagKey")
+    /// **FileProvider** returns MIME type of file, if returned by server
+    public static let mimeTypeKey = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
 }
 
 internal extension URL {
@@ -68,6 +63,58 @@ internal extension URL {
     
     var fileExists: Bool {
         return self.isFileURL && FileManager.default.fileExists(atPath: self.path)
+    }
+}
+
+internal extension URLRequest {
+    mutating func set(httpAuthentication credential: URLCredential?, with type: HTTPAuthenticationType) {
+        func base64(_ str: String) -> String {
+            let plainData = str.data(using: .utf8)
+            let base64String = plainData!.base64EncodedString(options: [])
+            return base64String
+        }
+        
+        guard let credential = credential else { return }
+        switch type {
+        case .basic:
+            let authStr = "\(credential.user ?? ""):\(credential.password ?? "")"
+            self.setValue("Basic \(authStr)", forHTTPHeaderField: "Authorization")
+        case .digest:
+            // handled by RemoteSessionDelegate
+            break
+        case .oAuth1:
+            if let oauth = credential.password {
+                self.setValue("OAuth \(oauth)", forHTTPHeaderField: "Authorization")
+            }
+        case .oAuth2:
+            if let bearer = credential.password {
+                self.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+            }
+        }
+    }
+    
+    mutating func set(rangeWithOffset offset: Int64, length: Int) {
+        if length > 0 {
+            self.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
+        } else if offset > 0 && length < 0 {
+            self.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
+        }
+    }
+    
+    enum ContentType: String {
+        case json = "application/json"
+        case stream = "application/octet-stream"
+        case xml = "text/xml; charset=\"utf-8\""
+    }
+    
+    mutating func set(contentType: ContentType) {
+        self.setValue(contentType.rawValue, forHTTPHeaderField: "Content-Type")
+    }
+    
+    mutating func set(dropboxArgKey requestDictionary: [String: AnyObject]) {
+        if let requestJson = String(jsonDictionary: requestDictionary) {
+            self.setValue(requestJson, forHTTPHeaderField: "Dropbox-API-Arg")
+        }
     }
 }
 
@@ -160,7 +207,7 @@ internal extension TimeInterval {
     }
 }
 
-extension Date {
+internal extension Date {
    init?(rfcString: String) {
         let dateFor: DateFormatter = DateFormatter()
         dateFor.locale = Locale(identifier: "en_US")
@@ -197,7 +244,7 @@ extension Date {
     }
 }
 
-extension NSPredicate {
+internal extension NSPredicate {
     func findValue(forKey key: String?, operator op: NSComparisonPredicate.Operator? = nil) -> Any? {
         let val = findAllValues(forKey: key).lazy.filter { (op == nil || $0.operator == op!) && !$0.not }
         return val.first?.value

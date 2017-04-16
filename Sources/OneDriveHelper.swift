@@ -85,7 +85,7 @@ internal extension OneDriveFileProvider {
         let url = cursor ?? self.url(of: path, modifier: "children")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderOneDriveError?
             var files = prevContents
@@ -125,8 +125,8 @@ internal extension OneDriveFileProvider {
         let url = self.url(of: targetPath, modifier: "content\(queryStr)")
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(contentType: .stream)
         let task: URLSessionUploadTask
         if let data = data {
             task = session.uploadTask(with: request, from: data)
@@ -156,7 +156,7 @@ internal extension OneDriveFileProvider {
         url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credential?.password ?? "")", forHTTPHeaderField: "Authorization")
+        request.set(httpAuthentication: credential, with: .oAuth2)
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderOneDriveError?
