@@ -259,7 +259,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        
+        let localOperationHandle = LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+
         func urlofpath(path: String) -> URL {
             if path.hasPrefix("file://") {
                 let removedSchemePath = path.replacingOccurrences(of: "file://", with: "", options: .anchored)
@@ -293,6 +294,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         let operationHandler: (URL, URL?) -> Void = { source, dest in
             do {
+                localOperationHandle.inProgress = true
                 switch opType {
                 case .create:
                     if sourcePath.hasSuffix("/") {
@@ -316,7 +318,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
                 }
-                
+
+                localOperationHandle.inProgress = false
                 self.dispatch_queue.async {
                     completionHandler?(nil)
                 }
@@ -368,8 +371,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 operationHandler(source, dest)
             }
         }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return localOperationHandle
     }
     
     @discardableResult
