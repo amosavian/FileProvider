@@ -377,11 +377,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
+        let localOperationHandle = LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
         let url = self.url(of: path)
-        
+
         let operationHandler: (URL) -> Void = { url in
             do {
+                localOperationHandle.inProgress = true
                 let data = try Data(contentsOf: url)
+                localOperationHandle.inProgress = false
                 self.dispatch_queue.async {
                     completionHandler(data, nil)
                 }
@@ -407,8 +410,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 operationHandler(url)
             }
         }
-        
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+
+        return localOperationHandle
     }
     
     @discardableResult
@@ -419,12 +422,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
             return nil
         }
-        
+
         if offset == 0 && length < 0 {
             return self.contents(path: path, completionHandler: completionHandler)
         }
-        
+
         let opType = FileOperationType.fetch(path: path)
+        let localOperationHandle = LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
         let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
@@ -438,9 +442,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             defer {
                 handle.closeFile()
             }
-            
+
+            localOperationHandle.inProgress = true
             let size = LocalFileObject(fileWithURL: url)?.size ?? -1
             guard size > offset else {
+                localOperationHandle.inProgress = false
                 self.dispatch_queue.async {
                     completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
                 }
@@ -448,6 +454,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
+                localOperationHandle.inProgress = false
                 self.dispatch_queue.async {
                     completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
                 }
@@ -455,7 +462,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
             
             let data = handle.readData(ofLength: length)
-            
+            localOperationHandle.inProgress = false
             self.dispatch_queue.async {
                 completionHandler(data, nil)
             }
@@ -475,7 +482,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
-        return LocalOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return localOperationHandle
     }
     
     @discardableResult

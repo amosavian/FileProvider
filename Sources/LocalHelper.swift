@@ -227,6 +227,7 @@ open class LocalOperationHandle: OperationHandle {
     init (operationType: FileOperationType, baseURL: URL?) {
         self.baseURL = baseURL ?? URL(fileURLWithPath: "/")
         self.operationType = operationType
+        inProgress = false
     }
     
     private var sourceURL: URL? {
@@ -280,7 +281,7 @@ open class LocalOperationHandle: OperationHandle {
     }
     
     /// Not usable in local provider
-    open var inProgress: Bool = false
+    open var inProgress: Bool
 
 
     /// Not usable in local provider
