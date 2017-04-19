@@ -84,7 +84,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
         }
-        self.baseURL = (baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
+        self.baseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
