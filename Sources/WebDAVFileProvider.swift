@@ -13,7 +13,7 @@ import CoreGraphics
  Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
  set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
  
- WebDAV system supported by many cloud services including [Box.net](https://www.box.com/home) 
+ WebDAV system supported by many cloud services including [Box.com](https://www.box.com/home) 
  and [Yandex disk](https://disk.yandex.com) and [ownCloud](https://owncloud.org).
  
  - Important: Because this class uses `URLSession`, it's necessary to disable App Transport Security
