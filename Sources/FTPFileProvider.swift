@@ -173,6 +173,11 @@ open class FTPFileProvider: FileProviderBasicRemote {
                     self.ftpQuit(task)
                 }
                 if let error = error {
+                    if ((error as NSError).domain == URLError.errorDomain && (error as NSError).code == URLError.unsupportedURL.rawValue) {
+                        self.contentsOfDirectory(path: path, rfc3659enabled: false, completionHandler: completionHandler)
+                        return
+                    }
+                    
                     self.dispatch_queue.async {
                         completionHandler([], error)
                     }
