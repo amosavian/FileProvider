@@ -309,7 +309,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = self.url(of: atPath).appendingPathComponent(folderName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? folderName, isDirectory: true)
+        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
         request.set(httpAuthentication: credential, with: credentialType)
