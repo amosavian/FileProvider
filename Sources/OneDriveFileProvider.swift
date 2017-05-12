@@ -87,7 +87,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
         let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
-        self.baseURL = baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
+        self.baseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
         self.drive = drive
         self.currentPath = ""
         self.useCache = false

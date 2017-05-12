@@ -13,7 +13,7 @@ open class FileObject: Equatable {
     /// A `Dictionary` contains file information,  using `URLResourceKey` keys.
     open internal(set) var allValues: [URLResourceKey: Any]
     
-    internal init(allValues: [URLResourceKey: Any]) {
+    public init(allValues: [URLResourceKey: Any]) {
         self.allValues = allValues
     }
     

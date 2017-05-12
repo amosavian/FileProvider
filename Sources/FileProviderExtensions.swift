@@ -46,6 +46,8 @@ public extension URLResourceKey {
     public static let entryTagKey = URLResourceKey(rawValue: "NSURLEntryTagKey")
     /// **FileProvider** returns MIME type of file, if returned by server
     public static let mimeTypeKey = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
+    /// **FileProvider** returns either file is encrypted or not
+    public static let isEncryptedKey = URLResourceKey(rawValue: "NSURLIsEncryptedKey")
 }
 
 internal extension URL {

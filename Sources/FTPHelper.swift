@@ -297,7 +297,7 @@ internal extension FTPFileProvider {
             
             var success = false
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
-            self.execute(command: command, on: task, minLength: 70, afterSend: { error in
+            self.execute(command: command, on: task, minLength: 20, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 
@@ -308,7 +308,7 @@ internal extension FTPFileProvider {
                     while !eof {
                         let group = DispatchGroup()
                         group.enter()
-                        dataTask.readData(ofMinLength: 0, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                        dataTask.readData(ofMinLength: 1, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
                             if let data = data {
                                 finalData.append(data)
                             }
@@ -319,7 +319,9 @@ internal extension FTPFileProvider {
                         let waitResult = group.wait(timeout: .now() + timeout)
                         
                         if let error = error {
-                            completionHandler([], error)
+                            if !((error as NSError).domain == URLError.errorDomain && (error as NSError).code == URLError.cancelled.rawValue) {
+                                completionHandler([], error)
+                            }
                             return
                         }
                         
@@ -351,7 +353,8 @@ internal extension FTPFileProvider {
                 }
                 
                 if response.hasPrefix("50") && useMLST {
-                    self.ftpList(task, of: path, useMLST: false, completionHandler: completionHandler)
+                    dataTask.cancel()
+                    completionHandler([], self.throwError(path, code: URLError.unsupportedURL))
                     return
                 }
                 

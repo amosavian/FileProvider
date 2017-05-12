@@ -374,8 +374,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.create(folder: folderName, at: atPath, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.create(folder: folderName, at: atPath, completionHandler: completionHandler)
     }
     
     /**
@@ -392,8 +391,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     /**
@@ -410,8 +408,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     /**
@@ -429,8 +426,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.removeItem(path: path, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.removeItem(path: path, completionHandler: completionHandler)
     }
     
     /**
@@ -448,6 +444,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         // TODO: Make use of overwrite parameter
         let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        let operationHandle =  CloudOperationHandle(operationType: opType, baseURL: self.baseURL)
         operation_queue.addOperation {
             let tempFolder: URL
             if #available(iOS 10.0, macOS 10.12, tvOS 10.0, *) {
@@ -475,7 +472,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 })
             }
         }
-        return CloudOperationHandle(operationType: opType, baseURL: self.baseURL)
+        return operationHandle
     }
     
     /**
@@ -501,9 +498,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             })
             return nil
         }
-        
-        guard let r = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        let handle = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
+        return handle
     }
     
     /**
@@ -519,8 +515,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        guard let r = super.contents(path: path, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.contents(path: path, completionHandler: completionHandler)
     }
     
     /**
@@ -538,8 +533,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        guard let r = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
     }
     
     /**
@@ -555,8 +549,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard let r = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler) else { return nil }
-        return CloudOperationHandle(operationType: r.operationType, baseURL: self.baseURL)
+        return super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     fileprivate var monitors = [String: (NSMetadataQuery, NSObjectProtocol)]()
@@ -639,6 +632,48 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         file.type = isFolder ? .directory : (isSymbolic ? .symbolicLink : .regular)
         
         return file
+    }
+    
+    func monitorFile(path: String, opType: FileOperationType) {
+        dispatch_queue.async {
+            let pathURL = self.url(of: path)
+            let query = NSMetadataQuery()
+            query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
+            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataUbiquitousItemPercentDownloadedKey, NSMetadataUbiquitousItemPercentUploadedKey, NSMetadataItemFSSizeKey]
+            query.searchScopes = [self.scope.rawValue]
+            var updateObserver: NSObjectProtocol?
+            updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+                query.disableUpdates()
+                
+                guard let item = (query.results as? [NSMetadataItem])?.first else {
+                    return
+                }
+                
+                let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
+                let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
+                if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
+                    DispatchQueue.main.async {
+                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(uploaded / 100))
+                    }
+                } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
+                    DispatchQueue.main.async {
+                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(downloaded / 100))
+                    }
+                } else if uploaded == 100 || downloaded == 100 {
+                    query.stop()
+                    NotificationCenter.default.removeObserver(updateObserver!)
+                    DispatchQueue.main.async {
+                        self.delegate?.fileproviderSucceed(self, operation: opType)
+                    }
+                }
+                
+                query.enableUpdates()
+            })
+            
+            DispatchQueue.main.async {
+                query.start()
+            }
+        }
     }
     
     /// Removes local copy of file, but spares cloud copy/

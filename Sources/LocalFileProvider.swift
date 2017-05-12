@@ -98,7 +98,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         guard baseURL.isFileURL else {
             fatalError("Cannot initialize a Local provider from remote URL.")
         }
-        self.baseURL = baseURL
+        self.baseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
         self.currentPath = ""
         self.credential = nil
         self.isCoorinating = false
