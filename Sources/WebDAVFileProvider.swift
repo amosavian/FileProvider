@@ -13,7 +13,7 @@ import CoreGraphics
  Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
  set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
  
- WebDAV system supported by many cloud services including [Box.net](https://www.box.com/home) 
+ WebDAV system supported by many cloud services including [Box.com](https://www.box.com/home) 
  and [Yandex disk](https://disk.yandex.com) and [ownCloud](https://owncloud.org).
  
  - Important: Because this class uses `URLSession`, it's necessary to disable App Transport Security
@@ -84,7 +84,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
         }
-        self.baseURL = (baseURL.path.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
+        self.baseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
@@ -309,7 +309,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = self.url(of: atPath).appendingPathComponent(folderName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? folderName, isDirectory: true)
+        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
         var request = URLRequest(url: url)
         request.httpMethod = "MKCOL"
         request.set(httpAuthentication: credential, with: credentialType)

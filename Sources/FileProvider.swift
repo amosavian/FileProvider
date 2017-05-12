@@ -730,6 +730,8 @@ extension FileProviderBasic {
         let domain: String
         switch code {
         case is URLError:
+            fallthrough
+        case is URLError.Code:
             domain = NSURLErrorDomain
         default:
             domain = NSCocoaErrorDomain
