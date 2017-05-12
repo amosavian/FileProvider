@@ -304,7 +304,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     if sourcePath.hasSuffix("/") {
                         try self.opFileManager.createDirectory(at: source, withIntermediateDirectories: true, attributes: [:])
                     } else {
-                        try data?.write(to: source, options: .atomic)
+                        try data?.write(to: source, options: .atomic)   
                     }
                 case .modify:
                     try data?.write(to: source, options: atomically ? [.atomic] : [])
