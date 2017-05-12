@@ -373,7 +373,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         return localOperationHandle
     }
-    
+    /// Contains error code and description returned by FTP/S provider.
+    public struct SourceDoesNotExistFileProviderError: Error {
+        /// Path of file/folder casued that error
+        public let path: String
+    }
+
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
