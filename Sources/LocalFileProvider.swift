@@ -382,7 +382,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     public struct SourceDoesNotExistError: Error {
         /// Path of file/folder casued that error
         public let url: URL
-        /// Contents returned by server as error description
     }
 
     @discardableResult
