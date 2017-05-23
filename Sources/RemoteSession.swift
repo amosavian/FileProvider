@@ -72,6 +72,8 @@ open class RemoteOperationHandle: OperationHandle {
 /// A protocol defines properties for errors returned by HTTP/S based providers.
 /// Including Dropbox, OneDrive and WebDAV.
 public protocol FileProviderHTTPError: Error, CustomStringConvertible {
+    /// HTTP status codes as an enum.
+    typealias Code = FileProviderHTTPErrorCode
     /// HTTP status code returned for error by server.
     var code: FileProviderHTTPErrorCode { get }
     /// Path of file/folder casued that error

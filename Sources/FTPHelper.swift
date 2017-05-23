@@ -94,10 +94,7 @@ internal extension FTPFileProvider {
             }
             
             guard response.hasPrefix("22") else {
-                let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                let error = FileProviderFTPError(message: response)
                 completionHandler(error)
                 return
             }
@@ -132,10 +129,7 @@ internal extension FTPFileProvider {
                         return
                     }
                     
-                    let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    let error = FileProviderFTPError(message: response)
                     completionHandler(error)
                     return
                 }
@@ -170,10 +164,7 @@ internal extension FTPFileProvider {
             }
             // not logged in
             else if response.hasPrefix("55") {
-                let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                let error = FileProviderFTPError(message: response)
                 completionHandler(error)
                 return
             }
@@ -352,8 +343,9 @@ internal extension FTPFileProvider {
                     return
                 }
                 
-                if response.hasPrefix("50") && useMLST {
+                if response.hasPrefix("500") && useMLST {
                     dataTask.cancel()
+                    self.serverSupportsRFC3659 = false
                     completionHandler([], self.throwError(path, code: URLError.unsupportedURL))
                     return
                 }
@@ -504,10 +496,7 @@ internal extension FTPFileProvider {
                     }
                     
                     if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
-                        let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                        let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                        let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                        let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                        let error = FileProviderFTPError(message: response)
                         
                         self.dispatch_queue.async {
                             completionHandler(nil, error)
@@ -620,10 +609,7 @@ internal extension FTPFileProvider {
                     }
                     
                     if !(response.hasPrefix("1") || response.hasPrefix("2")) {
-                        let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                        let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                        let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                        let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                        let error = FileProviderFTPError(message: response)
                         
                         self.dispatch_queue.async {
                             completionHandler(nil, error)
@@ -748,10 +734,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if !(response.hasPrefix("1") || response.hasPrefix("2")) {
-                    let spaceIndex = response.characters.index(of: "-") ?? response.startIndex
-                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                    let error = FileProviderFTPError(message: response)
                     
                     self.dispatch_queue.async {
                         completionHandler(error)
@@ -921,4 +904,22 @@ public struct FileProviderFTPError: Error {
     public let path: String
     /// Contents returned by server as error description
     public let errorDescription: String?
+    
+    init(code: Int, path: String, errorDescription: String?) {
+        self.code = code
+        self.path = path
+        self.errorDescription = errorDescription
+    }
+    
+    init(message response: String, path: String = "") {
+        let message = response.components(separatedBy: .newlines).last ?? "No Response"
+        let spaceIndex = message.characters.index(of: "-") ?? message.characters.index(of: " ") ?? message.startIndex
+        self.code = Int(message.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+        self.path = path
+        if code > 0 {
+            self.errorDescription = message.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            self.errorDescription = message
+        }
+    }
 }

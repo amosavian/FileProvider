@@ -140,8 +140,10 @@ open class FTPFileProvider: FileProviderBasicRemote {
         }
     }
     
+    internal var serverSupportsRFC3659: Bool = true
+    
     open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
-        self.contentsOfDirectory(path: path, rfc3659enabled: true, completionHandler: completionHandler)
+        self.contentsOfDirectory(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
     }
     
     /**
@@ -197,7 +199,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping ((FileObject?, Error?) -> Void)) {
-        self.attributesOfItem(path: path, rfc3659enabled: true, completionHandler: completionHandler)
+        self.attributesOfItem(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
     }
     
     /**
@@ -243,6 +245,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
                 }
                 
                 if response.hasPrefix("500") {
+                    self.serverSupportsRFC3659 = false
                     self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
                 }
                 
