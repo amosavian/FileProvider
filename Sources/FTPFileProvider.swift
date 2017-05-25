@@ -35,9 +35,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     public var validatingCache: Bool
     
     /// Determine either FTP session is in passive or active mode.
-    /// - Note: Due to `URLSessionStreamTask` restrictions for determining listening port,
-    /// only passive sessions are available in current implementation.
-    public let passiveMode = true
+    public let passiveMode: Bool
     
     /// Force to use URLSessionDownloadTask/URLSessionDataTask when possible
     public var useAppleImplementation = true
@@ -72,11 +70,15 @@ open class FTPFileProvider: FileProviderBasicRemote {
     /**
      Initializer for FTP provider with given username and password.
      
+     - Note: `passive` value should be set according to server settings and firewall presence.
+     
      - Parameter baseURL: a url with `ftp://hostaddress/` format.
+     - Parameter passive: FTP server data connection, `true` means passive connection (data connection created by client)
+         and `false` means active connection (data connection created by server). Default is `true` (passive mode).
      - Parameter credential: a `URLCredential` object contains user and password.
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
      */
-    public init? (baseURL: URL, credential: URLCredential? = nil, cache: URLCache? = nil) {
+    public init? (baseURL: URL, passive: Bool = true, credential: URLCredential? = nil, cache: URLCache? = nil) {
         guard (baseURL.scheme ?? "ftp").lowercased().hasPrefix("ftp") else { return nil }
         guard baseURL.host != nil else { return nil }
         var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)!
@@ -84,6 +86,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
         
         self.baseURL =  (urlComponents.url!.path.hasSuffix("/") ? urlComponents.url! : urlComponents.url!.appendingPathComponent("")).absoluteURL
+        self.passiveMode = passive
         self.currentPath = ""
         self.useCache = false
         self.validatingCache = true

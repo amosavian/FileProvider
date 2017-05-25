@@ -65,7 +65,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if let data = data, let response = String(data: data, encoding: .utf8) {
-                    completionHandler(response.trimmingCharacters(in: CharacterSet(charactersIn: "\r\n")), nil)
+                    completionHandler(response.trimmingCharacters(in: .whitespacesAndNewlines), nil)
                 } else {
                     completionHandler(nil, self.throwError("", code: URLError.cannotParseResponse))
                     return
@@ -120,7 +120,7 @@ internal extension FTPFileProvider {
                     // needs password
                     if response.hasPrefix("33") {
                         self.execute(command: "PASS \(credential?.password ?? "fileprovider@")", on: task) { (response, error) in
-                            if response?.hasPrefix("2") ?? false {
+                            if response?.hasPrefix("23") ?? false {
                                 completionHandler(nil)
                             } else {
                                 completionHandler(self.throwError("", code: URLError.userAuthenticationRequired))
@@ -137,8 +137,23 @@ internal extension FTPFileProvider {
             
             if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
                 self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
-                    task.startSecureConnection()
-                    loginHandle()
+                    if let error = error {
+                        completionHandler(error)
+                        return
+                    }
+                    
+                    if let response = response, response.hasPrefix("23") {
+                        task.startSecureConnection()
+                        self.execute(command: "PBSZ 0\r\nPROT P", on: task, completionHandler: { (response, error) in
+                            if let error = error {
+                                completionHandler(error)
+                                return
+                            }
+                            
+                            loginHandle()
+                        })
+                        
+                    }
                 })
             } else {
                 loginHandle()
@@ -205,26 +220,25 @@ internal extension FTPFileProvider {
             let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
             passiveTask.resume()
             if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
-                task.startSecureConnection()
+                passiveTask.startSecureConnection()
             }
             completionHandler(passiveTask, nil)
         }
     }
     
     func ftpActive(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
-        var port: Int32 = 0
-        var _activeTask: FileProviderStreamTask?
-        while (_activeTask?.state ?? .suspended) == .suspended {
-            port = 32000 + Int32(arc4random_uniform(16384))
-            let service = NetService(domain: "", type: "_tcp.", name: "", port: port)
-            _activeTask = self.session.fpstreamTask(withNetService: service)
-            _activeTask?.resume()
+        let service = NetService(domain: "", type: "_tcp.", name: "", port: 0)
+        service.publish(options: .listenForConnections)
+        let startTime = Date()
+        while service.port < 1 && startTime.timeIntervalSinceNow > -self.session.configuration.timeoutIntervalForRequest {
+            usleep(100_000)
         }
-        guard let activeTask = _activeTask else { return }
+        let activeTask = self.session.fpstreamTask(withNetService: service)
+        activeTask.resume()
         if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
-            task.startSecureConnection()
+            activeTask.startSecureConnection()
         }
-        self.execute(command: "PORT \(port)", on: task) { (response, error) in
+        self.execute(command: "PORT \(service.port)", on: task) { (response, error) in
             if let error = error {
                 activeTask.cancel()
                 completionHandler(nil, error)
@@ -232,11 +246,13 @@ internal extension FTPFileProvider {
             }
             
             guard let response = response else {
+                activeTask.cancel()
                 completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
                 return
             }
             
             guard !response.hasPrefix("5") else {
+                activeTask.cancel()
                 completionHandler(nil, self.throwError("", code: URLError.cannotConnectToHost))
                 return
             }
