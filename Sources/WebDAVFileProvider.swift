@@ -747,6 +747,59 @@ struct DavResponse {
     }
 }
 
+public extension WebDAVFileProvider
+{
+    public static func parseETag(data xmldata:Data) -> String?
+    {
+        do
+        {
+            let xml = try AEXMLDocument(xml:xmldata)
+            var rootnode = xml.root
+            var responsetag = "response"
+            for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus")
+            {
+                rootnode = node
+            }
+            for node in rootnode.children where node.name.lowercased().hasSuffix("response")
+            {
+                responsetag = node.name
+                break
+            }
+            
+            if let rnode = rootnode[responsetag].first
+            {
+                for node in rnode.children
+                {
+                    if node.name.lowercased().hasSuffix("propstat")
+                    {
+                        for psnode in node.children
+                        {
+                            if psnode.name.lowercased().hasSuffix("prop")
+                            {
+                                for pnode in psnode.children
+                                {
+                                    if pnode.name.lowercased().hasSuffix("getetag")
+                                    {
+                                        if let tag = pnode.value
+                                        {
+                                            return tag
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch _
+        {
+            
+        }
+        return nil
+    }
+}
+
 /// Containts path, url and attributes of a WebDAV file or resource.
 public final class WebDavFileObject: FileObject {
     internal init(_ davResponse: DavResponse) {
