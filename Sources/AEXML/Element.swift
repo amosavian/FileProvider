@@ -30,7 +30,7 @@ import Foundation
     You can access its structure by using subscript like this: `element["foo"]["bar"]` which would
     return `<bar></bar>` element from `<element><foo><bar></bar></foo></element>` XML as an `AEXMLElement` object.
 */
-internal class AEXMLElement {
+public class AEXMLElement {
     
     // MARK: - Properties
     

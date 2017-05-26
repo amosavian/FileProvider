@@ -9,7 +9,7 @@
 import Foundation
 
 /// Options used in `AEXMLDocument`
-internal struct AEXMLOptions {
+public struct AEXMLOptions {
     
     /// Values used in XML Document header
     public struct DocumentHeader {
