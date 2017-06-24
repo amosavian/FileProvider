@@ -65,6 +65,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             
             return _taskDescription
         }
+        @objc(setTaskDescription:)
         set {
             if #available(iOS 9.0, OSX 10.11, *) {
                 if self.useURLSession {
