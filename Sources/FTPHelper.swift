@@ -265,7 +265,9 @@ internal extension FTPFileProvider {
         if self.passiveMode {
             self.ftpPassive(task, completionHandler: completionHandler)
         } else {
-            self.ftpActive(task, completionHandler: completionHandler)
+            dispatch_queue.async {
+                self.ftpActive(task, completionHandler: completionHandler)
+            }
         }
     }
     
@@ -277,13 +279,15 @@ internal extension FTPFileProvider {
             }
             
             // Successful
-            if response?.hasPrefix("35") ?? false {
+            guard let response = response else {
+                completionHandler(self.throwError("", code: URLError.badServerResponse))
+                return
+            }
+            
+            if response.hasPrefix("35") {
                 completionHandler(nil)
             } else {
-                let spaceIndex = response?.characters.index(of: "-") ?? response?.startIndex
-                let code = Int((response?.substring(to: spaceIndex!).trimmingCharacters(in: .whitespacesAndNewlines))!) ?? -1
-                let description = response?.substring(from: spaceIndex!).trimmingCharacters(in: .whitespacesAndNewlines)
-                let error = FileProviderFTPError(code: code, path: "", errorDescription: description)
+                let error = FileProviderFTPError(message: response, path: "")
                 completionHandler(error)
                 return
             }
@@ -367,11 +371,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if !success && !(response.hasPrefix("25") || response.hasPrefix("15")) {
-                    let spaceIndex = response.characters.index(of: " ") ?? response.startIndex
-                    let code = Int(response.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-                    let description = response.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let error = FileProviderFTPError(code: code, path: path, errorDescription: description)
-
+                    let error = FileProviderFTPError(message: response, path: path)
                     self.dispatch_queue.async {
                         completionHandler([], error)
                     }
