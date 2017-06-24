@@ -660,7 +660,7 @@ struct DavResponse {
         
         func standardizePath(_ str: String) -> String {
             let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
-            return trimmedStr.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? str
+            return trimmedStr.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))) ?? str
         }
         
         // find node names with namespace
