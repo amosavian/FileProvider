@@ -100,7 +100,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else { return nil }
-        self.init(baseURL: baseURL, credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+        self.init(baseURL: baseURL, passive: aDecoder.decodeBool(forKey: "passiveMode"), credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
         self.currentPath     = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
@@ -114,6 +114,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
         aCoder.encode(self.useAppleImplementation, forKey: "useAppleImplementation")
+        aCoder.encode(self.passiveMode, forKey: "passiveMode")
     }
     
     public static var supportsSecureCoding: Bool {
@@ -160,7 +161,6 @@ open class FTPFileProvider: FileProviderBasicRemote {
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
      */
-    
     open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
         let path = ftpPath(apath)
         

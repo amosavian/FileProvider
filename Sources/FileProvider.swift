@@ -19,7 +19,7 @@ public typealias ImageClass = NSImage
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 /// This protocol defines FileProvider neccesary functions and properties to connect and get contents list
-public protocol FileProviderBasic: class, NSCoding, NSSecureCoding {
+public protocol FileProviderBasic: class, NSSecureCoding {
     /// An string to identify type of provider.
     static var type: String { get }
     
@@ -631,7 +631,7 @@ public protocol FileProviderSharing {
 }
 
 /// Defines protocol for provider allows all common operations.
-public protocol FileProvider: FileProviderBasic, FileProviderOperations, FileProviderReadWrite, NSCopying {
+public protocol FileProvider: FileProviderOperations, FileProviderReadWrite, NSCopying {
 }
 
 internal let pathTrimSet = CharacterSet(charactersIn: " /")
