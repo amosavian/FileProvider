@@ -24,9 +24,9 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
             return nil
         }
         self.baseURL = baseURL.appendingPathComponent("")
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(Swift.type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
+        operation_queue.name = "FileProvider.\(Swift.type(of: self).type).Operation"
         
         self.credential = credential
     }

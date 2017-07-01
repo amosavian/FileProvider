@@ -637,7 +637,7 @@ public protocol FileProvider: FileProviderOperations, FileProviderReadWrite, NSC
 internal let pathTrimSet = CharacterSet(charactersIn: " /")
 extension FileProviderBasic {
     public var type: String {
-        return type(of: self).type
+        return Swift.type(of: self).type
     }
     
     public func url(of path: String? = nil) -> URL {

@@ -103,9 +103,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         self.credential = nil
         self.isCoorinating = false
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(Swift.type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
+        operation_queue.name = "FileProvider.\(Swift.type(of: self).type).Operation"
         
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
@@ -250,7 +250,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return self.doOperation(opType, completionHandler: completionHandler)
     }
     
-    dynamic func doSimpleOperation(_ box: UndoBox) {
+    @objc dynamic func doSimpleOperation(_ box: UndoBox) {
         guard let _ = self.undoManager else { return }
         _ = self.doOperation(box.undoOperation) { (_) in
             return

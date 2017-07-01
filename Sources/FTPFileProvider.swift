@@ -93,9 +93,9 @@ open class FTPFileProvider: FileProviderBasicRemote {
         self.cache = cache
         self.credential = credential
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: [])
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(Swift.type(of: self).type)", attributes: [])
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
+        operation_queue.name = "FileProvider.\(Swift.type(of: self).type).Operation"
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {

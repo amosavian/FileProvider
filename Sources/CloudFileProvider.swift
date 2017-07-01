@@ -71,9 +71,9 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         super.init(baseURL: baseURL)
         self.isCoorinating = true
         
-        dispatch_queue = DispatchQueue(label: "FileProvider.\(type(of: self).type)", attributes: .concurrent)
+        dispatch_queue = DispatchQueue(label: "FileProvider.\(Swift.type(of: self).type)", attributes: .concurrent)
         operation_queue = OperationQueue()
-        operation_queue.name = "FileProvider.\(type(of: self).type).Operation"
+        operation_queue.name = "FileProvider.\(Swift.type(of: self).type).Operation"
         
         fileManager.url(forUbiquityContainerIdentifier: containerId)
         opFileManager.url(forUbiquityContainerIdentifier: containerId)

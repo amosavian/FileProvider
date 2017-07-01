@@ -197,8 +197,13 @@ public struct LocalFileInformationGenerator {
     static public var audioThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
         let playerItem = AVPlayerItem(url: fileURL)
         let metadataList = playerItem.asset.commonMetadata
+        #if swift(>=4.0)
+        let commonKeyArtwork = AVMetadataKey.commonKeyArtwork
+        #else
+        let commonKeyArtwork = AVMetadataCommonKeyArtwork
+        #endif
         for item in metadataList {
-            if item.commonKey == AVMetadataCommonKeyArtwork {
+            if item.commonKey == commonKeyArtwork {
                 if let data = item.dataValue {
                     return ImageClass(data: data)
                 }
@@ -319,10 +324,10 @@ public struct LocalFileInformationGenerator {
             guard let key = key else {
                 return nil
             }
-            guard let regex = try? NSRegularExpression(pattern: "([a-z])([A-Z])" , options: NSRegularExpression.Options()) else {
+            guard let regex = try? NSRegularExpression(pattern: "([a-z])([A-Z])" , options: []) else {
                 return nil
             }
-            let newKey = regex.stringByReplacingMatches(in: key, options: NSRegularExpression.MatchingOptions(), range: NSMakeRange(0, (key as NSString).length) , withTemplate: "$1 $2")
+            let newKey = regex.stringByReplacingMatches(in: key, options: [], range: NSRange(location: 0, length: (key as NSString).length) , withTemplate: "$1 $2")
             return newKey.capitalized
         }
         
@@ -330,7 +335,12 @@ public struct LocalFileInformationGenerator {
             let playerItem = AVPlayerItem(url: fileURL)
             let metadataList = playerItem.asset.commonMetadata
             for item in metadataList {
-                if let description = makeDescription(item.commonKey) {
+                #if swift(>=4.0)
+                let commonKey = item.commonKey?.rawValue
+                #else
+                let commonKey = item.commonKey
+                #endif
+                if let description = makeDescription(commonKey) {
                     if let value = item.stringValue {
                         keys.append(description)
                         dic[description] = value
@@ -366,7 +376,11 @@ public struct LocalFileInformationGenerator {
             }
         }
         let asset = AVURLAsset(url: fileURL, options: nil)
+        #if swift(>=4.0)
+        let videoTracks = asset.tracks(withMediaType: AVMediaType.video)
+        #else
         let videoTracks = asset.tracks(withMediaType: AVMediaTypeVideo)
+        #endif
         if let videoTrack = videoTracks.first {
             var bitrate: Float = 0
             let width = Int(videoTrack.naturalSize.width)
@@ -380,7 +394,11 @@ public struct LocalFileInformationGenerator {
             add(key: "Duration", value: TimeInterval(duration).formatshort)
             add(key: "Video Bitrate", value: "\(Int(ceil(bitrate / 1000))) kbps")
         }
+        #if swift(>=4.0)
+        let audioTracks = asset.tracks(withMediaType: AVMediaType.audio)
+        #else
         let audioTracks = asset.tracks(withMediaType: AVMediaTypeAudio)
+        #endif
         // dic["Audio channels"] = audioTracks.count
         var bitrate: Float = 0
         for track in audioTracks {

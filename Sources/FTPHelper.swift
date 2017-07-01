@@ -198,7 +198,7 @@ internal extension FTPFileProvider {
                 return
             }
             
-            guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last else {
+            guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap({ String($0) }) else {
                 completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
                 return
             }
@@ -347,7 +347,7 @@ internal extension FTPFileProvider {
                         return
                     }
                     
-                    let contents = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                    let contents: [String] = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
                     success = true
                     completionHandler(contents, nil)
                     return
