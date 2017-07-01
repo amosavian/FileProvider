@@ -75,6 +75,7 @@ deploy:
   file: $FRAMEWORK_NAME.zip
   skip_cleanup: true
   on:
-    repo: amosavian/$PROJECTNAME
+    # repo: amosavian/$PROJECTNAME
+    repo: amosavian/FileProvider
     tags: true
     condition: "$CARTHAGEDEPLOY = YES"

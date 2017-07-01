@@ -51,7 +51,7 @@ Legacy version is available in swift-2 branch.
 
 ## Installation
 
-###Important: this library has been renamed to avoid conflict in iOS 11, macOS 10.13 and Xcode 9.0. Please read issue [#53](https://github.com/amosavian/FileProvider/issues/53) to find more.
+### Important: this library has been renamed to avoid conflict in iOS 11, macOS 10.13 and Xcode 9.0. Please read issue [#53](https://github.com/amosavian/FileProvider/issues/53) to find more.
 
 
 ### Cocoapods / Carthage / Swift Package Manager
