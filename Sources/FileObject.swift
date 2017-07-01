@@ -143,9 +143,16 @@ open class FileObject: Equatable {
         if rhs === lhs  {
             return true
         }
+        #if swift(>=3.1)
         if Swift.type(of: lhs) != Swift.type(of: rhs) {
             return false
         }
+        #else
+        if type(of: lhs) != type(of: rhs) {
+            return false
+        }
+        #endif
+        
         if let rurl = rhs.allValues[.fileURLKey] as? URL, let lurl = lhs.allValues[.fileURLKey] as? URL {
             return rurl == lurl
         }
