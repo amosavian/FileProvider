@@ -146,9 +146,9 @@
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
 		796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileProviderExtensions.swift; sourceTree = "<group>"; };
 		798654321E8874BC002FA550 /* FTPHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPHelper.swift; sourceTree = "<group>"; };
-		799396671D48B7F600086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		799396751D48B80D00086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		799396821D48B82700086753 /* FileProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FileProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		799396671D48B7F600086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		799396751D48B80D00086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		799396821D48B82700086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7993968B1D48B8C700086753 /* Info-iOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-iOS.plist"; sourceTree = "<group>"; };
 		7993968C1D48B8C700086753 /* Info-MacOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-MacOS.plist"; sourceTree = "<group>"; };
 		7993968D1D48B8C700086753 /* Info-tvOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-tvOS.plist"; sourceTree = "<group>"; };
@@ -269,9 +269,9 @@
 		799396681D48B7F600086753 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				799396671D48B7F600086753 /* FileProvider.framework */,
-				799396751D48B80D00086753 /* FileProvider.framework */,
-				799396821D48B82700086753 /* FileProvider.framework */,
+				799396671D48B7F600086753 /* FilesProvider.framework */,
+				799396751D48B80D00086753 /* FilesProvider.framework */,
+				799396821D48B82700086753 /* FilesProvider.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -368,9 +368,9 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		799396661D48B7F600086753 /* FileProvider iOS */ = {
+		799396661D48B7F600086753 /* FilesProvider iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7993966F1D48B7F600086753 /* Build configuration list for PBXNativeTarget "FileProvider iOS" */;
+			buildConfigurationList = 7993966F1D48B7F600086753 /* Build configuration list for PBXNativeTarget "FilesProvider iOS" */;
 			buildPhases = (
 				799396621D48B7F600086753 /* Sources */,
 				799396631D48B7F600086753 /* Frameworks */,
@@ -381,14 +381,14 @@
 			);
 			dependencies = (
 			);
-			name = "FileProvider iOS";
+			name = "FilesProvider iOS";
 			productName = "FileProvider iOS";
-			productReference = 799396671D48B7F600086753 /* FileProvider.framework */;
+			productReference = 799396671D48B7F600086753 /* FilesProvider.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		799396741D48B80D00086753 /* FileProvider OSX */ = {
+		799396741D48B80D00086753 /* FilesProvider OSX */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7993967A1D48B80D00086753 /* Build configuration list for PBXNativeTarget "FileProvider OSX" */;
+			buildConfigurationList = 7993967A1D48B80D00086753 /* Build configuration list for PBXNativeTarget "FilesProvider OSX" */;
 			buildPhases = (
 				799396701D48B80D00086753 /* Sources */,
 				799396711D48B80D00086753 /* Frameworks */,
@@ -399,14 +399,14 @@
 			);
 			dependencies = (
 			);
-			name = "FileProvider OSX";
+			name = "FilesProvider OSX";
 			productName = "FileProvider OSX";
-			productReference = 799396751D48B80D00086753 /* FileProvider.framework */;
+			productReference = 799396751D48B80D00086753 /* FilesProvider.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		799396811D48B82700086753 /* FileProvider tvOS */ = {
+		799396811D48B82700086753 /* FilesProvider tvOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 799396871D48B82700086753 /* Build configuration list for PBXNativeTarget "FileProvider tvOS" */;
+			buildConfigurationList = 799396871D48B82700086753 /* Build configuration list for PBXNativeTarget "FilesProvider tvOS" */;
 			buildPhases = (
 				7993967D1D48B82700086753 /* Sources */,
 				7993967E1D48B82700086753 /* Frameworks */,
@@ -417,9 +417,9 @@
 			);
 			dependencies = (
 			);
-			name = "FileProvider tvOS";
+			name = "FilesProvider tvOS";
 			productName = "FileProvider tvOS";
-			productReference = 799396821D48B82700086753 /* FileProvider.framework */;
+			productReference = 799396821D48B82700086753 /* FilesProvider.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
@@ -442,7 +442,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7993965F1D48B7BF00086753 /* Build configuration list for PBXProject "FileProvider" */;
+			buildConfigurationList = 7993965F1D48B7BF00086753 /* Build configuration list for PBXProject "FilesProvider" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -454,9 +454,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				799396661D48B7F600086753 /* FileProvider iOS */,
-				799396741D48B80D00086753 /* FileProvider OSX */,
-				799396811D48B82700086753 /* FileProvider tvOS */,
+				799396661D48B7F600086753 /* FilesProvider iOS */,
+				799396741D48B80D00086753 /* FilesProvider OSX */,
+				799396811D48B82700086753 /* FilesProvider tvOS */,
 			);
 		};
 /* End PBXProject section */
@@ -621,7 +621,7 @@
 		799396601D48B7BF00086753 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_VERSION_STRING = 0.17.0;
+				BUNDLE_VERSION_STRING = 0.18.0;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -645,7 +645,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = FileProvider;
+				PRODUCT_NAME = FilesProvider;
 				SWIFT_VERSION = 3.0;
 			};
 			name = Debug;
@@ -653,7 +653,7 @@
 		799396611D48B7BF00086753 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_VERSION_STRING = 0.17.0;
+				BUNDLE_VERSION_STRING = 0.18.0;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -673,7 +673,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				PRODUCT_NAME = FileProvider;
+				PRODUCT_NAME = FilesProvider;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 3.0;
 			};
@@ -720,7 +720,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -766,7 +766,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -822,7 +822,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-OSX";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -872,7 +872,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-OSX";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -923,7 +923,7 @@
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-tvOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-tvOS";
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -972,7 +972,7 @@
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FileProvider-tvOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-tvOS";
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 3;
@@ -986,7 +986,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7993965F1D48B7BF00086753 /* Build configuration list for PBXProject "FileProvider" */ = {
+		7993965F1D48B7BF00086753 /* Build configuration list for PBXProject "FilesProvider" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				799396601D48B7BF00086753 /* Debug */,
@@ -995,7 +995,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7993966F1D48B7F600086753 /* Build configuration list for PBXNativeTarget "FileProvider iOS" */ = {
+		7993966F1D48B7F600086753 /* Build configuration list for PBXNativeTarget "FilesProvider iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7993966D1D48B7F600086753 /* Debug */,
@@ -1004,7 +1004,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7993967A1D48B80D00086753 /* Build configuration list for PBXNativeTarget "FileProvider OSX" */ = {
+		7993967A1D48B80D00086753 /* Build configuration list for PBXNativeTarget "FilesProvider OSX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7993967B1D48B80D00086753 /* Debug */,
@@ -1013,7 +1013,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		799396871D48B82700086753 /* Build configuration list for PBXNativeTarget "FileProvider tvOS" */ = {
+		799396871D48B82700086753 /* Build configuration list for PBXNativeTarget "FilesProvider tvOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				799396881D48B82700086753 /* Debug */,

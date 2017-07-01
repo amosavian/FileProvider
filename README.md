@@ -51,12 +51,15 @@ Legacy version is available in swift-2 branch.
 
 ## Installation
 
+###Important: this library has been renamed to avoid conflict in iOS 11, macOS 10.13 and Xcode 9.0. Please read issue [#53](https://github.com/amosavian/FileProvider/issues/53) to find more.
+
+
 ### Cocoapods / Carthage / Swift Package Manager
 
 Add this line to your pods file:
 
 ```ruby
-pod "FileProvider"
+pod "FilesProvider"
 ```
 
 Or add this to Cartfile:
@@ -94,7 +97,7 @@ Then you can do either:
 
 * Copy Source folder to your project and Voila!
 
-* Drop `FileProvider.xcodeproj` to you Xcode workspace and add the framework to your Embeded Binaries in target.
+* Drop `FilesProvider.xcodeproj` to you Xcode workspace and add the framework to your Embeded Binaries in target.
 
 ## Usage
 
@@ -105,6 +108,8 @@ Each provider has a specific class which conforms to FileProvider protocol and s
 For LocalFileProvider if you want to deal with `Documents` folder
 
 ```	swift
+import FilesProvider
+
 let documentsProvider = LocalFileProvider()
 
 // Equals with:
@@ -118,6 +123,8 @@ let documentsProvider = LocalFileProvider(baseURL: documentsURL)
 Also for using group shared container:
 
 ```swift
+import FilesProvider
+
 let documentsProvider = LocalFileProvider(sharedContainerId: "group.yourcompany.appContainer")
 // Replace your group identifier
 ```
@@ -127,6 +134,8 @@ You can't change the base url later. and all paths are related to this base url 
 To initialize an iCloud Container provider look at [here](https://medium.com/ios-os-x-development/icloud-drive-documents-1a46b5706fe1) to see how to update project settings then use below code, This will automatically manager creating Documents folder in container:
 
 ```swift
+import FilesProvider
+
 let documentsProvider = CloudFileProvider(containerId: nil)
 ```
 
@@ -134,6 +143,8 @@ let documentsProvider = CloudFileProvider(containerId: nil)
 For remote file providers authentication may be necessary:
 
 ```	swift
+import FilesProvider
+
 let credential = URLCredential(user: "user", password: "pass", persistence: .permanent)
 let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example.com/dav")!, credential: credential)
 ```
