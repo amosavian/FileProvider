@@ -17,7 +17,7 @@
                BlueprintIdentifier = "799396811D48B82700086753"
                BuildableName = "FilesProvider.framework"
                BlueprintName = "FilesProvider tvOS"
-               ReferencedContainer = "container:File&#x633;Provider.xcodeproj">
+               ReferencedContainer = "container:FilesProvider.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -50,7 +50,7 @@
             BlueprintIdentifier = "799396811D48B82700086753"
             BuildableName = "FilesProvider.framework"
             BlueprintName = "FilesProvider tvOS"
-            ReferencedContainer = "container:File&#x633;Provider.xcodeproj">
+            ReferencedContainer = "container:FilesProvider.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -68,7 +68,7 @@
             BlueprintIdentifier = "799396811D48B82700086753"
             BuildableName = "FilesProvider.framework"
             BlueprintName = "FilesProvider tvOS"
-            ReferencedContainer = "container:File&#x633;Provider.xcodeproj">
+            ReferencedContainer = "container:FilesProvider.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </ProfileAction>
