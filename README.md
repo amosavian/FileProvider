@@ -7,7 +7,7 @@
 [![License][license-image]][license-url]
 
 [![Release versin][release-image]][release-url]
-[![CocoaPods version](https://img.shields.io/cocoapods/v/FileProvider.svg)][cocoapods]
+[![CocoaPods version](https://img.shields.io/cocoapods/v/FilesProvider.svg)][cocoapods]
 [![Carthage compatible][carthage-image]](https://github.com/Carthage/Carthage)
 
 [![Build Status][travis-image]][travis-url]
@@ -15,6 +15,10 @@
 [![Cocoapods Docs][docs-image]][docs-url]
 [![Cocoapods Downloads][cocoapods-downloads]][cocoapods]
 [![Cocoapods Apps][cocoapods-apps]][cocoapods]
+
+Old Cocoapods repo stats:
+[![Cocoapods Downloads][cocoapods-downloads-old]][cocoapods-old]
+[![Cocoapods Apps][cocoapods-apps-old]][cocoapods-old]
 
 <!--- 
 [![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
@@ -495,10 +499,11 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [https://github.com/amosavian/](https://github.com/amosavian/)
 
-[cocoapods]: https://cocoapods.org/pods/FileProvider
+[cocoapods]: https://cocoapods.org/pods/FilesProvider
+[cocoapods-old]: https://cocoapods.org/pods/FileProvider
 [swift-image]: https://img.shields.io/badge/swift-3.0,%203.1-orange.svg
 [swift-url]: https://swift.org/
-[platform-image]: https://img.shields.io/cocoapods/p/FileProvider.svg
+[platform-image]: https://img.shields.io/cocoapods/p/FilesProvider.svg
 [license-image]: https://img.shields.io/github/license/amosavian/FileProvider.svg
 [license-url]: LICENSE
 [codebeat-image]: https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517
@@ -508,7 +513,9 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [release-url]: https://github.com/amosavian/FileProvider/releases
 [release-image]: https://img.shields.io/github/release/amosavian/FileProvider.svg
 [carthage-image]: https://img.shields.io/badge/Carthage-compatible-4BC51D.svg
-[cocoapods-downloads]: https://img.shields.io/cocoapods/dt/FileProvider.svg
-[cocoapods-apps]: https://img.shields.io/cocoapods/at/FileProvider.svg
-[docs-image]: https://img.shields.io/cocoapods/metrics/doc-percent/FileProvider.svg
-[docs-url]: http://cocoadocs.org/docsets/FileProvider/
+[cocoapods-downloads-old]: https://img.shields.io/cocoapods/dt/FileProvider.svg
+[cocoapods-apps-old]: https://img.shields.io/cocoapods/at/FileProvider.svg
+[cocoapods-downloads]: https://img.shields.io/cocoapods/dt/FilesProvider.svg
+[cocoapods-apps]: https://img.shields.io/cocoapods/at/FilesProvider.svg
+[docs-image]: https://img.shields.io/cocoapods/metrics/doc-percent/FilesProvider.svg
+[docs-url]: http://cocoadocs.org/docsets/FilesProvider/
