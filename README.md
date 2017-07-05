@@ -2,17 +2,17 @@
 
 >This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
+<center>
+
 [![Swift Version][swift-image]][swift-url]
 [![Platform][platform-image]](#)
 [![License][license-image]][license-url]
-
-[![Release versin][release-image]][release-url]
-[![CocoaPods version](https://img.shields.io/cocoapods/v/FilesProvider.svg)][cocoapods]
-[![Carthage compatible][carthage-image]](https://github.com/Carthage/Carthage)
-
 [![Build Status][travis-image]][travis-url]
 [![Codebeat Badge][codebeat-image]][codebeat-url]
-[![Cocoapods Docs][docs-image]][docs-url]
+
+[![Release version][release-image]][release-url]
+[![CocoaPods version](https://img.shields.io/cocoapods/v/FilesProvider.svg)][cocoapods]
+[![Carthage compatible][carthage-image]](https://github.com/Carthage/Carthage)
 [![Cocoapods Downloads][cocoapods-downloads]][cocoapods]
 [![Cocoapods Apps][cocoapods-apps]][cocoapods]
 
@@ -20,7 +20,10 @@ Old Cocoapods repo stats:
 [![Cocoapods Downloads][cocoapods-downloads-old]][cocoapods-old]
 [![Cocoapods Apps][cocoapods-apps-old]][cocoapods-old]
 
+</center>
+
 <!--- 
+[![Cocoapods Doc][docs-image]][docs-url]
 [![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
 ---> 
 
