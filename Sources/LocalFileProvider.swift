@@ -299,13 +299,17 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         let operationHandler: (URL, URL?) -> Void = { source, dest in
             do {
+                if !self.opFileManager.fileExists(atPath: source.path) {
+                    let sourceDoesNotExistError: SourceDoesNotExistError = SourceDoesNotExistError(url: source)
+                    completionHandler?(sourceDoesNotExistError)
+                }
                 localOperationHandle.inProgress = true
                 switch opType {
                 case .create:
                     if sourcePath.hasSuffix("/") {
                         try self.opFileManager.createDirectory(at: source, withIntermediateDirectories: true, attributes: [:])
                     } else {
-                        try data?.write(to: source, options: .atomic)
+                        try data?.write(to: source, options: .atomic)   
                     }
                 case .modify:
                     try data?.write(to: source, options: atomically ? [.atomic] : [])
@@ -378,7 +382,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         return localOperationHandle
     }
-    
+
+    /// Contains error code and description returned by FTP/S provider.
+    public struct SourceDoesNotExistError: Error {
+        /// Path of file/folder casued that error
+        public let url: URL
+    }
+
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
         let opType = FileOperationType.fetch(path: path)
