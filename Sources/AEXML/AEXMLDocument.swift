@@ -1,5 +1,5 @@
 //
-// Document.swift
+// AEXMLDocument.swift
 //
 // Copyright (c) 2014-2016 Marko Tadić <tadija@me.com> http://tadija.net
 //

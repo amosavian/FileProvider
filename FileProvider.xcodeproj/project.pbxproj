@@ -11,9 +11,9 @@
 		7902C0871D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
 		7902C0881D61B67100564440 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902C0851D61B56D00564440 /* RemoteSession.swift */; };
 		791950F51DE58A5400B4426E /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 791950F41DE58A5400B4426E /* libxml2.tbd */; };
-		7924B1961D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
-		7924B1971D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
-		7924B1981D89DAE000589DB7 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* Document.swift */; };
+		7924B1961D89DAE000589DB7 /* AEXMLDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* AEXMLDocument.swift */; };
+		7924B1971D89DAE000589DB7 /* AEXMLDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* AEXMLDocument.swift */; };
+		7924B1981D89DAE000589DB7 /* AEXMLDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18D1D89DAE000589DB7 /* AEXMLDocument.swift */; };
 		7924B1991D89DAE000589DB7 /* Element.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18E1D89DAE000589DB7 /* Element.swift */; };
 		7924B19A1D89DAE000589DB7 /* Element.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18E1D89DAE000589DB7 /* Element.swift */; };
 		7924B19B1D89DAE000589DB7 /* Element.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924B18E1D89DAE000589DB7 /* Element.swift */; };
@@ -132,7 +132,7 @@
 /* Begin PBXFileReference section */
 		7902C0851D61B56D00564440 /* RemoteSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RemoteSession.swift; sourceTree = "<group>"; };
 		791950F41DE58A5400B4426E /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.1.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
-		7924B18D1D89DAE000589DB7 /* Document.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		7924B18D1D89DAE000589DB7 /* AEXMLDocument.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AEXMLDocument.swift; sourceTree = "<group>"; };
 		7924B18E1D89DAE000589DB7 /* Element.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Element.swift; sourceTree = "<group>"; };
 		7924B18F1D89DAE000589DB7 /* Error.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Error.swift; sourceTree = "<group>"; };
 		7924B1911D89DAE000589DB7 /* Options.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Options.swift; sourceTree = "<group>"; };
@@ -246,7 +246,7 @@
 		7924B18B1D89DAE000589DB7 /* AEXML */ = {
 			isa = PBXGroup;
 			children = (
-				7924B18D1D89DAE000589DB7 /* Document.swift */,
+				7924B18D1D89DAE000589DB7 /* AEXMLDocument.swift */,
 				7924B18E1D89DAE000589DB7 /* Element.swift */,
 				7924B18F1D89DAE000589DB7 /* Error.swift */,
 				7924B1911D89DAE000589DB7 /* Options.swift */,
@@ -513,7 +513,7 @@
 				799396BC1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220A1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D11D48C02300086753 /* SMB2SetInfo.swift in Sources */,
-				7924B1961D89DAE000589DB7 /* Document.swift in Sources */,
+				7924B1961D89DAE000589DB7 /* AEXMLDocument.swift in Sources */,
 				7902C0861D61B56D00564440 /* RemoteSession.swift in Sources */,
 				799396CE1D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
@@ -556,7 +556,7 @@
 				799396BD1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220B1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D21D48C02300086753 /* SMB2SetInfo.swift in Sources */,
-				7924B1971D89DAE000589DB7 /* Document.swift in Sources */,
+				7924B1971D89DAE000589DB7 /* AEXMLDocument.swift in Sources */,
 				7902C0871D61B67100564440 /* RemoteSession.swift in Sources */,
 				799396CF1D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
@@ -599,7 +599,7 @@
 				799396BE1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220C1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D31D48C02300086753 /* SMB2SetInfo.swift in Sources */,
-				7924B1981D89DAE000589DB7 /* Document.swift in Sources */,
+				7924B1981D89DAE000589DB7 /* AEXMLDocument.swift in Sources */,
 				7902C0881D61B67100564440 /* RemoteSession.swift in Sources */,
 				799396D01D48C02300086753 /* SMB2Session.swift in Sources */,
 				799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
