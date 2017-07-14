@@ -246,10 +246,10 @@ To get list of files in a directory:
 documentsProvider.contentsOfDirectory(path: "/", completionHandler: {
 	contents, error in
 	for file in contents {
-		print("Name: \(attributes.name)")
-		print("Size: \(attributes.size)")
-		print("Creation Date: \(attributes.creationDate)")
-		print("Modification Date: \(attributes.modifiedDate)")
+		print("Name: \(file.name)")
+		print("Size: \(file.size)")
+		print("Creation Date: \(file.creationDate)")
+		print("Modification Date: \(file.modifiedDate)")
 	}
 })
 ```
@@ -304,8 +304,6 @@ documentsProvider.moveItem(path: "new folder/old.txt", to: "new.txt", overwrite:
 documentsProvider.removeItem(path: "new.txt", completionHandler: nil)
 ```
 
-***Caution:*** This method will delete directories with all it's contents recursively except for FTP providers that don't support `SITE RMDIR` command, this will be fixed later.
-
 ### Fetching Contents of File
 
 There is two method for this purpose, one of them loads entire file into `Data` and another can load a portion of file.
@@ -337,7 +335,7 @@ let data = "What's up Newyork!".data(encoding: .utf8)
 documentsProvider.writeContents(path: "old.txt", content: data, atomically: true, completionHandler: nil)
 ```
 
-### Copying Files to and From Local URL
+### Copying Files to and From Local Storage
 
 There are two methods to download and upload files between provider's and local storage. These methods use `URLSessionDownloadTask` and `URLSessionUploadTask` classes and allows to use background session and provide progress via delegate.
 
@@ -438,9 +436,10 @@ To check either file thumbnail is supported or not and fetch thumbnail, use (and
 
 ```swift
 let path = "/newImage.jpg"
-let thumbSize = CGSize(width: 64, height: 64)
+let thumbSize = CGSize(width: 64, height: 64) // or nil which renders to default dimension of provider
 if documentsProvider.thumbnailOfFileSupported(path: path {
     documentsProvider.thumbnailOfFile(path: file.path, dimension: thumbSize, completionHandler: { (image, error) in
+        // Interacting with UI must be placed in main thread
         DispatchQueue.main.async {
             self.previewImage.image = image
         }
