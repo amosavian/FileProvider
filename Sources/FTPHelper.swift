@@ -80,6 +80,13 @@ internal extension FTPFileProvider {
             task.resume()
         }
         
+        var isSecure = false
+        // Implicit FTP Connection
+        if self.baseURL?.port == 990 || self.baseURL?.scheme == "ftps" {
+            task.startSecureConnection()
+            isSecure = true
+        }
+        
         let credential = self.credential
         
         task.readData(ofMinLength: 4, maxLength: 2048, timeout: timeout) { (data, eof, error) in
@@ -99,7 +106,7 @@ internal extension FTPFileProvider {
                 return
             }
             
-            let loginHandle = {
+            let loginHandle: () -> Void = {
                 self.execute(command: "USER \(credential?.user ?? "anonymous")", on: task) { (response, error) in
                     if let error = error {
                         completionHandler(error)
@@ -135,7 +142,8 @@ internal extension FTPFileProvider {
                 }
             }
             
-            if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
+            if !isSecure && self.baseURL?.scheme == "ftpes" {
+                // Explicit FTP Connection, by upgrading connection to FTP/SSL
                 self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
                     if let error = error {
                         completionHandler(error)
@@ -144,6 +152,7 @@ internal extension FTPFileProvider {
                     
                     if let response = response, response.hasPrefix("23") {
                         task.startSecureConnection()
+                        isSecure = true
                         self.execute(command: "PBSZ 0\r\nPROT P", on: task, completionHandler: { (response, error) in
                             if let error = error {
                                 completionHandler(error)
@@ -152,8 +161,16 @@ internal extension FTPFileProvider {
                             
                             loginHandle()
                         })
-                        
                     }
+                })
+            } else if isSecure {
+                self.execute(command: "PBSZ 0\r\nPROT P", on: task, completionHandler: { (response, error) in
+                    if let error = error {
+                        completionHandler(error)
+                        return
+                    }
+                    
+                    loginHandle()
                 })
             } else {
                 loginHandle()
@@ -219,7 +236,7 @@ internal extension FTPFileProvider {
             
             let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
             passiveTask.resume()
-            if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
+            if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
                 passiveTask.startSecureConnection()
             }
             completionHandler(passiveTask, nil)
@@ -238,6 +255,7 @@ internal extension FTPFileProvider {
         if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
             activeTask.startSecureConnection()
         }
+        
         self.execute(command: "PORT \(service.port)", on: task) { (response, error) in
             if let error = error {
                 activeTask.cancel()

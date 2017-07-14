@@ -421,21 +421,40 @@ public struct LocalFileInformationGenerator {
         }
         
         func getKey(_ key: String, from dict: CGPDFDictionaryRef) -> String? {
-            var cfValue: CGPDFStringRef? = nil
-            if (CGPDFDictionaryGetString(dict, key, &cfValue)), let value = CGPDFStringCopyTextString(cfValue!) {
+            var cfStrValue: CGPDFStringRef?
+            if (CGPDFDictionaryGetString(dict, key, &cfStrValue)), let value = cfStrValue.flatMap({ CGPDFStringCopyTextString($0) }) {
                 return value as String
+            }
+            var cfArrayValue: CGPDFArrayRef?
+            if (CGPDFDictionaryGetArray(dict, key, &cfArrayValue)), let cfArray = cfArrayValue {
+                var array = [String]()
+                for i in 0..<CGPDFArrayGetCount(cfArray) {
+                    var cfItemValue: CGPDFStringRef?
+                    if CGPDFArrayGetString(cfArray, i, &cfItemValue), let item = cfItemValue.flatMap({ CGPDFStringCopyTextString($0) }) {
+                        array.append(item as String)
+                    }
+                }
+                return array.joined(separator: ", ")
             }
             return nil
         }
         
         func convertDate(_ date: String?) -> Date? {
             guard let date = date else { return nil }
-            var dateStr = date
+            var dateStr = date.replacingOccurrences(of: "'", with: "")
             if dateStr.hasPrefix("D:") {
                 dateStr.characters.removeFirst(2)
             }
             let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyyMMddHHmmssTZD"
+            dateFormatter.dateFormat = "yyyyMMddHHmmssTZ"
+            if let result = dateFormatter.date(from: dateStr) {
+                return result
+            }
+            dateFormatter.dateFormat = "yyyyMMddHHmmssZZZZZ"
+            if let result = dateFormatter.date(from: dateStr) {
+                return result
+            }
+            dateFormatter.dateFormat = "yyyyMMddHHmmssZ"
             if let result = dateFormatter.date(from: dateStr) {
                 return result
             }
@@ -450,6 +469,8 @@ public struct LocalFileInformationGenerator {
             add(key: "Title", value: getKey("Title", from: dict))
             add(key: "Author", value: getKey("Author", from: dict))
             add(key: "Subject", value: getKey("Subject", from: dict))
+            add(key: "Producer", value: getKey("Producer", from: dict))
+            add(key: "Keywords", value: getKey("Keywords", from: dict))
             var majorVersion: Int32 = 0
             var minorVersion: Int32 = 0
             reference.getVersion(majorVersion: &majorVersion, minorVersion: &minorVersion)
@@ -465,9 +486,9 @@ public struct LocalFileInformationGenerator {
             add(key: "Content creator", value: getKey("Creator", from: dict))
             add(key: "Creation date", value: convertDate(getKey("CreationDate", from: dict)))
             add(key: "Modified date", value: convertDate(getKey("ModDate", from: dict)))
-            add(key: "Security", value: reference.isEncrypted ? "Present" : "None")
-            add(key: "Allows printing", value: reference.allowsPrinting ? "Yes" : "No")
-            add(key: "Allows copying", value: reference.allowsCopying ? "Yes" : "No")
+            add(key: "Security", value: reference.isEncrypted)
+            add(key: "Allows printing", value: reference.allowsPrinting)
+            add(key: "Allows copying", value: reference.allowsCopying)
         }
         return (dic, keys)
     }
