@@ -37,7 +37,6 @@ All functions do async calls and it wont block your main thread.
 - [x] **CloudFileProvider** A wrapper around app's ubiquitous container API of iCloud Drive.
 - [x] **WebDAVFileProvider** WebDAV protocol is defacto file transmission standard, supported by some cloud services like `ownCloud`, `Box.com` and `Yandex.disk`.
 - [x] **FTPFileProvider** While deprecated in 1990s due to serious security concerns, it's still in use on some Web hosts.
-    * Active mode is not implemented yet.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
@@ -46,7 +45,7 @@ All functions do async calls and it wont block your main thread.
 - [ ] **AmazonS3FileProvider** Amazon storage backend. Used by many sites.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
     * Data types and some basic functions are implemented but *main interface is not implemented yet!*.
-    * SMB1/CIFS is deprecated and very tricky to be implemented due to strict memory allignment in Swift.
+    * SMBv1/CIFS is insecure, deprecated and kinda tricky to be implemented due to strict memory allignment in Swift.
 
 ## Requirements
 
@@ -266,15 +265,6 @@ func storageProperties(completionHandler: { total, used in
 ```
 	
 * if this function is unavailable on provider or an error has been occurred, total space will be reported `-1` and used space `0`
-
-### Change current directory
-
-```swift
-documentsProvider.currentPath = "/New Folder"
-// now path is ~/Documents/New Folder
-```
-	
-You can then pass "" (empty string) to `contentsOfDirectory` method to list files in current directory.
 
 ### Creating File and Folders
 
