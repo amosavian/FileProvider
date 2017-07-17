@@ -331,26 +331,27 @@ public struct LocalFileInformationGenerator {
             return newKey.capitalized
         }
         
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            let playerItem = AVPlayerItem(url: fileURL)
-            let metadataList = playerItem.asset.commonMetadata
-            for item in metadataList {
-                #if swift(>=4.0)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return (dic, keys)
+        }
+        let playerItem = AVPlayerItem(url: fileURL)
+        let metadataList = playerItem.asset.commonMetadata
+        for item in metadataList {
+            #if swift(>=4.0)
                 let commonKey = item.commonKey?.rawValue
-                #else
+            #else
                 let commonKey = item.commonKey
-                #endif
-                if let description = makeDescription(commonKey) {
-                    if let value = item.stringValue {
-                        keys.append(description)
-                        dic[description] = value
-                    }
+            #endif
+            if let description = makeDescription(commonKey) {
+                if let value = item.stringValue {
+                    keys.append(description)
+                    dic[description] = value
                 }
             }
-            if let ap = try? AVAudioPlayer(contentsOf: fileURL) {
-                add(key: "Duration", value: ap.duration.formatshort)
-                add(key: "Bitrate", value: ap.settings[AVSampleRateKey] as? Int)
-            }
+        }
+        if let ap = try? AVAudioPlayer(contentsOf: fileURL) {
+            add(key: "Duration", value: ap.duration.formatshort)
+            add(key: "Bitrate", value: ap.settings[AVSampleRateKey] as? Int)
         }
         return (dic, keys)
     }
@@ -465,31 +466,32 @@ public struct LocalFileInformationGenerator {
             return nil
         }
         
-        if let provider = CGDataProvider(url: fileURL as CFURL), let reference = CGPDFDocument(provider), let dict = reference.info {
-            add(key: "Title", value: getKey("Title", from: dict))
-            add(key: "Author", value: getKey("Author", from: dict))
-            add(key: "Subject", value: getKey("Subject", from: dict))
-            add(key: "Producer", value: getKey("Producer", from: dict))
-            add(key: "Keywords", value: getKey("Keywords", from: dict))
-            var majorVersion: Int32 = 0
-            var minorVersion: Int32 = 0
-            reference.getVersion(majorVersion: &majorVersion, minorVersion: &minorVersion)
-            if majorVersion > 0 {
-                add(key: "Version", value:  String(majorVersion) + "." + String(minorVersion))
-            }
-            add(key: "Pages", value: reference.numberOfPages)
-            
-            if reference.numberOfPages > 0, let pageRef = reference.page(at: 1) {
-                let size = pageRef.getBoxRect(CGPDFBox.mediaBox).size
-                add(key: "Resolution", value: "\(Int(size.width))x\(Int(size.height))")
-            }
-            add(key: "Content creator", value: getKey("Creator", from: dict))
-            add(key: "Creation date", value: convertDate(getKey("CreationDate", from: dict)))
-            add(key: "Modified date", value: convertDate(getKey("ModDate", from: dict)))
-            add(key: "Security", value: reference.isEncrypted)
-            add(key: "Allows printing", value: reference.allowsPrinting)
-            add(key: "Allows copying", value: reference.allowsCopying)
+        guard let provider = CGDataProvider(url: fileURL as CFURL), let reference = CGPDFDocument(provider), let dict = reference.info else {
+            return (dic, keys)
         }
+        add(key: "Title", value: getKey("Title", from: dict))
+        add(key: "Author", value: getKey("Author", from: dict))
+        add(key: "Subject", value: getKey("Subject", from: dict))
+        add(key: "Producer", value: getKey("Producer", from: dict))
+        add(key: "Keywords", value: getKey("Keywords", from: dict))
+        var majorVersion: Int32 = 0
+        var minorVersion: Int32 = 0
+        reference.getVersion(majorVersion: &majorVersion, minorVersion: &minorVersion)
+        if majorVersion > 0 {
+            add(key: "Version", value:  String(majorVersion) + "." + String(minorVersion))
+        }
+        add(key: "Pages", value: reference.numberOfPages)
+        
+        if reference.numberOfPages > 0, let pageRef = reference.page(at: 1) {
+            let size = pageRef.getBoxRect(CGPDFBox.mediaBox).size
+            add(key: "Resolution", value: "\(Int(size.width))x\(Int(size.height))")
+        }
+        add(key: "Content creator", value: getKey("Creator", from: dict))
+        add(key: "Creation date", value: convertDate(getKey("CreationDate", from: dict)))
+        add(key: "Modified date", value: convertDate(getKey("ModDate", from: dict)))
+        add(key: "Security", value: reference.isEncrypted)
+        add(key: "Allows printing", value: reference.allowsPrinting)
+        add(key: "Allows copying", value: reference.allowsCopying)
         return (dic, keys)
     }
     

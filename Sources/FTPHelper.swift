@@ -125,7 +125,7 @@ internal extension FTPFileProvider {
                     }
                     
                     // needs password
-                    if response.hasPrefix("33") {
+                    if FileProviderFTPError(message: response).code == 331 {
                         self.execute(command: "PASS \(credential?.password ?? "fileprovider@")", on: task) { (response, error) in
                             if response?.hasPrefix("23") ?? false {
                                 completionHandler(nil)
