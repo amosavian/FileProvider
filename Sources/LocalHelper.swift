@@ -19,7 +19,7 @@ public final class LocalFileObject: FileObject {
         var fileURL: URL?
         var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored)
         if relativeURL != nil && rpath.hasPrefix("/") {
-            rpath.remove(at: rpath.startIndex)
+            _=rpath.characters.removeFirst()
         }
         if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
             fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
