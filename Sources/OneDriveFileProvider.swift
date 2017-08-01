@@ -213,18 +213,18 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             rpath = self.currentPath
         }
         
+        let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
+        
         if rpath.hasPrefix("/") {
-            rpath.remove(at: rpath.startIndex)
+            _=rpath.characters.removeFirst()
         }
         if rpath.isEmpty {
             if let modifier = modifier {
-                return baseURL!.appendingPathComponent("drive/\(drive)/\(modifier)")
+                return driveURL.appendingPathComponent(modifier)
             }
-            return baseURL!.appendingPathComponent("drive/\(drive)")
+            return driveURL
         }
         let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
-        // fixed, multiple PercentEncoding
-        //rpath = (rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath)
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
         if let modifier = modifier {
             rpath = rpath + ":/" + modifier
@@ -249,7 +249,6 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
 }
 
 extension OneDriveFileProvider: FileProviderOperations {
-    
     
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"

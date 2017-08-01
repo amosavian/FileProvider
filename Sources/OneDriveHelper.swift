@@ -22,7 +22,7 @@ public final class OneDriveFileObject: FileObject {
         // var rpath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
         var rpath = (URL(string:path)?.appendingPathComponent(name).absoluteString)!
         if rpath.hasPrefix("/") {
-            rpath.remove(at: rpath.startIndex)
+            _=rpath.characters.removeFirst()
         }
         let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: rpath)!
         
