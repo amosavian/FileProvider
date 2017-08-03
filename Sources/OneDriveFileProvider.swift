@@ -224,13 +224,12 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             }
             return driveURL
         }
-        let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
+        
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
         if let modifier = modifier {
             rpath = rpath + ":/" + modifier
         }
-        // fixed, don't work with symbol ":" in relative path
-        // URL(string: rpath, relativeTo: driveURL) ?? driveURL
+        
         return  driveURL.appendingPathComponent(rpath) ?? driveURL
     }
     
