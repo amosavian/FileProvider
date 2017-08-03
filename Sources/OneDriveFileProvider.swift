@@ -224,13 +224,14 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             }
             return driveURL
         }
-        
-        rpath = (rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath)
+        let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
         if let modifier = modifier {
             rpath = rpath + ":/" + modifier
         }
-        return URL(string: rpath, relativeTo: driveURL) ?? driveURL
+        // fixed, don't work with symbol ":" in relative path
+        // URL(string: rpath, relativeTo: driveURL) ?? driveURL
+        return  driveURL.appendingPathComponent(rpath) ?? driveURL
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
