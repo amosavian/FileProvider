@@ -113,10 +113,28 @@ internal extension URLRequest {
         self.setValue(contentType.rawValue, forHTTPHeaderField: "Content-Type")
     }
     
-    mutating func set(dropboxArgKey requestDictionary: [String: AnyObject]) {
-        if let requestJson = String(jsonDictionary: requestDictionary) {
-            self.setValue(requestJson, forHTTPHeaderField: "Dropbox-API-Arg")
+    private func asciiEscape(string:String) -> String {
+        var res = ""
+        for char in string.unicodeScalars {
+            let substring = String(char)
+            if substring.canBeConverted(to: .ascii) {
+                res.append(substring)
+            } else {
+                res = res.appendingFormat("\\u%04x", char.value)
+            }
         }
+        return res
+    }
+    
+    mutating func set(dropboxArgKey requestDictionary: [String: AnyObject]) {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestDictionary, options: []) else {
+            return
+        }
+        guard var jsonString = String(data: jsonData, encoding: .utf8) else { return }
+        jsonString = self.asciiEscape(string: jsonString)
+        jsonString = jsonString.replacingOccurrences(of: "\\/", with: "/")
+        
+        self.setValue(jsonString, forHTTPHeaderField: "Dropbox-API-Arg")
     }
 }
 
