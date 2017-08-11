@@ -18,16 +18,12 @@ public struct FileProviderOneDriveError: FileProviderHTTPError {
 /// Containts path, url and attributes of a OneDrive file or resource.
 public final class OneDriveFileObject: FileObject {
     internal init(baseURL: URL?, name: String, path: String) {
-        // fixed, not need proc + append
-        // var rpath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
         var rpath = (URL(string:path)?.appendingPathComponent(name).absoluteString)!
         if rpath.hasPrefix("/") {
             _=rpath.characters.removeFirst()
         }
         let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: rpath)!
         
-        // fixed, wrong path
-        //super.init(url: url, name: name, path: path)
         super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
     }
     
@@ -39,8 +35,6 @@ public final class OneDriveFileObject: FileObject {
     internal convenience init? (baseURL: URL?, drive: String, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
-        // fixed, wrong using 'root:'
-        // var lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
         var lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
         lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
         lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
@@ -48,8 +42,6 @@ public final class OneDriveFileObject: FileObject {
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         self.modifiedDate = Date(rfcString: json["lastModifiedDateTime"] as? String ?? "")
         self.creationDate = Date(rfcString: json["createdDateTime"] as? String ?? "")
-        // fixed, wrong folder type
-        // (json["folder"] as? String) != nil ? .directory : .regular
         self.type = json["folder"] != nil ? .directory : .regular
         self.id = json["id"] as? String
         self.entryTag = json["eTag"] as? String
