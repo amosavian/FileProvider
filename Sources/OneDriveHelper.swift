@@ -24,7 +24,7 @@ public final class OneDriveFileObject: FileObject {
         }
         let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: rpath)!
         
-        super.init(url: url, name: name, path: rpath)
+        super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
     }
     
     internal convenience init? (baseURL: URL?, drive: String, jsonStr: String) {
