@@ -28,7 +28,7 @@ public final class OneDriveFileObject: FileObject {
         
         // fixed, wrong path
         //super.init(url: url, name: name, path: path)
-        super.init(url: url, name: name, path: rpath)
+        super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
     }
     
     internal convenience init? (baseURL: URL?, drive: String, jsonStr: String) {
