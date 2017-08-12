@@ -230,7 +230,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
             rpath = rpath + ":/" + modifier
         }
         
-        return  driveURL.appendingPathComponent(rpath) ?? driveURL
+        return  driveURL.appendingPathComponent(rpath)
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
