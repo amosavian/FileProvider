@@ -175,6 +175,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
         let progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         
         dispatch_queue.async {
             progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
@@ -291,6 +292,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         guard let sourcePath = opType.source else { return nil }
         let destPath = opType.destination
         let source: URL = urlofpath(path: sourcePath)
+        progress.setUserInfoObject(source, forKey: .fileURLKey)
         
         let dest: URL?
         if let destPath = destPath {
@@ -403,13 +405,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let opType = FileOperationType.fetch(path: path)
+        let url = self.url(of: path)
+        
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
-        
-        let url = self.url(of: path)
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
         progress.totalUnitCount = url.fileSize
         
         let operationHandler: (URL) -> Void = { url in
@@ -461,13 +464,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
 
         let opType = FileOperationType.fetch(path: path)
+        let url = self.url(of: path)
+        
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
-        
-        let url = self.url(of: path)
         
         let operationHandler: (URL) -> Void = { url in
             guard let handle = FileHandle(forReadingAtPath: url.path) else {

@@ -126,6 +126,7 @@ internal extension OneDriveFileProvider {
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: targetPath), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         progress.totalUnitCount = Int64(size)
         

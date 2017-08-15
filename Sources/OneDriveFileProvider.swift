@@ -196,6 +196,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         guard let finalQueryStr = queryStr else { return nil }
         let progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
         search(path, query: finalQueryStr, progress: progress, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {
                 foundFiles.append(file)
@@ -272,15 +273,17 @@ extension OneDriveFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
+        guard let sourcePath = operation.source else { return nil }
+        let sourceURL = url(of: sourcePath)
         
         let progress = Progress(totalUnitCount: 1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(sourceURL, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        guard let sourcePath = operation.source else { return nil }
         let destPath = operation.destination
-        var request = URLRequest(url: url(of: sourcePath))
+        var request = URLRequest(url: sourceURL)
         switch operation {
         case .create:
             request.httpMethod = "CREATE"
@@ -349,6 +352,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
@@ -404,6 +408,7 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         var request = URLRequest(url: self.url(of: path, modifier: "content"))

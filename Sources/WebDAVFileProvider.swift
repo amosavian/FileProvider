@@ -267,6 +267,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         let progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
         let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
             var responseError: FileProviderWebDavError?
@@ -376,6 +377,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         let progress = Progress(totalUnitCount: 1)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(sourceURL, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         request.set(httpAuthentication: credential, with: credentialType)
@@ -437,6 +439,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: toPath), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         progress.totalUnitCount = localFile.fileSize
         
@@ -476,13 +479,14 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        let url = self.url(of:path)
         
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        let url = self.url(of:path)
         var request = URLRequest(url: url)
         request.set(httpAuthentication: credential, with: credentialType)
         let task = session.downloadTask(with: request)
@@ -529,13 +533,14 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         }
         
         let opType = FileOperationType.fetch(path: path)
+        let url = self.url(of: path)
         
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(rangeWithOffset: offset, length: length)
@@ -585,6 +590,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         var progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         progress.totalUnitCount = Int64(data?.count ?? 0)
         

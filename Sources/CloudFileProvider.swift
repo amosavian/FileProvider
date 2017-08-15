@@ -286,6 +286,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         
         dispatch_queue.async {
             let pathURL = self.url(of: path)
+            progress.setUserInfoObject(pathURL, forKey: .fileURLKey)
             let mdquery = NSMetadataQuery()
             mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (\(updateQueryKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
             mdquery.searchScopes = [self.scope.rawValue]
@@ -463,6 +464,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
+        progress.setUserInfoObject(localFile, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         monitorFile(path: toPath, opType: opType, progress: progress)
         operation_queue.addOperation {
@@ -512,6 +514,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         monitorFile(path: path, opType: opType, progress: progress)
         do {
@@ -544,6 +547,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         monitorFile(path: path, opType: operation, progress: progress)
         _ = super.contents(path: path, completionHandler: completionHandler)
@@ -569,6 +573,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         monitorFile(path: path, opType: operation, progress: progress)
         _ = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
@@ -592,6 +597,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
+        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         monitorFile(path: path, opType: operation, progress: progress)
         _ = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler)
