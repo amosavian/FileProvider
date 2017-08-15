@@ -356,6 +356,12 @@ documentsProvider.copyItem(path: "/download/image.jpg", toLocalURL: fileURL, ove
 * It's safe only to assume these methods **won't** handle directories to upload/download recursively. If you need, you can list directories, create directories on target and copy files using these methods.
 * FTP provider allows developer to either use apple implemented `URLSessionDownloadTask` or custom implemented method based on stream task via `useAppleImplementation` property. FTP protocol is not supported by background session.
 
+### Operation Progress
+
+Creating/Copying/Deleting/Searching functions return a `(NS)Progress`. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst. You can check `cancellable` property to check either you can cancel operation via this object or not.
+
+- **Note:** Progress reporting is not supported by native `(NS)FileManager` so `LocalFileProvider`.
+
 ### Undo Operations
 
 Providers conform to `FileProviderUndoable` can perform undo for **some** operations like moving/renaming, copying and creating (file or folder). **Now, only `LocalFileProvider` supports this feature.** To implement:
@@ -398,12 +404,6 @@ class ViewController: UIViewController
     // The rest of your implementation
 }
 ```
-
-### Operation Handle
-
-Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst.
-
-It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
 
 ### File Coordination
 
