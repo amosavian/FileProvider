@@ -171,7 +171,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
-        runDataTask(with: request, operationHandle: RemoteOperationHandle(operationType: opType, tasks: []), completionHandler: { (data, response, error) in
+        runDataTask(with: request, operation: opType, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
@@ -258,7 +258,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -266,7 +266,8 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
-        runDataTask(with: request, completionHandler: { (data, response, error) in
+        let progress = Progress(parent: nil, userInfo: nil)
+        let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -282,13 +283,20 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
                     }
                     
                     fileObjects.append(fileObject)
+                    progress.completedUnitCount = Int64(fileObjects.count)
                     foundItemHandler?(fileObject)
                 }
                 completionHandler(fileObjects, responseError ?? error)
                 return
             }
             completionHandler([], responseError ?? error)
-        })
+        }
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
+        return progress
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
@@ -310,30 +318,16 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
 
 extension WebDAVFileProvider: FileProviderOperations {
     @discardableResult
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
-        var request = URLRequest(url: url)
-        request.httpMethod = "MKCOL"
-        request.set(httpAuthentication: credential, with: credentialType)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: url.relativePath, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
-            }
-            completionHandler?(responseError ?? error)
-            self.delegateNotify(opType, error: responseError ?? error)
-        })
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return self.doOperation(operation: opType, overwrite: false, completionHandler: completionHandler)
     }
     
     @discardableResult
-    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.move(source: path, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -342,7 +336,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.copy(source: path, destination: toPath)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -351,7 +345,7 @@ extension WebDAVFileProvider: FileProviderOperations {
     }
     
     @discardableResult
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.remove(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
@@ -359,7 +353,7 @@ extension WebDAVFileProvider: FileProviderOperations {
         return self.doOperation(operation: opType, completionHandler: completionHandler)
     }
     
-    fileprivate func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
+    fileprivate func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> Progress?  {
         let source = opType.source!
         let sourceURL = self.url(of: source)
         var request = URLRequest(url: sourceURL)
@@ -367,6 +361,8 @@ extension WebDAVFileProvider: FileProviderOperations {
             request.setValue(url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
         }
         switch opType {
+        case .create:
+            request.httpMethod = "MKCOL"
         case .copy:
             request.httpMethod = "COPY"
         case .move:
@@ -376,6 +372,11 @@ extension WebDAVFileProvider: FileProviderOperations {
         default:
             return nil
         }
+        
+        let progress = Progress(totalUnitCount: 1)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         request.set(httpAuthentication: credential, with: credentialType)
         if let overwrite = overwrite, !overwrite {
@@ -392,9 +393,17 @@ extension WebDAVFileProvider: FileProviderOperations {
                     for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
                         let error = FileProviderWebDavError(code: code, path: source, errorDescription: String(data: data, encoding: .utf8), url: sourceURL)
                         completionHandler?(error)
+                        progress.cancel()
                     }
                 }
             }
+            
+            if responseError == nil && error == nil {
+                progress.completedUnitCount = 1
+            } else {
+                progress.cancel()
+            }
+            
             if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
                 completionHandler?(responseError ?? error)
             }
@@ -402,12 +411,16 @@ extension WebDAVFileProvider: FileProviderOperations {
             self.delegateNotify(opType, error: responseError ?? error)
         })
         task.taskDescription = opType.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
     
     @discardableResult
-    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
@@ -420,6 +433,13 @@ extension WebDAVFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        progress.totalUnitCount = localFile.fileSize
+        
         let url = self.url(of:toPath)
         var request = URLRequest(url: url)
         if !overwrite {
@@ -434,25 +454,44 @@ extension WebDAVFileProvider: FileProviderOperations {
                 // We can't fetch server result from delegate!
                 responseError = FileProviderWebDavError(code: rCode, path: toPath, errorDescription: nil, url: url)
             }
+            if !(responseError == nil && error == nil) {
+                progress.cancel()
+            }
             completionHandler?(responseError ?? error)
             self?.delegateNotify(.create(path: toPath), error: responseError ?? error)
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
     
     @discardableResult
-    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
         let url = self.url(of:path)
         var request = URLRequest(url: url)
         request.set(httpAuthentication: credential, with: credentialType)
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
+            completionHandler?(error)
+        }
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
@@ -468,14 +507,20 @@ extension WebDAVFileProvider: FileProviderOperations {
             }
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
 }
 
 extension WebDAVFileProvider: FileProviderReadWrite {
     @discardableResult
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -484,17 +529,26 @@ extension WebDAVFileProvider: FileProviderReadWrite {
         }
         
         let opType = FileOperationType.fetch(path: path)
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(rangeWithOffset: offset, length: length)
         
         let task = session.downloadTask(with: request)
-        let handle = RemoteOperationHandle(operationType: opType, tasks: [task])
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
+            
             completionHandler(nil, error)
         }
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let serverError : FileProviderWebDavError? = code != nil ? FileProviderWebDavError(code: code!, path: path, errorDescription: code?.description, url: url) : nil
@@ -503,7 +557,7 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             }
             do {
                 let data = try Data(contentsOf: tempURL)
-                self.dispatch_queue.async {
+                (self?.dispatch_queue ?? DispatchQueue.global()).async {
                     completionHandler(data, nil)
                 }
             } catch let e {
@@ -511,16 +565,29 @@ extension WebDAVFileProvider: FileProviderReadWrite {
             }
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return handle
+        return progress
     }
     
     @discardableResult
-    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        progress.totalUnitCount = Int64(data?.count ?? 0)
+        
         // FIXME: lock destination before writing process
         let url = atomically ? self.url(of: path).appendingPathExtension("tmp") : self.url(of: path)
         var request = URLRequest(url: url)
@@ -536,12 +603,20 @@ extension WebDAVFileProvider: FileProviderReadWrite {
                 // We can't fetch server result from delegate!
                 responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: nil, url: url)
             }
+            if !(responseError == nil && error == nil) {
+                progress.cancel()
+            }
             completionHandler?(responseError ?? error)
             self?.delegateNotify(opType, error: responseError ?? error)
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
     
     /*

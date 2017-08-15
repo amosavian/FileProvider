@@ -114,7 +114,7 @@ internal extension OneDriveFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data? = nil , localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    func upload_simple(_ targetPath: String, data: Data? = nil, localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
         let size = data?.count ?? (try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1
         if size > 100 * 1024 * 1024 {
             let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
@@ -122,6 +122,13 @@ internal extension OneDriveFileProvider {
             self.delegateNotify(.create(path: targetPath), error: error)
             return nil
         }
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        progress.totalUnitCount = Int64(size)
+        
         let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
         let url = self.url(of: targetPath, modifier: "content\(queryStr)")
         var request = URLRequest(url: url)
@@ -143,15 +150,27 @@ internal extension OneDriveFileProvider {
                 // We can't fetch server result from delegate!
                 responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: nil)
             }
+            if !(responseError == nil && error == nil) {
+                progress.cancel()
+            }
             completionHandler?(responseError ?? error)
             self?.delegateNotify(.create(path: targetPath), error: responseError ?? error)
         }
         task.taskDescription = operation.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
+        return progress
     }
     
-    func search(_ startPath: String = "", query: String, next: URL? = nil, foundItem:@escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
+    func search(_ startPath: String = "", query: String, next: URL? = nil, progress: Progress, foundItem: @escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
+        if progress.isCancelled {
+            return
+        }
+        
         let url: URL
         let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)")
@@ -172,8 +191,8 @@ internal extension OneDriveFileProvider {
                         }
                     }
                     let next: URL? = (json["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
-                    if let next = next {
-                        self.search(startPath, query: query, next: next, foundItem: foundItem, completionHandler: completionHandler)
+                    if !progress.isCancelled, let next = next {
+                        self.search(startPath, query: query, next: next, progress: progress, foundItem: foundItem, completionHandler: completionHandler)
                     } else {
                         completionHandler(responseError ?? error)
                     }
@@ -181,7 +200,11 @@ internal extension OneDriveFileProvider {
                 }
             }
             completionHandler(responseError ?? error)
-        }) 
+        })
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
     }
 }

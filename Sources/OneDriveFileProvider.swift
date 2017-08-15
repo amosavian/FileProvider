@@ -43,7 +43,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
     public var validatingCache: Bool
    
     fileprivate var _session: URLSession?
-    fileprivate var sessionDelegate: SessionDelegate?
+    internal fileprivate(set) var sessionDelegate: SessionDelegate?
     public var session: URLSession {
         get {
             if _session == nil {
@@ -190,12 +190,13 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
         var foundFiles = [OneDriveFileObject]()
         var queryStr: String?
         queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
-        guard let finalQueryStr = queryStr else { return }
-        search(path, query: finalQueryStr, foundItem: { (file) in
+        guard let finalQueryStr = queryStr else { return nil }
+        let progress = Progress(parent: nil, userInfo: nil)
+        search(path, query: finalQueryStr, progress: progress, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {
                 foundFiles.append(file)
                 foundItemHandler?(file)
@@ -203,6 +204,7 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
         }, completionHandler: { (error) in
             completionHandler(foundFiles, error)
         })
+        return progress
     }
     
     open func url(of path: String? = nil, modifier: String? = nil) -> URL {
@@ -249,27 +251,33 @@ open class OneDriveFileProvider: FileProviderBasicRemote {
 
 extension OneDriveFileProvider: FileProviderOperations {
     
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
-    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
-    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
+        
+        let progress = Progress(totalUnitCount: 1)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
         guard let sourcePath = operation.source else { return nil }
         let destPath = operation.destination
         var request = URLRequest(url: url(of: sourcePath))
@@ -299,15 +307,24 @@ extension OneDriveFileProvider: FileProviderOperations {
             if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
                  serverError = FileProviderOneDriveError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
             }
+            if serverError == nil && error == nil {
+                progress.completedUnitCount = 1
+            } else {
+                progress.cancel()
+            }
             completionHandler?(serverError ?? error)
             self.delegateNotify(operation, error: serverError ?? error)
         })
         task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
+        return progress
     }
     
-    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
@@ -323,20 +340,34 @@ extension OneDriveFileProvider: FileProviderOperations {
         return upload_simple(toPath, localFile: localFile, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
     }
     
-    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
+            completionHandler?(error)
+        }
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf: cacheURL) // TODO: Figure out how to get error response data for the error description
                 let serverError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                if serverError != nil {
+                    progress.cancel()
+                }
                 completionHandler?(serverError)
                 return
             }
@@ -348,13 +379,19 @@ extension OneDriveFileProvider: FileProviderOperations {
             }
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
 }
 
 extension OneDriveFileProvider: FileProviderReadWrite {
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -363,19 +400,31 @@ extension OneDriveFileProvider: FileProviderReadWrite {
         }
         
         let opType = FileOperationType.fetch(path: path)
+        
+        var progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         request.set(rangeWithOffset: offset, length: length)
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
             completionHandler(nil, error)
         }
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in            
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf: cacheURL) // TODO: Figure out how to get error response data for the error description
                 let serverError : FileProviderOneDriveError? = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
+                if serverError != nil {
+                    progress.cancel()
+                }
                 completionHandler(nil, serverError)
                 return
             }
@@ -387,11 +436,17 @@ extension OneDriveFileProvider: FileProviderReadWrite {
             }
         }
         task.taskDescription = opType.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        return progress
     }
     
-    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let opType = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil

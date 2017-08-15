@@ -50,6 +50,11 @@ public extension URLResourceKey {
     public static let isEncryptedKey = URLResourceKey(rawValue: "NSURLIsEncryptedKey")
 }
 
+public extension ProgressUserInfoKey {
+    public static let fileProvderOperationTypeKey = ProgressUserInfoKey("FilesProviderOperationTypeKey")
+    public static let startingTimeKey = ProgressUserInfoKey("NSProgressstartingTimeKey")
+}
+
 internal extension URL {
     var uw_scheme: String {
         return self.scheme ?? ""
