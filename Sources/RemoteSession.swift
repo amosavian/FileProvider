@@ -213,6 +213,8 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         self.didReceivedData?(session, downloadTask, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite)
         
+        if totalBytesExpectedToWrite == NSURLSessionTransferSizeUnknown { return }
+        
         guard let json = downloadTask.taskDescription?.deserializeJSON(),
               let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
