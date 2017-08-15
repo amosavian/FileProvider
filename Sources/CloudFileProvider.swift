@@ -584,7 +584,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
        - overwrite: Destination file should be overwritten if file is already exists. Default is `false`.
        - atomically: data will be written to a temporary file before writing to final location. Default is `false`.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-     - Returns: An `OperationHandle` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
     open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
@@ -794,93 +794,37 @@ public enum UbiquitousScope: RawRepresentable {
         }
     }
 }
+
 /*
-/// Get progress of CloudFileProvider operations
-open class CloudOperationHandle: OperationHandle {
-    /// Url of file which operation is doing on
-    public let baseURL: URL?
-    /// Type of operation
-    public let operationType: FileOperationType
+func getMetadataItem(url: URL) -> NSMetadataItem? {
+    let query = NSMetadataQuery()
+    query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
+    query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope, NSMetadataQueryUbiquitousDataScope]
     
-    init (operationType: FileOperationType, baseURL: URL?) {
-        self.baseURL = baseURL
-        self.operationType = operationType
-    }
+    var item: NSMetadataItem?
     
-    private var sourceURL: URL? {
-        guard let source = operationType.source, let baseURL = baseURL else { return nil }
-        return source.hasPrefix("file://") ? URL(fileURLWithPath: source) : baseURL.appendingPathComponent(source)
-    }
-    
-    private var destURL: URL? {
-        guard let dest = operationType.destination, let baseURL = baseURL else { return nil }
-        return dest.hasPrefix("file://") ? URL(fileURLWithPath: dest) : baseURL.appendingPathComponent(dest)
-    }
-    
-    open var bytesSoFar: Int64 {
-        assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
-        
-        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return 0 }
-        let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
-        let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
-        guard let size = item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 else { return -1 }
-        if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
-            return Int64(uploaded * (Double(size) / 100))
-        } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
-            return Int64(downloaded * (Double(size) / 100))
-        } else if uploaded == 100 || downloaded == 100 {
-            return size
+    let group = DispatchGroup()
+    group.enter()
+    var finishObserver: NSObjectProtocol?
+    finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+        defer {
+            query.stop()
+            group.leave()
+            NotificationCenter.default.removeObserver(finishObserver!)
         }
-        return 0
-    }
-    
-    open var totalBytes: Int64 {
-        assert(!Thread.isMainThread, "Don't run \(#function) method on main thread")
-        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return -1 }
-        return item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 ?? -1
-    }
-    
-    open var inProgress: Bool {
-        guard let url = destURL ?? sourceURL, let item = CloudOperationHandle.getMetadataItem(url: url) else { return false }
-        let downloadStatus = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String ?? NSMetadataUbiquitousItemDownloadingStatusNotDownloaded
-        let isUploading = item.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool ?? false
-        return downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent || isUploading
-    }
-    
-    /// Not usable in local provider
-    open func cancel() -> Bool {
-        return false
-    }
-    
-    fileprivate static func getMetadataItem(url: URL) -> NSMetadataItem? {
-        let query = NSMetadataQuery()
-        query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
-        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope, NSMetadataQueryUbiquitousDataScope]
         
-        var item: NSMetadataItem?
-        
-        let group = DispatchGroup()
-        group.enter()
-        var finishObserver: NSObjectProtocol?
-        finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
-            defer {
-                query.stop()
-                group.leave()
-                NotificationCenter.default.removeObserver(finishObserver!)
-            }
-            
-            if query.resultCount > 0 {
-                item = query.result(at: 0) as? NSMetadataItem
-            }
-            
-            query.disableUpdates()
-            
-        })
-        
-        DispatchQueue.main.async {
-            query.start()
+        if query.resultCount > 0 {
+            item = query.result(at: 0) as? NSMetadataItem
         }
-        _ = group.wait(timeout: .now() + 30)
-        return item
+        
+        query.disableUpdates()
+        
+    })
+    
+    DispatchQueue.main.async {
+        query.start()
     }
-}*/
+    _ = group.wait(timeout: .now() + 30)
+    return item
+}
+*/

@@ -1011,7 +1011,7 @@ public enum FileOperationType: CustomStringConvertible {
 }
 
 /// Allows to get progress or cancel an in-progress operation, useful for remote providers
-@available(*, obsoleted: 1.0, message: "Use NSProgress class instead.")
+@available(*, obsoleted: 1.0, message: "Use Progress class class instead.")
 public protocol OperationHandle {
     /// Operation supposed to be done on files. Contains file paths as associated value.
     var operationType: FileOperationType { get }
