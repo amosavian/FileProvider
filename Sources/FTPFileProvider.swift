@@ -354,7 +354,7 @@ extension FTPFileProvider: FileProviderOperations {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
             return nil
         }
-        guard let sourcePath = opType.source else { return nil }
+        let sourcePath = opType.source
         let destPath = opType.destination
         
         let command: String
@@ -455,7 +455,7 @@ extension FTPFileProvider: FileProviderOperations {
     }
     
     private func fallbackCopy(_ opType: FileOperationType, progress: Progress, completionHandler: SimpleCompletionHandler) {
-        guard let sourcePath = opType.source else { return }
+        let sourcePath = opType.source
         guard let destPath = opType.destination else { return }
         
         let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
@@ -482,7 +482,7 @@ extension FTPFileProvider: FileProviderOperations {
     }
     
     private func fallbackRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        guard let sourcePath = opType.source else { return }
+        let sourcePath = opType.source
         
         self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
             if let error = error {
@@ -521,7 +521,7 @@ extension FTPFileProvider: FileProviderOperations {
     }
     
     private func fallbackRecursiveRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        guard let sourcePath = opType.source else { return }
+        let sourcePath = opType.source
         
         _ = self.recursiveList(path: sourcePath, useMLST: true, completionHandler: { (contents, error) in
             if let error = error {

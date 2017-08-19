@@ -289,7 +289,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
-        guard let sourcePath = opType.source else { return nil }
+        let sourcePath = opType.source
         let destPath = opType.destination
         let source: URL = urlofpath(path: sourcePath)
         progress.setUserInfoObject(source, forKey: .fileURLKey)

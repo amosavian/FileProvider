@@ -109,19 +109,21 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             case #keyPath(URLSessionTask.countOfBytesExpectedToReceive), #keyPath(URLSessionTask.countOfBytesExpectedToSend):
                 progress.totalUnitCount = newVal
             default:
-                break
+                super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
             }
         }
-        super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
     }
     
     // codebeat:disable[ARITY]
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
-        task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
-        task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent))
-        task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
-        
+        if task is URLSessionDownloadTask {
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
+        }
+        if task is URLSessionUploadTask {
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent))
+            //task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToSend))
+        }
         if !(error == nil && task is URLSessionDownloadTask) {
             let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
             completionHandler?(error)
@@ -177,7 +179,10 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         switch op {
         case .create(path: let path):
             if path.hasSuffix("/") { return }
+            break
         case .modify:
+            break
+        case .copy(source: let source, destination: _) where source.hasPrefix("file://"):
             break
         default:
             return

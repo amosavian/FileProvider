@@ -126,63 +126,6 @@ internal extension DropboxFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data? = nil, localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
-        if size > 150 * 1024 * 1024 {
-            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(.create(path: targetPath), error: error)
-            return nil
-        }
-        
-        var progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        progress.totalUnitCount = Int64(size)
-        
-        var requestDictionary = [String: AnyObject]()
-        let url: URL
-        url = URL(string: "files/upload", relativeTo: contentURL)!
-        requestDictionary["path"] = correctPath(targetPath) as NSString?
-        requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-        requestDictionary["client_modified"] = modifiedDate.rfc3339utc() as NSString
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .stream)
-        request.set(dropboxArgKey: requestDictionary)
-        let task: URLSessionUploadTask
-        if let data = data {
-            task = session.uploadTask(with: request, from: data)
-        } else if let localFile = localFile {
-            task = session.uploadTask(with: request, fromFile: localFile)
-        } else {
-            return nil
-        }
-        
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderDropboxError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                // We can't fetch server result from delegate!
-                responseError = FileProviderDropboxError(code: rCode, path: targetPath, errorDescription: nil)
-            }
-            if !(responseError == nil && error == nil) {
-                progress.cancel()
-            }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(.modify(path: targetPath), error: responseError ?? error)
-        }
-        task.taskDescription = operation.json
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
-        }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        task.resume()
-        return progress
-    }
-    
     func search(_ startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, progress: Progress, foundItem:@escaping ((_ file: DropboxFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
         if progress.isCancelled { return }
         
@@ -260,15 +203,5 @@ internal extension DropboxFileProvider {
             dic["Duration"] = TimeInterval(duration).formatshort
         }
         return (dic, keys)
-    }
-    
-    func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
     }
 }

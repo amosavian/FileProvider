@@ -51,8 +51,10 @@ public extension URLResourceKey {
 }
 
 public extension ProgressUserInfoKey {
+    /// **FileProvider** returns associated `FileProviderOperationType`
     public static let fileProvderOperationTypeKey = ProgressUserInfoKey("FilesProviderOperationTypeKey")
-    public static let startingTimeKey = ProgressUserInfoKey("NSProgressstartingTimeKey")
+    /// **FileProvider** returns start date/time of operation
+    public static let startingTimeKey = ProgressUserInfoKey("NSProgressStartingTimeKey")
 }
 
 internal extension URL {

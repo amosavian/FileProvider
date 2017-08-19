@@ -956,10 +956,10 @@ public enum FileOperationType: CustomStringConvertible {
     }
     
     /// Path of subjecting file.
-    public var source: String? {
-        guard let reflect = Mirror(reflecting: self).children.first?.value else { return nil }
+    public var source: String {
+        let reflect = Mirror(reflecting: self).children.first!.value
         let mirror = Mirror(reflecting: reflect)
-        return reflect as? String ?? mirror.children.first?.value as? String
+        return reflect as? String ?? mirror.children.first?.value as! String
     }
     
     /// Path of subjecting file.

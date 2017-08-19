@@ -52,7 +52,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a Documents subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
     */
     public init? (containerId: String?, scope: UbiquitousScope = .documents) {
-        assert(!CloudFileProvider.asserting || !Thread.isMainThread, "LocalFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
+        assert(!(CloudFileProvider.asserting && Thread.isMainThread), "CloudFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
         guard FileManager.default.ubiquityIdentityToken != nil else {
             return nil
         }
@@ -686,7 +686,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return file
     }
     
-    func monitorFile(path: String, opType: FileOperationType, progress: Progress?) {
+    fileprivate func monitorFile(path: String, opType: FileOperationType, progress: Progress?) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             let size = pathURL.fileSize
@@ -737,20 +737,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
     }
     
-    /// Removes local copy of file, but spares cloud copy/
-    /// - Parameter path: Path of file or directory to be remoed from local
-    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-    open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
-        operation_queue.addOperation {
-            do {
-                try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
-                completionHandler?(nil)
-            } catch let e {
-                completionHandler?(e)
-            }
-        }
-    }
-    
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {
@@ -765,6 +751,38 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 }
             }
         }
+    }
+}
+
+extension CloudFileProvider {
+    
+    /// Removes local copy of file, but spares cloud copy.
+    /// - Parameter path: Path of file or directory to be removed from local
+    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
+        operation_queue.addOperation {
+            do {
+                try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
+                completionHandler?(nil)
+            } catch let e {
+                completionHandler?(e)
+            }
+        }
+    }
+    
+    /// Returns current version of file on this device and all versions of files in user devices.
+    /// - Parameter path: Path of file or directory.
+    /// - Parameter completionHandler: Retrieve current version on this device and all versions available. `currentVersion` will be nil if file doesn't exist. If an error parameter was provided, a presentable `Error` will be returned.
+    func versionsOfItem(path: String, completionHandler: @escaping ((_ currentVersion: NSFileVersion?, _ versions: [NSFileVersion], _ error: Error?) -> Void)) {
+        NotImplemented()
+    }
+    
+    /// Resolves conflicts by selecting a version.
+    /// - Parameter path: Path of file or directory.
+    /// - Parameter version: Version than will be choose as main version. `nil` value indicates current version on this device will be selected.
+    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    func selectVersionOfItem(path: String, version: NSFileVersion? = nil, completionHandler: SimpleCompletionHandler) {
+        NotImplemented()
     }
 }
 
