@@ -20,7 +20,7 @@ import CoreGraphics
      in case of using this class with unencrypted HTTP connection.
      [Read this to know how](http://iosdevtips.co/post/121756573323/ios-9-xcode-7-http-connect-server-error).
 */
-open class WebDAVFileProvider: HTTPFileProvider {
+open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "WebDAV" }
     public var credentialType: HTTPAuthenticationType = .digest
     
@@ -230,6 +230,38 @@ open class WebDAVFileProvider: HTTPFileProvider {
         })
     }
     
+    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+            dispatch_queue.async {
+                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
+            }
+            return
+        }
+        
+        let url = self.url(of: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PROPPATCH"
+        request.set(httpAuthentication: credential, with: credentialType)
+        request.set(contentType: .xml)
+        let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
+        request.httpBody = body.data(using: .utf8)
+        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
+        runDataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+            }
+            if let data = data {
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+                if let urlStr = xresponse.first?.prop["public_url"], let url = URL(string: urlStr) {
+                    completionHandler(url, nil, nil, nil)
+                    return
+                }
+            }
+            completionHandler(nil, nil, nil, responseError ?? error)
+        })
+    }
+    
     override func request(for operation: FileOperationType, overwrite: Bool = true, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
         let method: String
         let url: URL
@@ -294,8 +326,6 @@ open class WebDAVFileProvider: HTTPFileProvider {
             completionHandler?(error)
         }
     }
-}
-extension WebDAVFileProvider {
     
     /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
@@ -356,40 +386,6 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         dispatch_queue.async {
             completionHandler([:], [], self.throwError(path, code: URLError.resourceUnavailable))
         }
-    }
-}
-
-extension WebDAVFileProvider: FileProviderSharing {
-    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
-        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
-            dispatch_queue.async {
-                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
-            }
-            return
-        }
-        
-        let url = self.url(of: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "PROPPATCH"
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
-        let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
-        request.httpBody = body.data(using: .utf8)
-        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
-        runDataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
-            }
-            if let data = data {
-                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                if let urlStr = xresponse.first?.prop["public_url"], let url = URL(string: urlStr) {
-                    completionHandler(url, nil, nil, nil)
-                    return
-                }
-            }
-            completionHandler(nil, nil, nil, responseError ?? error)
-        })
     }
 }
 

@@ -12,7 +12,7 @@ import Foundation
  Allows accessing to FTP files and directories. This provider doesn't cache or save files internally.
  It's a complete reimplementation and doesn't use CFNetwork deprecated API.
  */
-open class FTPFileProvider: FileProviderBasicRemote {
+open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { return "FTP" }
     open let baseURL: URL?
     open var currentPath: String
@@ -317,7 +317,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         return progress
     }
     
-    public func url(of path: String?) -> URL {
+    open func url(of path: String?) -> URL {
         let path = (path ?? self.currentPath).trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? (path ?? self.currentPath)
         
         var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
@@ -326,7 +326,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
         return URL(string: path, relativeTo: baseUrlComponent?.url ?? baseURL) ?? baseUrlComponent?.url ?? baseURL!
     }
     
-    public func relativePathOf(url: URL) -> String {
+    open func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
         let relativePath = url.relativePath
         if !relativePath.isEmpty, url.baseURL == self.baseURL {
@@ -347,9 +347,7 @@ open class FTPFileProvider: FileProviderBasicRemote {
     }
     
     open weak var fileOperationDelegate: FileOperationDelegate?
-}
-
-extension FTPFileProvider: FileProviderOperations {
+    
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
@@ -365,210 +363,6 @@ extension FTPFileProvider: FileProviderOperations {
     
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
-    }
-    
-    fileprivate func doOperation(_ opType: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let sourcePath = opType.source
-        let destPath = opType.destination
-        
-        let command: String
-        switch opType {
-        case .create:
-            command = "MKD \(ftpPath(sourcePath))"
-        case .copy:
-            command = "SITE CPFR \(ftpPath(sourcePath))\r\nSITE CPTO \(ftpPath(destPath!))"
-        case .move:
-            command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
-        case .remove:
-            command = "DELE \(ftpPath(sourcePath))"
-        case .link:
-            command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
-        default: // modify, fetch
-            return nil
-        }
-        let progress = Progress(totalUnitCount: 1)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        
-        let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
-        self.ftpLogin(task) { (error) in
-            if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
-                }
-                return
-            }
-            
-            self.execute(command: command, on: task, completionHandler: { (response, error) in
-                if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
-                    }
-                    return
-                }
-                
-                guard let response = response else {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(opType, error: self.throwError(sourcePath, code: URLError.badServerResponse))
-                    }
-                    return
-                }
-                
-                let codes: [Int] = response.components(separatedBy: .newlines).flatMap({ $0.isEmpty ? nil : $0})
-                .flatMap {
-                    let code = $0.components(separatedBy: .whitespaces).flatMap({ $0.isEmpty ? nil : $0}).first
-                    return code != nil ? Int(code!) : nil
-                }
-                
-                if codes.filter({ (450..<560).contains($0) }).count > 0 {
-                    let errorCode: URLError.Code
-                    switch opType {
-                    case .create:
-                        errorCode = URLError.cannotCreateFile
-                    case .modify:
-                        errorCode = URLError.cannotWriteToFile
-                    case .copy:
-                        self.fallbackCopy(opType, progress: progress, completionHandler: completionHandler)
-                        return
-                    case .move:
-                        errorCode = URLError.cannotMoveFile
-                    case .remove:
-                        self.fallbackRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
-                        return
-                    case .link:
-                        errorCode = URLError.cannotWriteToFile
-                    default:
-                        errorCode = URLError.cannotOpenFile
-                    }
-                    let error = self.throwError(sourcePath, code: errorCode)
-                    progress.cancel()
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                    }
-                    self.delegateNotify(opType, error: error)
-                    return
-                }
-                
-                progress.completedUnitCount = progress.totalUnitCount
-                self.dispatch_queue.async {
-                    completionHandler?(nil)
-                }
-                self.delegateNotify(opType, error: nil)
-            })
-        }
-        
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
-        }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        return progress
-    }
-    
-    private func fallbackCopy(_ opType: FileOperationType, progress: Progress, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
-        guard let destPath = opType.destination else { return }
-        
-        let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
-        
-        progress.becomeCurrent(withPendingUnitCount: 1)
-        _ = self.copyItem(path: sourcePath, toLocalURL: localURL) { (error) in
-            if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
-                }
-                return
-            }
-            
-            progress.becomeCurrent(withPendingUnitCount: 1)
-            _ = self.copyItem(localFile: localURL, to: destPath) { error in
-                completionHandler?(nil)
-                self.delegateNotify(opType, error: nil)
-            }
-            progress.resignCurrent()
-        }
-        progress.resignCurrent()
-        return
-    }
-    
-    private func fallbackRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
-        
-        self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
-            if let error = error {
-                progress.cancel()
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                }
-                self.delegateNotify(opType, error: error)
-                return
-            }
-            
-            guard let response = response else {
-                progress.cancel()
-                let error = self.throwError(sourcePath, code: URLError.badServerResponse)
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                }
-                self.delegateNotify(opType, error: error)
-                return
-            }
-            
-            if response.hasPrefix("50") {
-                self.fallbackRecursiveRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
-                return
-            }
-            
-            var error: Error?
-            if !response.hasPrefix("2") {
-                error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
-            }
-            self.dispatch_queue.async {
-                completionHandler?(error)
-            }
-            self.delegateNotify(opType, error: error)
-        }
-    }
-    
-    private func fallbackRecursiveRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
-        
-        _ = self.recursiveList(path: sourcePath, useMLST: true, completionHandler: { (contents, error) in
-            if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
-                }
-                return
-            }
-            
-            let recursiveProgress = Progress(parent: progress, userInfo: nil)
-            recursiveProgress.totalUnitCount = Int64(contents.count)
-            let sortedContents = contents.sorted(by: {
-                $0.path.localizedStandardCompare($1.path) == .orderedDescending
-            })
-            var command = ""
-            for file in sortedContents {
-                command += (file.isDirectory ? "RMD \(self.ftpPath(file.path))" : "DELE \(self.ftpPath(file.path))") + "\r\n"
-            }
-            command += "RMD \(self.ftpPath(sourcePath))"
-            
-            self.execute(command: command, on: task, completionHandler: { (response, error) in
-                recursiveProgress.completedUnitCount += 1
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
-                }
-                // TODO: Digest response
-            })
-        })
     }
     
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
@@ -720,9 +514,7 @@ extension FTPFileProvider: FileProviderOperations {
         }
         return progress
     }
-}
-
-extension FTPFileProvider: FileProviderReadWrite {
+    
     open func contents(path: String, completionHandler: @escaping ((Data?, Error?) -> Void)) -> Progress? {
         let opType = FileOperationType.fetch(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
@@ -879,9 +671,7 @@ extension FTPFileProvider: FileProviderReadWrite {
         
         return progress
     }
-}
-
-public extension FTPFileProvider {
+    
     /**
      Creates a symbolic link at the specified path that points to an item at the given path.
      This method does not traverse symbolic links contained in destination path, making it possible
@@ -895,9 +685,215 @@ public extension FTPFileProvider {
        - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      */
-    public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
+    open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         let opType = FileOperationType.link(link: path, target: destPath)
         _=self.doOperation(opType, completionHandler: completionHandler)
+    }
+}
+
+extension FTPFileProvider {
+    fileprivate func doOperation(_ opType: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+            return nil
+        }
+        let sourcePath = opType.source
+        let destPath = opType.destination
+        
+        let command: String
+        switch opType {
+        case .create:
+            command = "MKD \(ftpPath(sourcePath))"
+        case .copy:
+            command = "SITE CPFR \(ftpPath(sourcePath))\r\nSITE CPTO \(ftpPath(destPath!))"
+        case .move:
+            command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
+        case .remove:
+            command = "DELE \(ftpPath(sourcePath))"
+        case .link:
+            command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
+        default: // modify, fetch
+            return nil
+        }
+        let progress = Progress(totalUnitCount: 1)
+        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        self.ftpLogin(task) { (error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                return
+            }
+            
+            self.execute(command: command, on: task, completionHandler: { (response, error) in
+                if let error = error {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(opType, error: error)
+                    }
+                    return
+                }
+                
+                guard let response = response else {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(opType, error: self.throwError(sourcePath, code: URLError.badServerResponse))
+                    }
+                    return
+                }
+                
+                let codes: [Int] = response.components(separatedBy: .newlines).flatMap({ $0.isEmpty ? nil : $0})
+                    .flatMap {
+                        let code = $0.components(separatedBy: .whitespaces).flatMap({ $0.isEmpty ? nil : $0}).first
+                        return code != nil ? Int(code!) : nil
+                }
+                
+                if codes.filter({ (450..<560).contains($0) }).count > 0 {
+                    let errorCode: URLError.Code
+                    switch opType {
+                    case .create:
+                        errorCode = URLError.cannotCreateFile
+                    case .modify:
+                        errorCode = URLError.cannotWriteToFile
+                    case .copy:
+                        self.fallbackCopy(opType, progress: progress, completionHandler: completionHandler)
+                        return
+                    case .move:
+                        errorCode = URLError.cannotMoveFile
+                    case .remove:
+                        self.fallbackRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
+                        return
+                    case .link:
+                        errorCode = URLError.cannotWriteToFile
+                    default:
+                        errorCode = URLError.cannotOpenFile
+                    }
+                    let error = self.throwError(sourcePath, code: errorCode)
+                    progress.cancel()
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                    }
+                    self.delegateNotify(opType, error: error)
+                    return
+                }
+                
+                progress.completedUnitCount = progress.totalUnitCount
+                self.dispatch_queue.async {
+                    completionHandler?(nil)
+                }
+                self.delegateNotify(opType, error: nil)
+            })
+        }
+        
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        return progress
+    }
+    
+    private func fallbackCopy(_ opType: FileOperationType, progress: Progress, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = opType.source
+        guard let destPath = opType.destination else { return }
+        
+        let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
+        
+        progress.becomeCurrent(withPendingUnitCount: 1)
+        _ = self.copyItem(path: sourcePath, toLocalURL: localURL) { (error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                return
+            }
+            
+            progress.becomeCurrent(withPendingUnitCount: 1)
+            _ = self.copyItem(localFile: localURL, to: destPath) { error in
+                completionHandler?(nil)
+                self.delegateNotify(opType, error: nil)
+            }
+            progress.resignCurrent()
+        }
+        progress.resignCurrent()
+        return
+    }
+    
+    private func fallbackRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = opType.source
+        
+        self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
+            if let error = error {
+                progress.cancel()
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                self.delegateNotify(opType, error: error)
+                return
+            }
+            
+            guard let response = response else {
+                progress.cancel()
+                let error = self.throwError(sourcePath, code: URLError.badServerResponse)
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                self.delegateNotify(opType, error: error)
+                return
+            }
+            
+            if response.hasPrefix("50") {
+                self.fallbackRecursiveRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
+                return
+            }
+            
+            var error: Error?
+            if !response.hasPrefix("2") {
+                error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+            }
+            self.dispatch_queue.async {
+                completionHandler?(error)
+            }
+            self.delegateNotify(opType, error: error)
+        }
+    }
+    
+    private func fallbackRecursiveRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = opType.source
+        
+        _ = self.recursiveList(path: sourcePath, useMLST: true, completionHandler: { (contents, error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                return
+            }
+            
+            let recursiveProgress = Progress(parent: progress, userInfo: nil)
+            recursiveProgress.totalUnitCount = Int64(contents.count)
+            let sortedContents = contents.sorted(by: {
+                $0.path.localizedStandardCompare($1.path) == .orderedDescending
+            })
+            var command = ""
+            for file in sortedContents {
+                command += (file.isDirectory ? "RMD \(self.ftpPath(file.path))" : "DELE \(self.ftpPath(file.path))") + "\r\n"
+            }
+            command += "RMD \(self.ftpPath(sourcePath))"
+            
+            self.execute(command: command, on: task, completionHandler: { (response, error) in
+                recursiveProgress.completedUnitCount += 1
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(opType, error: error)
+                }
+                // TODO: Digest response
+            })
+        })
     }
 }
 

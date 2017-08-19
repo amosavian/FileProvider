@@ -16,7 +16,7 @@ import CoreGraphics
  
  - Note: Uploading files and data are limited to 150MB, for now.
  */
-open class DropboxFileProvider: HTTPFileProvider {
+open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "Dropbox" }
     
     /// Dropbox RPC API URL, which is equal with [https://api.dropboxapi.com/2/](https://api.dropboxapi.com/2/)
@@ -133,12 +133,6 @@ open class DropboxFileProvider: HTTPFileProvider {
         return progress
     }
     
-    open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
-        self.storageProperties { total, _ in
-            completionHandler(total > 0)
-        }
-    }
-    
     override func request(for operation: FileOperationType, overwrite: Bool, attributes: [URLResourceKey : Any]) -> URLRequest {
         // content operations
         var request: URLRequest
@@ -227,9 +221,7 @@ open class DropboxFileProvider: HTTPFileProvider {
         
         return super.upload_simple(targetPath, request: request, data: data, localFile: localFile, operation: operation, completionHandler: completionHandler)
     }
-}
 
-extension DropboxFileProvider {
     /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is two ways to monitor folders changing in Dropbox. Either using webooks
@@ -245,9 +237,7 @@ extension DropboxFileProvider {
     }
     */
     // TODO: Implement /get_account & /get_current_account
-}
-
-extension DropboxFileProvider: FileProviderSharing {
+    
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
         var request = URLRequest(url: url)

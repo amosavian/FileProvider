@@ -17,7 +17,7 @@ import CoreGraphics
  
  - Note: Uploading files and data are limited to 100MB, for now.
  */
-open class OneDriveFileProvider: HTTPFileProvider {
+open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "OneDrive" }
     /// Drive name for user, default is `root`. Changing its value will effect on new operations.
     open var drive: String
@@ -227,9 +227,7 @@ open class OneDriveFileProvider: HTTPFileProvider {
         
         return super.upload_simple(targetPath, request: request, data: data, localFile: localFile, operation: operation, completionHandler: completionHandler)
     }
-}
 
-extension OneDriveFileProvider {
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is two ways to monitor folders changing in OneDrive. Either using webooks
          * which means you have to implement a server to translate it to push notifications
@@ -244,7 +242,7 @@ extension OneDriveFileProvider {
     }
 }
 
-extension OneDriveFileProvider: FileProviderSharing {
+extension OneDriveFileProvider {
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
         request.httpMethod = "POST"

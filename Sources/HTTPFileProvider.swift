@@ -64,6 +64,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     }
     
     fileprivate var _longpollSession: URLSession?
+    /// This session has extended timeout up to 10 minutes, suitable for monitoring.
     internal var longpollSession: URLSession {
         if _longpollSession == nil {
             let config = URLSessionConfiguration.default
@@ -73,6 +74,14 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return _longpollSession!
     }
     
+    /**
+     This is parent initializer for subclasses. Using this method on `HTTPFileProvider` will fail as `type` is not implemented.
+     
+     - Parameters:
+     - baseURL: Location of WebDAV server.
+     - credential: An `URLCredential` object with `user` and `password`.
+     - cache: A URLCache to cache downloaded files and contents.
+     */
     public init(baseURL: URL?, credential: URLCredential?, cache: URLCache?) {
         self.baseURL = baseURL
         self.currentPath = ""
@@ -164,57 +173,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
-    internal func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
-        fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
-    }
-    
-    internal func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
-    }
-    
-    internal func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) -> Void {
-        // WebDAV will override this function
-    }
-    
-    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
-            return nil
-        }
-        
-        let progress = Progress(totalUnitCount: 1)
-        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        
-        let request = self.request(for: operation)
-        
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderHTTPError?
-            if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                serverError = self.serverError(with: code, path: operation.source, data: data)
-            }
-            
-            if let response = response as? HTTPURLResponse, FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data {
-                self.multiStatusHandler(source: operation.source, data: data, completionHandler: completionHandler)
-            }
-            
-            if serverError == nil && error == nil {
-                progress.completedUnitCount = 1
-            } else {
-                progress.cancel()
-            }
-            completionHandler?(serverError ?? error)
-            self.delegateNotify(operation, error: serverError ?? error)
-        })
-        task.taskDescription = operation.json
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
-        }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        task.resume()
-        return progress
-    }
-    
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
@@ -298,7 +256,58 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         let request = self.request(for: operation, overwrite: overwrite, attributes: [.contentModificationDateKey: Date()])
         return upload_simple(path, request: request, data: data ?? Data(), operation: operation, completionHandler: completionHandler)
     }
-
+    
+    internal func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
+        fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
+    }
+    
+    internal func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+        fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
+    }
+    
+    internal func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) -> Void {
+        // WebDAV will override this function
+    }
+    
+    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+            return nil
+        }
+        
+        let progress = Progress(totalUnitCount: 1)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let request = self.request(for: operation)
+        
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var serverError: FileProviderHTTPError?
+            if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
+                serverError = self.serverError(with: code, path: operation.source, data: data)
+            }
+            
+            if let response = response as? HTTPURLResponse, FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data {
+                self.multiStatusHandler(source: operation.source, data: data, completionHandler: completionHandler)
+            }
+            
+            if serverError == nil && error == nil {
+                progress.completedUnitCount = 1
+            } else {
+                progress.cancel()
+            }
+            completionHandler?(serverError ?? error)
+            self.delegateNotify(operation, error: serverError ?? error)
+        })
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
+        return progress
+    }
+    
     internal func upload_simple(_ targetPath: String, request: URLRequest, data: Data? = nil, localFile: URL? = nil, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
         let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
         

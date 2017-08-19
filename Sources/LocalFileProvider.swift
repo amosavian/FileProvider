@@ -565,9 +565,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func isRegisteredForNotification(path: String) -> Bool {
         return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
     }
-}
-
-public extension LocalFileProvider {
+    
     /**
      Creates a symbolic link at the specified path that points to an item at the given path.
      This method does not traverse symbolic links contained in destination path, making it possible
@@ -579,7 +577,7 @@ public extension LocalFileProvider {
        - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
     */
-    public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
+    open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
                 try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
@@ -601,7 +599,7 @@ public extension LocalFileProvider {
     /// - Parameters:
     ///   - path: The path of a file or directory.
     ///   - completionHandler: Returns destination url of given symbolic link, or an `Error` object if it fails.
-    public func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ url: URL?, _ error: Error?) -> Void) {
+    open func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ url: URL?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             do {
                 let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.url(of: path).path)

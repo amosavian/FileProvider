@@ -752,9 +752,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             }
         }
     }
-}
-
-extension CloudFileProvider {
     
     /// Removes local copy of file, but spares cloud copy.
     /// - Parameter path: Path of file or directory to be removed from local
