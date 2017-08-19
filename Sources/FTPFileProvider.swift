@@ -281,22 +281,39 @@ open class FTPFileProvider: FileProviderBasicRemote {
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
         let progress = Progress(parent: nil, userInfo: nil)
-        _ = self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
-            if let foundItemHandler = foundItemHandler {
-                for item in items where query.evaluate(with: item.mapPredicate()) {
-                    foundItemHandler(item)
+        if recursive {
+            return self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
+                if let foundItemHandler = foundItemHandler {
+                    for item in items where query.evaluate(with: item.mapPredicate()) {
+                        foundItemHandler(item)
+                    }
+                    progress.totalUnitCount = Int64(items.count)
                 }
-                progress.totalUnitCount = Int64(items.count)
-            }
-        }, completionHandler: {files, error in
-            if let error = error {
-                completionHandler([], error)
-                return
-            }
-            
-            let foundFiles = files.filter { query.evaluate(with: $0.mapPredicate()) }
-            completionHandler(foundFiles, nil)
-        })
+            }, completionHandler: {files, error in
+                if let error = error {
+                    completionHandler([], error)
+                    return
+                }
+                
+                let foundFiles = files.filter { query.evaluate(with: $0.mapPredicate()) }
+                completionHandler(foundFiles, nil)
+            })
+        } else {
+            self.contentsOfDirectory(path: path, completionHandler: { (items, error) in
+                if let error = error {
+                    completionHandler([], error)
+                    return
+                }
+                
+                var result = [FileObject]()
+                for item in items where query.evaluate(with: item.mapPredicate()) {
+                    foundItemHandler?(item)
+                    result.append(item)
+                }
+                completionHandler(result, nil)
+            })
+        }
+        
         return progress
     }
     

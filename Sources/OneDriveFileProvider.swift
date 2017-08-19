@@ -115,7 +115,7 @@ open class OneDriveFileProvider: HTTPFileProvider {
         guard let finalQueryStr = queryStr else { return nil }
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
-        search(path, query: finalQueryStr, progress: progress, foundItem: { (file) in
+        search(path, query: finalQueryStr, recursive: recursive, progress: progress, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {
                 foundFiles.append(file)
                 foundItemHandler?(file)

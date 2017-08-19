@@ -124,7 +124,7 @@ open class WebDAVFileProvider: HTTPFileProvider {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
-        request.setValue("1", forHTTPHeaderField: "Depth")
+        request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
@@ -177,7 +177,8 @@ open class WebDAVFileProvider: HTTPFileProvider {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
-        //request.setValue("1", forHTTPHeaderField: "Depth")
+        // Depth infinity is disabled on some servers. Implement workaround?!
+        request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)

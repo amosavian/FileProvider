@@ -114,14 +114,15 @@ internal extension OneDriveFileProvider {
         task.resume()
     }
     
-    func search(_ startPath: String = "", query: String, next: URL? = nil, progress: Progress, foundItem: @escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
+    func search(_ startPath: String = "", query: String, recursive: Bool, next: URL? = nil, progress: Progress, foundItem: @escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
         if progress.isCancelled {
             return
         }
         
         let url: URL
         let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)")
+        let expanded = recursive ? "&expand=children" : ""
+        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)\(expanded)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
@@ -140,7 +141,7 @@ internal extension OneDriveFileProvider {
                     }
                     let next: URL? = (json["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
                     if !progress.isCancelled, let next = next {
-                        self.search(startPath, query: query, next: next, progress: progress, foundItem: foundItem, completionHandler: completionHandler)
+                        self.search(startPath, query: query, recursive: recursive, next: next, progress: progress, foundItem: foundItem, completionHandler: completionHandler)
                     } else {
                         completionHandler(responseError ?? error)
                     }
