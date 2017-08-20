@@ -374,13 +374,13 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
             return nil
         }
         
-        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+        let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
         
         let progress = Progress(totalUnitCount: 0)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
@@ -389,7 +389,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 return
             }
@@ -403,7 +403,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
             }, onProgress: { bytesSent, totalSent, expectedBytes in
                 progress.completedUnitCount = totalSent
                 DispatchQueue.main.async {
-                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress.fractionCompleted))
+                    self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
                 }
             }, completionHandler: { (error) in
                 if error != nil {
@@ -412,7 +412,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 self.ftpQuit(task)
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
             })
         }
@@ -421,12 +421,12 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+        let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
         var progress = Progress(totalUnitCount: 0)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
@@ -435,7 +435,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(operation, error: error)
                     }
                     return
                 }
@@ -444,7 +444,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     self.dispatch_queue.async {
                         let error = self.throwError(path, code: URLError.fileIsDirectory)
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(operation, error: error)
                     }
                     return
                 }
@@ -461,7 +461,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                         completionHandler?(e)
                     }
                 }
-                task.taskDescription = opType.json
+                task.taskDescription = operation.json
                 task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
                 task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
                 progress.cancellationHandler = { [weak task] in
@@ -490,14 +490,14 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     progress.totalUnitCount = totalSize
                     progress.completedUnitCount = totalReceived
                     DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress.fractionCompleted))
+                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
                     }
                 }) { (tmpurl, error) in
                     if let error = error {
                         progress.cancel()
                         self.dispatch_queue.async {
                             completionHandler?(error)
-                            self.delegateNotify(opType, error: error)
+                            self.delegateNotify(operation, error: error)
                         }
                         return
                     }
@@ -506,7 +506,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                         try? FileManager.default.moveItem(at: tmpurl, to: destURL)
                         self.dispatch_queue.async {
                             completionHandler?(nil)
-                            self.delegateNotify(opType, error: nil)
+                            self.delegateNotify(operation, error: nil)
                         }
                     }
                 }
@@ -516,14 +516,14 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func contents(path: String, completionHandler: @escaping ((Data?, Error?) -> Void)) -> Progress? {
-        let opType = FileOperationType.fetch(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+        let operation = FileOperationType.fetch(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
         
         if self.useAppleImplementation {
             var progress = Progress(totalUnitCount: 0)
-            progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+            progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
             progress.kind = .file
             progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
             
@@ -542,7 +542,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     completionHandler(nil, e)
                 }
             }
-            task.taskDescription = opType.json
+            task.taskDescription = operation.json
             task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
             task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
             progress.cancellationHandler = { [weak task] in
@@ -557,16 +557,16 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
-        let opType = FileOperationType.fetch(path: path)
+        let operation = FileOperationType.fetch(path: path)
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
-                self.delegateNotify(opType, error: nil)
+                self.delegateNotify(operation, error: nil)
             }
             return nil
         }
         let progress = Progress(totalUnitCount: 0)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
@@ -589,14 +589,14 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 progress.totalUnitCount = totalSize
                 progress.completedUnitCount = totalReceived
                 DispatchQueue.main.async {
-                    self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress.fractionCompleted))
+                    self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
                 }
             }) { (data, error) in
                 if let error = error {
                     progress.cancel()
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(operation, error: error)
                     }
                     return
                 }
@@ -604,7 +604,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 if let data = data {
                     self.dispatch_queue.async {
                         completionHandler(data, nil)
-                        self.delegateNotify(opType, error: nil)
+                        self.delegateNotify(operation, error: nil)
                     }
                 }
             }
@@ -614,13 +614,13 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.modify(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+        let operation = FileOperationType.modify(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
         
         let progress = Progress(totalUnitCount: Int64(data?.count ?? 0))
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
@@ -629,7 +629,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 return
             }
@@ -644,7 +644,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 }, onProgress: { bytesSent, totalSent, expectedBytes in
                     progress.completedUnitCount = totalSent
                     DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(progress.fractionCompleted))
+                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
                     }
                 }, completionHandler: { (error) in
                     if error != nil {
@@ -653,7 +653,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     self.ftpQuit(task)
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(operation, error: error)
                     }
                 })
             }
@@ -686,21 +686,21 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      */
     open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
-        let opType = FileOperationType.link(link: path, target: destPath)
-        _=self.doOperation(opType, completionHandler: completionHandler)
+        let operation = FileOperationType.link(link: path, target: destPath)
+        _=self.doOperation(operation, completionHandler: completionHandler)
     }
 }
 
 extension FTPFileProvider {
-    fileprivate func doOperation(_ opType: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
+    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
-        let sourcePath = opType.source
-        let destPath = opType.destination
+        let sourcePath = operation.source
+        let destPath = operation.destination
         
         let command: String
-        switch opType {
+        switch operation {
         case .create:
             command = "MKD \(ftpPath(sourcePath))"
         case .copy:
@@ -715,7 +715,7 @@ extension FTPFileProvider {
             return nil
         }
         let progress = Progress(totalUnitCount: 1)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
@@ -724,7 +724,7 @@ extension FTPFileProvider {
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 return
             }
@@ -733,7 +733,7 @@ extension FTPFileProvider {
                 if let error = error {
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: error)
+                        self.delegateNotify(operation, error: error)
                     }
                     return
                 }
@@ -741,7 +741,7 @@ extension FTPFileProvider {
                 guard let response = response else {
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(opType, error: self.throwError(sourcePath, code: URLError.badServerResponse))
+                        self.delegateNotify(operation, error: self.throwError(sourcePath, code: URLError.badServerResponse))
                     }
                     return
                 }
@@ -754,18 +754,18 @@ extension FTPFileProvider {
                 
                 if codes.filter({ (450..<560).contains($0) }).count > 0 {
                     let errorCode: URLError.Code
-                    switch opType {
+                    switch operation {
                     case .create:
                         errorCode = URLError.cannotCreateFile
                     case .modify:
                         errorCode = URLError.cannotWriteToFile
                     case .copy:
-                        self.fallbackCopy(opType, progress: progress, completionHandler: completionHandler)
+                        self.fallbackCopy(operation, progress: progress, completionHandler: completionHandler)
                         return
                     case .move:
                         errorCode = URLError.cannotMoveFile
                     case .remove:
-                        self.fallbackRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
+                        self.fallbackRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
                         return
                     case .link:
                         errorCode = URLError.cannotWriteToFile
@@ -777,7 +777,7 @@ extension FTPFileProvider {
                     self.dispatch_queue.async {
                         completionHandler?(error)
                     }
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                     return
                 }
                 
@@ -785,7 +785,7 @@ extension FTPFileProvider {
                 self.dispatch_queue.async {
                     completionHandler?(nil)
                 }
-                self.delegateNotify(opType, error: nil)
+                self.delegateNotify(operation, error: nil)
             })
         }
         
@@ -796,9 +796,9 @@ extension FTPFileProvider {
         return progress
     }
     
-    private func fallbackCopy(_ opType: FileOperationType, progress: Progress, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
-        guard let destPath = opType.destination else { return }
+    private func fallbackCopy(_ operation: FileOperationType, progress: Progress, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = operation.source
+        guard let destPath = operation.destination else { return }
         
         let localURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
         
@@ -807,7 +807,7 @@ extension FTPFileProvider {
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 return
             }
@@ -815,7 +815,7 @@ extension FTPFileProvider {
             progress.becomeCurrent(withPendingUnitCount: 1)
             _ = self.copyItem(localFile: localURL, to: destPath) { error in
                 completionHandler?(nil)
-                self.delegateNotify(opType, error: nil)
+                self.delegateNotify(operation, error: nil)
             }
             progress.resignCurrent()
         }
@@ -823,8 +823,8 @@ extension FTPFileProvider {
         return
     }
     
-    private func fallbackRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
+    private func fallbackRemove(_ operation: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = operation.source
         
         self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
             if let error = error {
@@ -832,7 +832,7 @@ extension FTPFileProvider {
                 self.dispatch_queue.async {
                     completionHandler?(error)
                 }
-                self.delegateNotify(opType, error: error)
+                self.delegateNotify(operation, error: error)
                 return
             }
             
@@ -842,12 +842,12 @@ extension FTPFileProvider {
                 self.dispatch_queue.async {
                     completionHandler?(error)
                 }
-                self.delegateNotify(opType, error: error)
+                self.delegateNotify(operation, error: error)
                 return
             }
             
             if response.hasPrefix("50") {
-                self.fallbackRecursiveRemove(opType, progress: progress, on: task, completionHandler: completionHandler)
+                self.fallbackRecursiveRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
                 return
             }
             
@@ -858,18 +858,18 @@ extension FTPFileProvider {
             self.dispatch_queue.async {
                 completionHandler?(error)
             }
-            self.delegateNotify(opType, error: error)
+            self.delegateNotify(operation, error: error)
         }
     }
     
-    private func fallbackRecursiveRemove(_ opType: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
-        let sourcePath = opType.source
+    private func fallbackRecursiveRemove(_ operation: FileOperationType, progress: Progress, on task: FileProviderStreamTask, completionHandler: SimpleCompletionHandler) {
+        let sourcePath = operation.source
         
         _ = self.recursiveList(path: sourcePath, useMLST: true, completionHandler: { (contents, error) in
             if let error = error {
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 return
             }
@@ -889,7 +889,7 @@ extension FTPFileProvider {
                 recursiveProgress.completedUnitCount += 1
                 self.dispatch_queue.async {
                     completionHandler?(error)
-                    self.delegateNotify(opType, error: error)
+                    self.delegateNotify(operation, error: error)
                 }
                 // TODO: Digest response
             })

@@ -133,7 +133,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return progress
     }
     
-    override func request(for operation: FileOperationType, overwrite: Bool, attributes: [URLResourceKey : Any]) -> URLRequest {
+    override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
         // content operations
         var request: URLRequest
         switch operation {
@@ -169,25 +169,29 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
             request.set(httpAuthentication: credential, with: .oAuth2)
             request.set(contentType: .stream)
             request.set(dropboxArgKey: requestDictionary)
-        default: // modify, link, fetch
-            return self.apiRequest(for: operation)
+        default:
+            return self.apiRequest(for: operation, overwrite: overwrite)
         }
         return request
     }
     
-    func apiRequest(for operation: FileOperationType) -> URLRequest {
+    func apiRequest(for operation: FileOperationType, overwrite: Bool = false) -> URLRequest {
         let url: String
         let sourcePath = operation.source
         let destPath = operation.destination
+        var requestDictionary = [String: AnyObject]()
         switch operation {
         case .create:
-            url = "files/create_folder"
+            url = "files/create_folder_v2"
+            
         case .copy:
-            url = "files/copy"
+            url = "files/copy_v2"
+            requestDictionary["allow_shared_folder"] = NSNumber(value: true)
         case .move:
-            url = "files/move"
+            url = "files/move_v2"
+            requestDictionary["allow_shared_folder"] = NSNumber(value: true)
         case .remove:
-            url = "files/delete"
+            url = "files/delete_v2"
         default: // modify, link, fetch
             fatalError("Unimplemented operation \(operation.description) in \(#file)")
         }
@@ -195,7 +199,6 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
         request.set(contentType: .json)
-        var requestDictionary = [String: AnyObject]()
         if let dest = correctPath(destPath) as NSString? {
             requestDictionary["from_path"] = correctPath(sourcePath) as NSString?
             requestDictionary["to_path"] = dest

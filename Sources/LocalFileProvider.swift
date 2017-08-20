@@ -211,58 +211,67 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
-        return self.doOperation(opType, completionHandler: completionHandler)
+        let operation = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
+        return self.doOperation(operation, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.move(source: path, destination: toPath)
+        let operation = FileOperationType.move(source: path, destination: toPath)
 
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            dispatch_queue.async {
+                completionHandler?(e)
+            }
+            self.delegateNotify(operation, error: e)
             return nil
         }
         
-        return self.doOperation(opType, completionHandler: completionHandler)
+        return self.doOperation(operation, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.copy(source: path, destination: toPath)
+        let operation = FileOperationType.copy(source: path, destination: toPath)
         
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            self.dispatch_queue.async {
-                completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            dispatch_queue.async {
+                completionHandler?(e)
             }
+            self.delegateNotify(operation, error: e)
             return nil
         }
         
-        return self.doOperation(opType, completionHandler: completionHandler)
+        return self.doOperation(operation, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.remove(path: path)
-        return self.doOperation(opType, completionHandler: completionHandler)
+        let operation = FileOperationType.remove(path: path)
+        return self.doOperation(operation, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        
         if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
-            self.dispatch_queue.async {
-                completionHandler?(self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum))
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            dispatch_queue.async {
+                completionHandler?(e)
             }
+            self.delegateNotify(operation, error: e)
             return nil
         }
-        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        return self.doOperation(opType, forUploading: true, completionHandler: completionHandler)
+        return self.doOperation(operation, forUploading: true, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
-        return self.doOperation(opType, completionHandler: completionHandler)
+        let operation = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
+        return self.doOperation(operation, completionHandler: completionHandler)
     }
     
     @objc dynamic func doSimpleOperation(_ box: UndoBox) {
@@ -273,9 +282,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    fileprivate func doOperation(_ opType: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
+    fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
@@ -289,8 +298,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
-        let sourcePath = opType.source
-        let destPath = opType.destination
+        let sourcePath = operation.source
+        let destPath = operation.destination
         let source: URL = urlofpath(path: sourcePath)
         progress.setUserInfoObject(source, forKey: .fileURLKey)
         
@@ -301,11 +310,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             dest = nil
         }
         
-        if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: opType) {
-            let undoBox = UndoBox(provider: self, operation: opType, undoOperation: undoOp)
+        if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: operation) {
+            let undoBox = UndoBox(provider: self, operation: operation, undoOperation: undoOp)
             undoManager.beginUndoGrouping()
             undoManager.registerUndo(withTarget: self, selector: #selector(LocalFileProvider.doSimpleOperation(_:)), object: undoBox)
-            undoManager.setActionName(opType.actionDescription)
+            undoManager.setActionName(operation.actionDescription)
             undoManager.endUndoGrouping()
         }
         
@@ -314,7 +323,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operationHandler: (URL, URL?) -> Void = { source, dest in
             do {
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-                switch opType {
+                switch operation {
                 case .create:
                     if sourcePath.hasSuffix("/") {
                         progress.totalUnitCount = 1
@@ -350,9 +359,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler?(nil)
                 }
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                }
+                self.delegateNotify(operation, error: nil)
             } catch let e {
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
@@ -361,16 +368,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler?(e)
                 }
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
+                self.delegateNotify(operation, error: e)
             }
         }
         
         if isCoorinating {
             successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             var intents = [NSFileAccessIntent]()
-            switch opType {
+            switch operation {
             case .create, .modify:
                 intents.append(NSFileAccessIntent.writingIntent(with: source, options: .forReplacing))
             case .copy:
@@ -390,9 +395,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler?(error)
                 }
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
+                self.delegateNotify(operation, error: error)
             })
         } else {
             operation_queue.addOperation {
@@ -404,11 +407,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
-        let opType = FileOperationType.fetch(path: path)
+        let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
@@ -423,11 +426,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler(data, nil)
                 }
+                self.delegateNotify(operation, error: nil)
             } catch let e {
                 progress.cancel()
                 self.dispatch_queue.async {
                     completionHandler(nil, e)
                 }
+                self.delegateNotify(operation, error: e)
             }
         }
         
@@ -437,9 +442,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler(nil, error)
                 }
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
+                self.delegateNotify(operation, error: error)
             })
         } else {
             dispatch_queue.async {
@@ -463,11 +466,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             return self.contents(path: path, completionHandler: completionHandler)
         }
 
-        let opType = FileOperationType.fetch(path: path)
+        let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(url, forKey: .fileURLKey)
@@ -476,7 +479,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operationHandler: (URL) -> Void = { url in
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
                 self.dispatch_queue.async {
-                    completionHandler(nil, self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum))
+                    let e = self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum)
+                    completionHandler(nil, e)
+                    self.delegateNotify(operation, error: e)
                 }
                 return
             }
@@ -490,7 +495,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             guard size > offset else {
                 progress.cancel()
                 self.dispatch_queue.async {
-                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum)
+                    completionHandler(nil, e)
+                    self.delegateNotify(operation, error: e)
                 }
                 return
             }
@@ -499,7 +506,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             guard Int64(handle.offsetInFile) == offset else {
                 progress.cancel()
                 self.dispatch_queue.async {
-                    completionHandler(nil, self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum))
+                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum)
+                    completionHandler(nil, e)
+                    self.delegateNotify(operation, error: e)
                 }
                 return
             }
@@ -508,6 +517,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             progress.completedUnitCount = progress.totalUnitCount
             self.dispatch_queue.async {
                 completionHandler(data, nil)
+                self.delegateNotify(operation, error: nil)
             }
         }
         
@@ -515,9 +525,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
             coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
                 completionHandler(nil, error)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                }
+                self.delegateNotify(operation, error: error)
             })
         } else {
             dispatch_queue.async {
@@ -531,8 +539,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let fileExists = fileManager.fileExists(atPath: url(of: path).path)
-        let opType: FileOperationType = fileExists ? .modify(path: path) : .create(path: path)
-        return self.doOperation(opType, data: data ?? Data(), atomically: atomically, completionHandler: completionHandler)
+        let operation: FileOperationType = fileExists ? .modify(path: path) : .create(path: path)
+        return self.doOperation(operation, data: data ?? Data(), atomically: atomically, completionHandler: completionHandler)
     }
     
     fileprivate var monitors = [LocalFolderMonitor]()
@@ -579,17 +587,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     */
     open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
+            let operation = FileOperationType.link(link: path, target: destPath)
             do {
                 try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
                 completionHandler?(nil)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderSucceed(self, operation: .link(link: path, target: destPath))
-                }
+                self.delegateNotify(operation, error: nil)
             } catch let e {
                 completionHandler?(e)
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderFailed(self, operation: .link(link: path, target: destPath))
-                }
+                self.delegateNotify(operation, error: e)
             }
         }
     }

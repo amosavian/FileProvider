@@ -9,16 +9,6 @@
 import Foundation
 
 internal extension FTPFileProvider {
-    func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
-    }
-    
     func readDataUntilEOF(of task: FileProviderStreamTask, minLength: Int, receivedData: Data? = nil, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ errror:Error?) -> Void) {
         task.readData(ofMinLength: minLength, maxLength: 65535, timeout: timeout) { (data, eof, error) in
             if let error = error {

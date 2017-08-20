@@ -418,6 +418,18 @@ public extension FileProviderOperations {
     }
 }
 
+internal extension FileProviderOperations {
+    internal func delegateNotify(_ operation: FileOperationType, error: Error?) {
+        DispatchQueue.main.async(execute: {
+            if error == nil {
+                self.delegate?.fileproviderSucceed(self, operation: operation)
+            } else {
+                self.delegate?.fileproviderFailed(self, operation: operation)
+            }
+        })
+    }
+}
+
 /// Defines method for fetching and modifying file contents
 public protocol FileProviderReadWrite: FileProviderBasic {
     /**
@@ -695,8 +707,9 @@ extension FileProviderBasic {
     }
     
     /// Returns a file name supposed to be unique with adding numbers to end of file.
-    /// - Important: It's a synchronous method. Don't use it on matin thread.
+    /// - Important: It's a synchronous method. Don't use it on main thread.
     public func fileByUniqueName(_ filePath: String) -> String {
+        assert(!Thread.isMainThread, "\(#function) is not recommended to be executed on Main Thread.")
         let fileUrl = URL(fileURLWithPath: filePath)
         let dirPath = fileUrl.deletingLastPathComponent().path 
         let fileName = fileUrl.deletingPathExtension().lastPathComponent

@@ -380,55 +380,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     }
     
     /**
-     Creates a new directory at the specified path asynchronously.
-     This will create any necessary intermediate directories.
-     
-     - Parameters:
-       - folder: Directory name.
-       - at: Parent path of new directory.
-       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-     - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
-     */
-    @discardableResult
-    open override func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        return super.create(folder: folderName, at: atPath, completionHandler: completionHandler)
-    }
-    
-    /**
-     Moves a file or directory from `path` to designated path asynchronously.
-     When you want move a file, destination path should also consists of file name.
-     Either a new name or the old one.
-     
-     - Parameters:
-       - path: original file or directory path.
-       - to: destination path of file or directory, including file/directory name.
-       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
-       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-     - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
-     */
-    @discardableResult
-    open override func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
-        return super.moveItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
-    }
-    
-    /**
-     Copies a file or directory from `path` to designated path asynchronously.
-     When want copy a file, destination path should also consists of file name.
-     Either a new name or the old one.
-     
-     - Parameters:
-       - path: original file or directory path.
-       - to: destination path of file or directory, including file/directory name.
-       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
-       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-     - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
-     */
-    @discardableResult
-    open override func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
-        return super.copyItem(path: path, to: toPath, overwrite: overwrite, completionHandler: completionHandler)
-    }
-    
-    /**
      Removes the file or directory at the specified path.
      
      - Important: Due to a bug (race condition?) in Apple API, it takes about 3-5 seconds to update containing folder
@@ -459,14 +410,14 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     @discardableResult
     open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // TODO: Make use of overwrite parameter
-        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(localFile, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: toPath, opType: opType, progress: progress)
+        monitorFile(path: toPath, operation: operation, progress: progress)
         operation_queue.addOperation {
             let tempFolder: URL
             if #available(iOS 10.0, macOS 10.12, tvOS 10.0, *) {
@@ -481,17 +432,13 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 let toUrl = self.url(of: toPath)
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
                 completionHandler?(nil)
-                DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderSucceed(self, operation: opType)
-                })
+                self.delegateNotify(operation, error: nil)
             } catch let e {
                 if self.opFileManager.fileExists(atPath: tmpFile.path) {
                     try? self.opFileManager.removeItem(at: tmpFile)
                 }
                 completionHandler?(e)
-                DispatchQueue.main.async(execute: {
-                    self.delegate?.fileproviderFailed(self, operation: opType)
-                })
+                self.delegateNotify(operation, error: e)
             }
         }
         return progress
@@ -509,21 +456,19 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let opType = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
+        let operation = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(opType, forKey: .fileProvderOperationTypeKey)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: path, opType: opType, progress: progress)
+        monitorFile(path: path, operation: operation, progress: progress)
         do {
             try self.opFileManager.startDownloadingUbiquitousItem(at: self.url(of: path))
         } catch let e {
             completionHandler?(e)
-            DispatchQueue.main.async(execute: {
-                self.delegate?.fileproviderFailed(self, operation: opType)
-            })
+            self.delegateNotify(operation, error: e)
             return nil
         }
         let _ = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
@@ -549,7 +494,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.kind = .file
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: path, opType: operation, progress: progress)
+        monitorFile(path: path, operation: operation, progress: progress)
         _ = super.contents(path: path, completionHandler: completionHandler)
         return progress
     }
@@ -575,7 +520,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.kind = .file
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: path, opType: operation, progress: progress)
+        monitorFile(path: path, operation: operation, progress: progress)
         _ = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
         return progress
     }
@@ -599,7 +544,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.kind = .file
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: path, opType: operation, progress: progress)
+        monitorFile(path: path, operation: operation, progress: progress)
         _ = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler)
         return progress
     }
@@ -686,7 +631,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return file
     }
     
-    fileprivate func monitorFile(path: String, opType: FileOperationType, progress: Progress?) {
+    fileprivate func monitorFile(path: String, operation: FileOperationType, progress: Progress?) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             let size = pathURL.fileSize
@@ -711,20 +656,18 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
                     progress?.completedUnitCount = Int64(uploaded / 100 * Double(progress?.totalUnitCount ?? 0))
                     DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(uploaded / 100))
+                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(uploaded / 100))
                     }
                 } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
                     progress?.completedUnitCount = Int64(downloaded / 100 * Double(progress?.totalUnitCount ?? 0))
                     DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: opType, progress: Float(downloaded / 100))
+                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(downloaded / 100))
                     }
                 } else if uploaded == 100 || downloaded == 100 {
                     progress?.completedUnitCount = progress?.totalUnitCount ?? 0
                     query.stop()
                     NotificationCenter.default.removeObserver(updateObserver!)
-                    DispatchQueue.main.async {
-                        self.delegate?.fileproviderSucceed(self, operation: opType)
-                    }
+                    self.delegateNotify(operation, error: nil)
                 }
                 
                 query.enableUpdates()

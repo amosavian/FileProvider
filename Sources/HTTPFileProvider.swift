@@ -9,10 +9,10 @@
 import Foundation
 
 /**
- Allows accessing to Dropbox stored files. This provider doesn't cache or save files internally, however you can
- set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
+ The abstract base class for all REST/Web based providers such as WebDAV, Dropbox, OneDrive, Google Drive, etc. and encapsulates basic
+ functionalitis such as downloading/uploading.
  
- - Note: Uploading files and data are limited to 150MB, for now.
+ No instance of this class should (and can) be created. Use derivated classes instead. It leads to a crash with `fatalError()`.
  */
 open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
@@ -360,6 +360,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
                 progress.cancel()
             }
             completionHandler(nil, error)
+            self.delegateNotify(operation, error: error)
         }
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
@@ -370,6 +371,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
                     progress.cancel()
                 }
                 completionHandler(nil, serverError)
+                self.delegateNotify(operation, error: nil)
                 return
             }
             
@@ -384,18 +386,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
         return progress
-    }
-}
-
-extension HTTPFileProvider {
-    internal func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
     }
 }
 

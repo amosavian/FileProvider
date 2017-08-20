@@ -77,7 +77,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
          - `error`: Error returned by system.
      */
     open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
-        let opType = FileOperationType.fetch(path: path)
+        let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path).appendingPathComponent("")
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -86,7 +86,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.set(contentType: .xml)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
-        runDataTask(with: request, operation: opType, completionHandler: { (data, response, error) in
+        runDataTask(with: request, operation: operation, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)

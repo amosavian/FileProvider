@@ -23,6 +23,10 @@ public final class DropboxFileObject: FileObject {
     }
     
     internal init? (json: [String: AnyObject]) {
+        var json = json
+        if json["name"] == nil, let metadata = json["metadata"] as? [String: AnyObject] {
+            json = metadata
+        }
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["path_display"] as? String else { return nil }
         super.init(url: nil, name: name, path: path)

@@ -201,12 +201,18 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.set(httpAuthentication: credential, with: .oAuth2)
-        if let dest = correctPath(operation.destination) as NSString?, !dest.hasPrefix("file://") {
+        
+        switch operation {
+        case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
+             .move(source: let source, destination: let dest):
             request.set(contentType: .json)
+            let cdest = (correctPath(dest) as NSString?)!
             var requestDictionary = [String: AnyObject]()
-            requestDictionary["parentReference"] = ("/drive/\(drive):" + dest.deletingLastPathComponent) as NSString
-            requestDictionary["name"] = dest.lastPathComponent as NSString
+            requestDictionary["parentReference"] = ("/drive/\(drive):" + cdest.deletingLastPathComponent) as NSString
+            requestDictionary["name"] = cdest.lastPathComponent as NSString
             request.httpBody = Data(jsonDictionary: requestDictionary)
+        default:
+            break
         }
         
         return request
@@ -240,9 +246,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     fileprivate func unregisterNotifcation(path: String) {
         NotImplemented()
     }
-}
-
-extension OneDriveFileProvider {
+    
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
         request.httpMethod = "POST"
