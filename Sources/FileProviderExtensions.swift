@@ -145,6 +145,10 @@ internal extension URLRequest {
     }
 }
 
+internal extension CharacterSet {
+    static let filePathAllowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))
+}
+
 internal extension Data {
     internal var isPDF: Bool {
         return self.count > 4 && self.scanString(length: 4, using: .ascii) == "%PDF"
