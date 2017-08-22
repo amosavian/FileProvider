@@ -145,8 +145,8 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         }
         
         DispatchQueue.main.async {
-            if error != nil {
-                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op)
+            if let error = error {
+                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op, error: error)
             } else {
                 fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
             }

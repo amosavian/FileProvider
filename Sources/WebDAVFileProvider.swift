@@ -315,7 +315,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        return FileProviderWebDavError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path))
+        return FileProviderWebDavError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
     }
     
     override func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) {
@@ -401,7 +401,7 @@ struct DavResponse {
         
         func standardizePath(_ str: String) -> String {
             let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
-            return trimmedStr.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))) ?? str
+            return trimmedStr.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? str
         }
         
         // find node names with namespace

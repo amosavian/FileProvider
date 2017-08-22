@@ -218,8 +218,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.move(source: path, destination: toPath)
-
-        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+        
+        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
+            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
+        if !overwrite && fileExists {
             let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
             dispatch_queue.async {
                 completionHandler?(e)
@@ -235,7 +237,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: toPath)
         
-        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
+            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
+        if !overwrite && fileExists {
             let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
             dispatch_queue.async {
                 completionHandler?(e)
@@ -257,7 +261,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         
-        if !overwrite && self.fileManager.fileExists(atPath: self.url(of: toPath).path) {
+        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
+            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
+        if !overwrite && fileExists {
             let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
             dispatch_queue.async {
                 completionHandler?(e)
@@ -391,7 +397,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             default:
                 return nil
             }
-            self.coordinated(intents: intents, completionHandler: operationHandler, errorHandler: { error in
+            self.coordinated(intents: intents, operationHandler: operationHandler, errorHandler: { error in
                 self.dispatch_queue.async {
                     completionHandler?(error)
                 }
@@ -438,7 +444,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         if isCoorinating {
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
-            coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
+            coordinated(intents: [intent], operationHandler: operationHandler, errorHandler: { error in
                 self.dispatch_queue.async {
                     completionHandler(nil, error)
                 }
@@ -523,7 +529,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         if isCoorinating {
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
-            coordinated(intents: [intent], completionHandler: operationHandler, errorHandler: { error in
+            coordinated(intents: [intent], operationHandler: operationHandler, errorHandler: { error in
                 completionHandler(nil, error)
                 self.delegateNotify(operation, error: error)
             })
@@ -538,7 +544,17 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let fileExists = fileManager.fileExists(atPath: url(of: path).path)
+        let fileExists = ((try? self.url(of: path).checkResourceIsReachable()) ?? false) ||
+            ((try? self.url(of: path).checkPromisedItemIsReachable()) ?? false)
+        if !overwrite && fileExists {
+            let e = self.throwError(path, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            dispatch_queue.async {
+                completionHandler?(e)
+            }
+            self.delegateNotify(.modify(path: path), error: e)
+            return nil
+        }
+        
         let operation: FileOperationType = fileExists ? .modify(path: path) : .create(path: path)
         return self.doOperation(operation, data: data ?? Data(), atomically: atomically, completionHandler: completionHandler)
     }
@@ -618,18 +634,18 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
 }
 
 internal extension LocalFileProvider {
-    func coordinated(intents: [NSFileAccessIntent], completionHandler: @escaping (_ url: URL) -> Void, errorHandler: ((_ error: Error) -> Void)? = nil) {
+    func coordinated(intents: [NSFileAccessIntent], operationHandler: @escaping (_ url: URL) -> Void, errorHandler: ((_ error: Error) -> Void)? = nil) {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(with: intents, queue: operation_queue) { (error) in
             if let error = error {
                 errorHandler?(error)
                 return
             }
-            completionHandler(intents.first!.url)
+            operationHandler(intents.first!.url)
         }
     }
     
-    func coordinated(intents: [NSFileAccessIntent], moving: Bool = false, completionHandler: @escaping (_ sourceUrl: URL, _ destURL: URL?) -> Void, errorHandler:  ((_ error: Error) -> Void)? = nil) {
+    func coordinated(intents: [NSFileAccessIntent], moving: Bool = false, operationHandler: @escaping (_ sourceUrl: URL, _ destURL: URL?) -> Void, errorHandler:  ((_ error: Error) -> Void)? = nil) {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(with: intents, queue: operation_queue) { (error) in
             if let error = error {
@@ -641,7 +657,7 @@ internal extension LocalFileProvider {
             if moving, let newDest = newDest {
                 coordinator.item(at: newSource, willMoveTo: newDest)
             }
-            completionHandler(newSource, newDest)
+            operationHandler(newSource, newDest)
             if moving, let newDest = newDest {
                 coordinator.item(at: newSource, didMoveTo: newDest)
             }

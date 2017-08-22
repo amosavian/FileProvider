@@ -93,7 +93,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
-        var request = URLRequest(url: url())
+        var request = URLRequest(url: url(of: ""))
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -126,13 +126,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return progress
     }
     
-    open func url(of path: String? = nil, modifier: String? = nil) -> URL {
-        var rpath: String
-        if let path = path {
-            rpath = path
-        } else {
-            rpath = self.currentPath
-        }
+    open func url(of path: String, modifier: String? = nil) -> URL {
+        var rpath: String = path
         
         let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
         
@@ -155,7 +150,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
-        var request = URLRequest(url: url())
+        var request = URLRequest(url: url(of: ""))
         request.httpMethod = "HEAD"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in

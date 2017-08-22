@@ -29,7 +29,8 @@ public protocol FileProviderBasic: class, NSSecureCoding {
     /// The url of which paths should resolve against.
     var baseURL: URL? { get }
     
-    /// Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
+    /// **DEPRECATED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
+    @available(*, deprecated, message: "This property is redundant with almost no use internally.")
     var currentPath: String { get set }
     
     /**
@@ -133,7 +134,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
      - Parameter path: Relative path of file or directory.
      - Returns: An url, can be used to access to file directly.
     */
-    func url(of path: String?) -> URL
+    func url(of path: String) -> URL
     
     
     /// Returns the relative path of url, wothout percent encoding. Even if url is absolute or
@@ -421,10 +422,10 @@ public extension FileProviderOperations {
 internal extension FileProviderOperations {
     internal func delegateNotify(_ operation: FileOperationType, error: Error?) {
         DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
+            if let error = error {
+                self.delegate?.fileproviderFailed(self, operation: operation, error: error)
             } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
+                self.delegate?.fileproviderSucceed(self, operation: operation)
             }
         })
     }
@@ -659,9 +660,9 @@ extension FileProviderBasic {
         #endif
     }
     
-    public func url(of path: String? = nil) -> URL {
-        var rpath: String = path ?? self.currentPath
-        rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
+    public func url(of path: String) -> URL {
+        var rpath: String = path
+        rpath = rpath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? rpath
         if let baseURL = baseURL {
             if rpath.hasPrefix("/") {
                 rpath.remove(at: rpath.startIndex)
@@ -1054,7 +1055,7 @@ public protocol FileProviderDelegate: class {
     func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
     /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation finished with failure.
     /// This method is called in main thread to avoids UI bugs.
-    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType)
+    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType, error: Error)
     /// fileproviderSucceed(_:operation:) gives delegate a notification when an operation progess.
     /// Supported by some providers, especially remote ones.
     /// This method is called in main thread to avoids UI bugs.

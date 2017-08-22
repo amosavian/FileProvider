@@ -731,9 +731,13 @@ public enum UbiquitousScope: RawRepresentable {
     /// Search all files not in the Documents directories of the app’s iCloud container directories.
     /// Use this scope to store user-related data files that your app needs to share 
     /// but that are not files you want the user to manipulate directly.
+    ///
+    /// Raw value is equivalent to `NSMetadataQueryUbiquitousDataScope`
     case data
     /// Search all files in the Documents directories of the app’s iCloud container directories.
     /// Put documents that the user is allowed to access inside a Documents subdirectory.
+    ///
+    /// Raw value is equivalent to `NSMetadataQueryUbiquitousDocumentsScope`
     case documents
     
     public typealias RawValue = String
