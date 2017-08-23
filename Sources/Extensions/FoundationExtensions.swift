@@ -138,7 +138,8 @@ internal extension URLRequest {
                 let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)
                 representaion = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? ?? "*"
             }
-            return "\(representaion); q=\(quality)"
+            let qualityDesc = String(format: "%.1f", quality)
+            return "\(representaion); q=\(qualityDesc)"
         }
     }
     
