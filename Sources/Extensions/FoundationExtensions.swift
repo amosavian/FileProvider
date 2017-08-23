@@ -21,7 +21,7 @@ public extension Array where Element: FileObject {
     }
 }
 
-public extension Array where Iterator.Element == UInt8 {
+public extension Array where Element == UInt8 {
     func hexString() -> String {
         return self.map{String(format: "%02X", $0)}.joined()
     }
