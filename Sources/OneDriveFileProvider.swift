@@ -330,6 +330,7 @@ extension OneDriveFileProvider: FileProviderOperations {
         }
         var request = URLRequest(url: self.url(of: path, modifier: "content"))
         request.set(httpAuthentication: credential, with: .oAuth2)
+        request.set(acceptEncoding: .gzip)
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in

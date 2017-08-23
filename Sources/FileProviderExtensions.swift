@@ -103,6 +103,14 @@ internal extension URLRequest {
         }
     }
     
+    enum AcceptEncoding: String {
+        case gzip = "gzip;q=0"
+    }
+    
+    mutating func set(acceptEncoding:AcceptEncoding) {
+        self.setValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
+    }
+    
     enum ContentType: String {
         case json = "application/json"
         case stream = "application/octet-stream"
