@@ -130,7 +130,7 @@ internal extension URLRequest {
         
         var stringifed: String {
             var representaion = String(describing: value)
-            let quality = max(1, min(self.quality, 0))
+            let quality = min(1, max(self.quality, 0))
             if let value = value as? Locale {
                 representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
             }
