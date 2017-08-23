@@ -318,7 +318,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func url(of path: String?) -> URL {
-        let path = (path ?? self.currentPath).trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? (path ?? self.currentPath)
+        let path = (path ?? self.currentPath).trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? (path ?? self.currentPath)
         
         var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
         baseUrlComponent?.user = credential?.user

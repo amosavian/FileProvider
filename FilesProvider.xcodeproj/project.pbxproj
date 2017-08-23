@@ -38,6 +38,12 @@
 		7936BC121E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
 		7936BC131E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
 		7936BC141E880F5700A6C81C /* FTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7936BC111E880F5700A6C81C /* FTPFileProvider.swift */; };
+		793CCE2A1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE291F4B8C5C00BC8288 /* FoundationExtensions.swift */; };
+		793CCE2B1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE291F4B8C5C00BC8288 /* FoundationExtensions.swift */; };
+		793CCE2C1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE291F4B8C5C00BC8288 /* FoundationExtensions.swift */; };
+		793CCE2E1F4B8C7B00BC8288 /* HashMAC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE2D1F4B8C7B00BC8288 /* HashMAC.swift */; };
+		793CCE2F1F4B8C7B00BC8288 /* HashMAC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE2D1F4B8C7B00BC8288 /* HashMAC.swift */; };
+		793CCE301F4B8C7B00BC8288 /* HashMAC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793CCE2D1F4B8C7B00BC8288 /* HashMAC.swift */; };
 		79480FF61E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
 		79480FF71E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
 		79480FF81E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */; };
@@ -53,9 +59,6 @@
 		7958155A1F478ED9003344DD /* HTTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795815591F478ED9003344DD /* HTTPFileProvider.swift */; };
 		7958155B1F478ED9003344DD /* HTTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795815591F478ED9003344DD /* HTTPFileProvider.swift */; };
 		7958155C1F478ED9003344DD /* HTTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795815591F478ED9003344DD /* HTTPFileProvider.swift */; };
-		796807551E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
-		796807561E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
-		796807571E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */; };
 		798654331E8874BC002FA550 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
 		799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
@@ -143,12 +146,13 @@
 		7924B1A81D89F79200589DB7 /* FPSStreamTask.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FPSStreamTask.swift; sourceTree = "<group>"; };
 		792572401DF23BDA006A1526 /* LocalHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalHelper.swift; sourceTree = "<group>"; };
 		7936BC111E880F5700A6C81C /* FTPFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPFileProvider.swift; sourceTree = "<group>"; };
+		793CCE291F4B8C5C00BC8288 /* FoundationExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FoundationExtensions.swift; sourceTree = "<group>"; };
+		793CCE2D1F4B8C7B00BC8288 /* HashMAC.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HashMAC.swift; sourceTree = "<group>"; };
 		79480FF51E3ABDD0007E7275 /* CloudFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CloudFileProvider.swift; sourceTree = "<group>"; };
 		794C21FD1D58912A00EC49B8 /* DropboxHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DropboxHelper.swift; sourceTree = "<group>"; };
 		794C22091D5893F800EC49B8 /* SMB2Notification.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2Notification.swift; sourceTree = "<group>"; };
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
 		795815591F478ED9003344DD /* HTTPFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPFileProvider.swift; sourceTree = "<group>"; };
-		796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileProviderExtensions.swift; sourceTree = "<group>"; };
 		798654321E8874BC002FA550 /* FTPHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPHelper.swift; sourceTree = "<group>"; };
 		799396671D48B7F600086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396751D48B80D00086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -259,6 +263,15 @@
 			path = AEXML;
 			sourceTree = "<group>";
 		};
+		793CCE281F4B8C3600BC8288 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				793CCE291F4B8C5C00BC8288 /* FoundationExtensions.swift */,
+				793CCE2D1F4B8C7B00BC8288 /* HashMAC.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 		7993965B1D48B7BF00086753 = {
 			isa = PBXGroup;
 			children = (
@@ -294,10 +307,10 @@
 			isa = PBXGroup;
 			children = (
 				7924B18B1D89DAE000589DB7 /* AEXML */,
+				793CCE281F4B8C3600BC8288 /* Extensions */,
 				799396991D48C02300086753 /* SMBTypes */,
 				799396941D48C02300086753 /* FileProvider.h */,
 				799396951D48C02300086753 /* FileProvider.swift */,
-				796807541E7BF17E00BBB87B /* FileProviderExtensions.swift */,
 				79F5745A1DFDB10A00179ABF /* FileObject.swift */,
 				799396961D48C02300086753 /* LocalFileProvider.swift */,
 				792572401DF23BDA006A1526 /* LocalHelper.swift */,
@@ -495,7 +508,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				796807551E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B31D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
@@ -525,10 +537,12 @@
 				799396E01D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DA1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C21D48C02300086753 /* SMB2FileHandle.swift in Sources */,
+				793CCE2E1F4B8C7B00BC8288 /* HashMAC.swift in Sources */,
 				799396CB1D48C02300086753 /* SMB2Query.swift in Sources */,
 				799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
 				79BD638C1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				7924B1B31D89FD6400589DB7 /* SMBClient.swift in Sources */,
+				793CCE2A1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */,
 				7924B1A51D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B01D48C02300086753 /* FileProvider.swift in Sources */,
 				7924B19C1D89DAE000589DB7 /* Error.swift in Sources */,
@@ -539,7 +553,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				796807561E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B41D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
@@ -569,10 +582,12 @@
 				799396E11D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DB1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C31D48C02300086753 /* SMB2FileHandle.swift in Sources */,
+				793CCE2F1F4B8C7B00BC8288 /* HashMAC.swift in Sources */,
 				799396CC1D48C02300086753 /* SMB2Query.swift in Sources */,
 				7924B1AD1D89F7D800589DB7 /* SMBClient.swift in Sources */,
 				79BD638D1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
+				793CCE2B1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */,
 				7924B1A61D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B11D48C02300086753 /* FileProvider.swift in Sources */,
 				7924B19D1D89DAE000589DB7 /* Error.swift in Sources */,
@@ -583,7 +598,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				796807571E7BF17E00BBB87B /* FileProviderExtensions.swift in Sources */,
 				799396B51D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
@@ -613,10 +627,12 @@
 				799396E21D48C02300086753 /* WebDAVFileProvider.swift in Sources */,
 				799396DC1D48C02300086753 /* SMBErrorType.swift in Sources */,
 				799396C41D48C02300086753 /* SMB2FileHandle.swift in Sources */,
+				793CCE301F4B8C7B00BC8288 /* HashMAC.swift in Sources */,
 				799396CD1D48C02300086753 /* SMB2Query.swift in Sources */,
 				7924B1AE1D89F7D900589DB7 /* SMBClient.swift in Sources */,
 				79BD638E1E2CC2300035128C /* ExtendedLocalFileProvider.swift in Sources */,
 				799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */,
+				793CCE2C1F4B8C5C00BC8288 /* FoundationExtensions.swift in Sources */,
 				7924B1A71D89DAE000589DB7 /* Parser.swift in Sources */,
 				799396B21D48C02300086753 /* FileProvider.swift in Sources */,
 				7924B19E1D89DAE000589DB7 /* Error.swift in Sources */,

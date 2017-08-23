@@ -444,7 +444,7 @@ internal extension FTPFileProvider {
     func ftpRetrieveData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
         
         // Check cache
-        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
             dispatch_queue.async {
                 completionHandler(cachedResponse.data, nil)
             }
@@ -504,7 +504,7 @@ internal extension FTPFileProvider {
                             }
                         }
                         
-                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
                             let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
                             let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
                             let request = URLRequest(url: url)
@@ -542,7 +542,7 @@ internal extension FTPFileProvider {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
         
         // Check cache
-        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
             dispatch_queue.async {
                 do {
                     try cachedResponse.data.write(to: tempURL)
@@ -609,7 +609,7 @@ internal extension FTPFileProvider {
                             }
                         }
                         
-                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
                             let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
                             let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
                             let request = URLRequest(url: url)

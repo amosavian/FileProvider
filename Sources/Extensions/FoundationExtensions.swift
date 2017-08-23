@@ -21,6 +21,12 @@ public extension Array where Element: FileObject {
     }
 }
 
+public extension Array where Iterator.Element == UInt8 {
+    func hexString() -> String {
+        return self.map{String(format: "%02X", $0)}.joined()
+    }
+}
+
 public extension URLFileResourceType {
     /// **FileProvider** returns corresponding `URLFileResourceType` of a `FileAttributeType` value
     public init(fileTypeValue: FileAttributeType) {
@@ -143,6 +149,10 @@ internal extension URLRequest {
         
         self.setValue(jsonString, forHTTPHeaderField: "Dropbox-API-Arg")
     }
+}
+
+internal extension CharacterSet {
+    static let filePathAllowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))
 }
 
 internal extension Data {

@@ -33,7 +33,7 @@ open class FileObject: Equatable {
             if let url = allValues[.fileURLKey] as? URL {
                 return url
             } else {
-                let path = self.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? self.path
+                let path = self.path.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? self.path
                 return URL(string: path) ?? URL(string: "/")!
             }
         }
