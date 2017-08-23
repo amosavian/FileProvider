@@ -31,18 +31,6 @@ extension FileProviderHTTPError {
     }
 }
 
-/// Defines HTTP Authentication method required to access
-public enum HTTPAuthenticationType {
-    /// Basic method for authentication
-    case basic
-    /// Digest method for authentication
-    case digest
-    /// OAuth 1.0 method for authentication (OAuth)
-    case oAuth1
-    /// OAuth 2.0 method for authentication (Bearer)
-    case oAuth2
-}
-
 internal var completionHandlersForTasks = [String: [Int: SimpleCompletionHandler]]()
 internal var downloadCompletionHandlersForTasks = [String: [Int: (URL) -> Void]]()
 internal var dataCompletionHandlersForTasks = [String: [Int: (Data) -> Void]]()

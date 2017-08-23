@@ -22,7 +22,7 @@ import CoreGraphics
 */
 open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "WebDAV" }
-    public var credentialType: HTTPAuthenticationType = .digest
+    public var credentialType: URLRequest.AuthenticationType = .digest
     
     /**
      Initializes WebDAV provider.
@@ -83,7 +83,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, operation: operation, completionHandler: { (data, response, error) in
@@ -126,7 +126,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -156,7 +156,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -180,7 +180,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         // Depth infinity is disabled on some servers. Implement workaround?!
         request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
         let progress = Progress(parent: nil, userInfo: nil)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
@@ -221,7 +221,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -242,7 +242,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPPATCH"
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
         request.httpBody = body.data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")

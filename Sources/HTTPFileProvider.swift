@@ -227,7 +227,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
-        request.set(rangeWithOffset: offset, length: length)
+        request.set(httpRangeWithOffset: offset, length: length)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { (tempURL, error) in
             if let error = error {
                 completionHandler(nil, error)

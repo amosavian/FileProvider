@@ -81,8 +81,22 @@ internal extension URL {
     }
 }
 
+public extension URLRequest {
+    /// Defines HTTP Authentication method required to access
+    public enum AuthenticationType {
+        /// Basic method for authentication
+        case basic
+        /// Digest method for authentication
+        case digest
+        /// OAuth 1.0 method for authentication (OAuth)
+        case oAuth1
+        /// OAuth 2.0 method for authentication (Bearer)
+        case oAuth2
+    }
+}
+
 internal extension URLRequest {
-    mutating func set(httpAuthentication credential: URLCredential?, with type: HTTPAuthenticationType) {
+    mutating func set(httpAuthentication credential: URLCredential?, with type: AuthenticationType) {
         func base64(_ str: String) -> String {
             let plainData = str.data(using: .utf8)
             let base64String = plainData!.base64EncodedString(options: [])
@@ -93,7 +107,9 @@ internal extension URLRequest {
         switch type {
         case .basic:
             let authStr = "\(credential.user ?? ""):\(credential.password ?? "")"
-            self.setValue("Basic \(authStr)", forHTTPHeaderField: "Authorization")
+            if let base64Auth = authStr.data(using: .utf8)?.base64EncodedString() {
+                self.setValue("Basic \(base64Auth)", forHTTPHeaderField: "Authorization")
+            }
         case .digest:
             // handled by RemoteSessionDelegate
             break
@@ -108,7 +124,106 @@ internal extension URLRequest {
         }
     }
     
-    mutating func set(rangeWithOffset offset: Int64, length: Int) {
+    struct Quality<T> {
+        let value: T
+        let quality: Float
+        
+        var stringifed: String {
+            var representaion = String(describing: value)
+            let quality = max(1, min(self.quality, 0))
+            if let value = value as? Locale {
+                representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
+            }
+            if let value = value as? String.Encoding {
+                let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)
+                representaion = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? ?? "*"
+            }
+            return "\(representaion); q=\(quality)"
+        }
+    }
+    
+    mutating func set(httoAcceptCharset acceptCharset: String.Encoding) {
+        let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
+        if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
+            self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
+        }
+    }
+    
+    mutating func set(httoAcceptCharset acceptCharset: Quality<String.Encoding>) {
+        self.addValue(acceptCharset.stringifed, forHTTPHeaderField: "Accept-Charset")
+    }
+    
+    mutating func set(httoAcceptCharsets acceptCharsets: [String.Encoding]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
+        for charset in acceptCharsets {
+            let cfEncoding = CFStringConvertNSStringEncodingToEncoding(charset.rawValue)
+            if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
+                self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
+            }
+        }
+    }
+    
+    mutating func set(httoAcceptCharsets acceptCharsets: [Quality<String.Encoding>]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
+        for charset in acceptCharsets.sorted(by: { $0.quality > $1.quality }) {
+            self.addValue(charset.stringifed, forHTTPHeaderField: "Accept-Charset")
+        }
+    }
+    
+    enum Encoding: String {
+        case all = "*"
+        case identity
+        case gzip
+        case deflate
+    }
+    
+    mutating func set(httpAcceptEncoding acceptEncoding: Encoding) {
+        self.addValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
+    }
+    
+    mutating func set(httpAcceptEncoding acceptEncoding: Quality<Encoding>) {
+        self.addValue(acceptEncoding.stringifed, forHTTPHeaderField: "Accept-Encoding")
+    }
+    
+    mutating func set(httpAcceptEncodings acceptEncodings: [Encoding]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Encoding")
+        for encoding in acceptEncodings {
+            self.addValue(encoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
+        }
+    }
+    
+    mutating func set(httpAcceptEncodings acceptEncodings: [Quality<Encoding>]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Encoding")
+        for encoding in acceptEncodings.sorted(by: { $0.quality > $1.quality }) {
+            self.addValue(encoding.stringifed, forHTTPHeaderField: "Accept-Encoding")
+        }
+    }
+    
+    mutating func set(httpAcceptLanguage acceptLanguage: Locale) {
+        let langCode = acceptLanguage.identifier.replacingOccurrences(of: "_", with: "-")
+        self.addValue(langCode, forHTTPHeaderField: "Accept-Language")
+    }
+    
+    mutating func set(httpAcceptLanguage acceptLanguage: Quality<Locale>) {
+        self.addValue(acceptLanguage.stringifed, forHTTPHeaderField: "Accept-Language")
+    }
+    
+    mutating func set(httpAcceptLanguages acceptLanguages: [Locale]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Language")
+        for lang in acceptLanguages {
+            let langCode = lang.identifier.replacingOccurrences(of: "_", with: "-")
+            self.addValue(langCode, forHTTPHeaderField: "Accept-Language")
+        }
+    }
+    
+    mutating func set(httpAcceptLanguages acceptLanguages: [Quality<Locale>]) {
+        self.setValue(nil, forHTTPHeaderField: "Accept-Language")
+        for lang in acceptLanguages.sorted(by: { $0.quality > $1.quality} ) {
+            self.addValue(lang.stringifed, forHTTPHeaderField: "Accept-Language")
+        }
+    }
+    
+    mutating func set(httpRangeWithOffset offset: Int64, length: Int) {
         if length > 0 {
             self.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
@@ -116,27 +231,51 @@ internal extension URLRequest {
         }
     }
     
-    enum ContentType: String {
-        case json = "application/json"
-        case stream = "application/octet-stream"
-        case xml = "text/xml; charset=\"utf-8\""
+    mutating func set(httpRange range: Range<Int>) {
+        let range = max(0, range.lowerBound)..<range.upperBound
+        if range.upperBound < Int.max && range.count > 0 {
+            self.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range")
+        } else if range.lowerBound > 0 {
+            self.setValue("bytes=\(range.lowerBound)-", forHTTPHeaderField: "Range")
+        }
     }
     
-    mutating func set(contentType: ContentType) {
-        self.setValue(contentType.rawValue, forHTTPHeaderField: "Content-Type")
+    struct ContentMIMEType: RawRepresentable {
+        public var rawValue: String
+        public typealias RawValue = String
+        
+        public init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+        
+        static let javascript = ContentMIMEType(rawValue: "application/javascript")
+        static let json = ContentMIMEType(rawValue: "application/json")
+        static let pdf = ContentMIMEType(rawValue: "application/pdf")
+        static let stream = ContentMIMEType(rawValue: "application/octet-stream")
+        static let zip = ContentMIMEType(rawValue: "application/zip")
+        
+        // Texts
+        static let css = ContentMIMEType(rawValue: "text/css")
+        static let html = ContentMIMEType(rawValue: "text/html")
+        static let plainText = ContentMIMEType(rawValue: "text/plain")
+        static let xml = ContentMIMEType(rawValue: "text/xml")
+        
+        // Images
+        static let gif = ContentMIMEType(rawValue: "image/gif")
+        static let jpeg = ContentMIMEType(rawValue: "image/jpeg")
+        static let png = ContentMIMEType(rawValue: "image/png")
     }
     
-    private func asciiEscape(string:String) -> String {
-        var res = ""
-        for char in string.unicodeScalars {
-            let substring = String(char)
-            if substring.canBeConverted(to: .ascii) {
-                res.append(substring)
-            } else {
-                res = res.appendingFormat("\\u%04x", char.value)
+    mutating func set(httpContentType contentType: ContentMIMEType, charset: String.Encoding? = nil) {
+        var parameter = ""
+        if let charset = charset {
+            let cfEncoding = CFStringConvertNSStringEncodingToEncoding(charset.rawValue)
+            if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
+                parameter = ";charset=" + charsetString
             }
         }
-        return res
+        
+        self.setValue(contentType.rawValue + parameter, forHTTPHeaderField: "Content-Type")
     }
     
     mutating func set(dropboxArgKey requestDictionary: [String: AnyObject]) {
@@ -144,8 +283,7 @@ internal extension URLRequest {
             return
         }
         guard var jsonString = String(data: jsonData, encoding: .utf8) else { return }
-        jsonString = self.asciiEscape(string: jsonString)
-        jsonString = jsonString.replacingOccurrences(of: "\\/", with: "/")
+        jsonString = jsonString.asciiEscaped().replacingOccurrences(of: "\\/", with: "/")
         
         self.setValue(jsonString, forHTTPHeaderField: "Dropbox-API-Arg")
     }
@@ -216,6 +354,19 @@ internal extension String {
         }
         return data.deserializeJSON()
     }
+    
+    func asciiEscaped() -> String {
+        var res = ""
+        for char in self.unicodeScalars {
+            let substring = String(char)
+            if substring.canBeConverted(to: .ascii) {
+                res.append(substring)
+            } else {
+                res = res.appendingFormat("\\u%04x", char.value)
+            }
+        }
+        return res
+    }
 }
 
 internal extension TimeInterval {
@@ -244,39 +395,51 @@ internal extension TimeInterval {
     }
 }
 
-internal extension Date {
-   init?(rfcString: String) {
+public extension Date {
+    /// Date formats used commonly in internet messaging defined by various RFCs.
+    public enum RFCStandards: String {
+        /// Date format defined by usenet, commonly used in old implementations.
+        case rfc850 = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
+        /// Date format defined by RFC 1132 for http.
+        case rfc1123 = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss z"
+        /// Date format defined by ISO 8601, also defined in RFC 3339. Used by Dropbox.
+        case iso8601 = "yyyy'-'MM'-'dd'T'HH':'mm':'ssZ"
+        /// Date string returned by asctime() function.
+        case asctime = "EEE MMM d HH':'mm':'ss yyyy"
+        
+        /// Equivalent to and defined by RFC 1123.
+        public static let http = RFCStandards.rfc1123
+        /// Equivalent to and defined by ISO 8610.
+        public static let rfc3339 = RFCStandards.iso8601
+        /// Equivalent to and defined by RFC 850.
+        public static let usenet = RFCStandards.rfc850
+        
+        // Sorted by commonness
+        fileprivate static let allValues: [RFCStandards] = [.rfc1123, .rfc850, .iso8601, .asctime]
+    }
+    
+    /// Checks date string against various RFC standards and returns `Date`.
+    public init?(rfcString: String) {
         let dateFor: DateFormatter = DateFormatter()
         dateFor.locale = Locale(identifier: "en_US")
-        dateFor.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ssZ"
-        if let rfc3339 = dateFor.date(from: rfcString) {
-            self = rfc3339
-            return
-        }
-        dateFor.dateFormat = "EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss z"
-        if let rfc1123 = dateFor.date(from: rfcString) {
-            self = rfc1123
-             return
-        }
-        dateFor.dateFormat = "EEEE',' dd'-'MMM'-'yy HH':'mm':'ss z"
-        if let rfc850 = dateFor.date(from: rfcString) {
-            self = rfc850
-             return
-        }
-        dateFor.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        if let asctime = dateFor.date(from: rfcString) {
-            self = asctime
-             return
+        
+        for standard in RFCStandards.allValues {
+            dateFor.dateFormat = standard.rawValue
+            if let date = dateFor.date(from: rfcString) {
+                self = date
+                return
+            }
         }
         
         return nil
     }
     
-    internal func rfc3339utc() -> String {
+    /// Formats date according to RFCs standard.
+    public func format(with standard: RFCStandards, locale: Locale? = nil, timeZone: TimeZone? = nil) -> String {
         let fm = DateFormatter()
-        fm.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
-        fm.timeZone = TimeZone(identifier: "UTC")
-        fm.locale = Locale(identifier: "en_US_POSIX")
+        fm.dateFormat = standard.rawValue
+        fm.timeZone = timeZone ?? TimeZone(identifier: "UTC")
+        fm.locale = locale ?? Locale(identifier: "en_US_POSIX")
         return fm.string(from: self)
     }
 }

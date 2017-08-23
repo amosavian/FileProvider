@@ -200,7 +200,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         switch operation {
         case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
              .move(source: let source, destination: let dest):
-            request.set(contentType: .json)
+            request.set(httpContentType: .json)
             let cdest = (correctPath(dest) as NSString?)!
             var requestDictionary = [String: AnyObject]()
             requestDictionary["parentReference"] = ("/drive/\(drive):" + cdest.deletingLastPathComponent) as NSString

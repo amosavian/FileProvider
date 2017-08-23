@@ -93,7 +93,7 @@ internal extension DropboxFileProvider {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = (session ?? self.session).dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderDropboxError?
@@ -137,7 +137,7 @@ internal extension DropboxFileProvider {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         var requestDictionary: [String: AnyObject] = ["path": startPath as NSString]
         requestDictionary["query"] = query as NSString
         requestDictionary["start"] = start as NSNumber
