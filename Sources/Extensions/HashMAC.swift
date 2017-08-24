@@ -447,16 +447,16 @@ extension String {
     }
 }
 
-public extension Array where Iterator.Element == UInt8 {
-    public func fp_sha256() -> [UInt8] {
-        return SHA2<SHA256>.calculate(self)
+extension Array where Element: Integer {
+    func fp_sha256() -> [UInt8] {
+        return SHA2<SHA256>.calculate(self as? [UInt8] ?? [])
     }
     
-    public func fp_sha384() -> [UInt8] {
-        return SHA2<SHA384>.calculate(self)
+    func fp_sha384() -> [UInt8] {
+        return SHA2<SHA384>.calculate(self as? [UInt8] ?? [])
     }
     
-    public func fp_sha512() -> [UInt8] {
-        return SHA2<SHA512>.calculate(self)
+    func fp_sha512() -> [UInt8] {
+        return SHA2<SHA512>.calculate(self as? [UInt8] ?? [])
     }
 }
