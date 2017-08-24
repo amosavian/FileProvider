@@ -21,7 +21,7 @@ public extension Array where Element: FileObject {
     }
 }
 
-public extension Array where Element == UInt8 {
+public extension Sequence where Iterator.Element == UInt8 {
     func hexString() -> String {
         return self.map{String(format: "%02X", $0)}.joined()
     }
@@ -106,7 +106,9 @@ internal extension URLRequest {
         guard let credential = credential else { return }
         switch type {
         case .basic:
-            let authStr = "\(credential.user ?? ""):\(credential.password ?? "")"
+            let user = credential.user?.replacingOccurrences(of: ":", with: "") ?? ""
+            let pass = credential.password ?? ""
+            let authStr = "\(user):\(pass)"
             if let base64Auth = authStr.data(using: .utf8)?.base64EncodedString() {
                 self.setValue("Basic \(base64Auth)", forHTTPHeaderField: "Authorization")
             }
@@ -143,18 +145,18 @@ internal extension URLRequest {
         }
     }
     
-    mutating func set(httoAcceptCharset acceptCharset: String.Encoding) {
+    mutating func set(httpAcceptCharset acceptCharset: String.Encoding) {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
         if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
             self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
         }
     }
     
-    mutating func set(httoAcceptCharset acceptCharset: Quality<String.Encoding>) {
+    mutating func set(httpAcceptCharset acceptCharset: Quality<String.Encoding>) {
         self.addValue(acceptCharset.stringifed, forHTTPHeaderField: "Accept-Charset")
     }
     
-    mutating func set(httoAcceptCharsets acceptCharsets: [String.Encoding]) {
+    mutating func set(httpAcceptCharsets acceptCharsets: [String.Encoding]) {
         self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
         for charset in acceptCharsets {
             let cfEncoding = CFStringConvertNSStringEncodingToEncoding(charset.rawValue)
@@ -164,7 +166,7 @@ internal extension URLRequest {
         }
     }
     
-    mutating func set(httoAcceptCharsets acceptCharsets: [Quality<String.Encoding>]) {
+    mutating func set(httpAcceptCharsets acceptCharsets: [Quality<String.Encoding>]) {
         self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
         for charset in acceptCharsets.sorted(by: { $0.quality > $1.quality }) {
             self.addValue(charset.stringifed, forHTTPHeaderField: "Accept-Charset")
