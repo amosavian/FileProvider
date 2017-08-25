@@ -20,57 +20,9 @@ import CoreGraphics
      in case of using this class with unencrypted HTTP connection.
      [Read this to know how](http://iosdevtips.co/post/121756573323/ios-9-xcode-7-http-connect-server-error).
 */
-open class WebDAVFileProvider: FileProviderBasicRemote {
-    open class var type: String { return "WebDAV" }
-    open let baseURL: URL?
-    open var currentPath: String
-    
-    open var dispatch_queue: DispatchQueue
-    open var operation_queue: OperationQueue {
-        willSet {
-            assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
-        }
-    }
-    
-    public weak var delegate: FileProviderDelegate?
-    public var credentialType: HTTPAuthenticationType = .digest
-    open var credential: URLCredential? {
-        didSet {
-            sessionDelegate?.credential = credential
-        }
-    }
-    open private(set) var cache: URLCache?
-    public var useCache: Bool
-    public var validatingCache: Bool
-    
-    fileprivate var _session: URLSession?
-    fileprivate var sessionDelegate: SessionDelegate?
-    public var session: URLSession {
-        get {
-            if _session == nil {
-                self.sessionDelegate = SessionDelegate(fileProvider: self)
-                let queue = OperationQueue()
-                //queue.underlyingQueue = dispatch_queue
-                let config = URLSessionConfiguration.default
-                config.urlCache = cache
-                config.requestCachePolicy = .returnCacheDataElseLoad
-                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDownloadDelegate?, delegateQueue: queue)
-                _session?.sessionDescription = UUID().uuidString
-                initEmptySessionHandler(_session!.sessionDescription!)
-            }
-            return _session!
-        }
-        
-        set {
-            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
-            _session = newValue
-            if session.sessionDescription?.isEmpty ?? true {
-                _session?.sessionDescription = UUID().uuidString
-            }
-            self.sessionDelegate = newValue.delegate as? SessionDelegate
-            initEmptySessionHandler(_session!.sessionDescription!)
-        }
-    }
+open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
+    override open class var type: String { return "WebDAV" }
+    public var credentialType: URLRequest.AuthenticationType = .digest
     
     /**
      Initializes WebDAV provider.
@@ -84,21 +36,8 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         if  !["http", "https"].contains(baseURL.uw_scheme.lowercased()) {
             return nil
         }
-        self.baseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
-        self.currentPath = ""
-        self.useCache = false
-        self.validatingCache = true
-        self.cache = cache
-        self.credential = credential
-        
-        #if swift(>=3.1)
-        let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-        let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
-        dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
-        operation_queue = OperationQueue()
-        operation_queue.name = "\(queueLabel).Operation"
+        let refinedBaseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
+        super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
@@ -112,19 +51,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
-    open func encode(with aCoder: NSCoder) {
-        aCoder.encode(self.baseURL, forKey: "baseURL")
-        aCoder.encode(self.credential, forKey: "credential")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
-        aCoder.encode(self.useCache, forKey: "useCache")
-        aCoder.encode(self.validatingCache, forKey: "validatingCache")
-    }
-    
-    public static var supportsSecureCoding: Bool {
-        return true
-    }
-    
-    open func copy(with zone: NSZone? = nil) -> Any {
+    override open func copy(with zone: NSZone? = nil) -> Any {
         let copy = WebDAVFileProvider(baseURL: self.baseURL!, credential: self.credential, cache: self.cache)!
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
@@ -134,19 +61,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         return copy
     }
     
-    deinit {
-        if let sessionuuid = _session?.sessionDescription {
-            removeSessionHandler(for: sessionuuid)
-        }
-        
-        if fileProviderCancelTasksOnInvalidating {
-            _session?.invalidateAndCancel()
-        } else {
-            _session?.finishTasksAndInvalidate()
-        }
-    }
-    
-    open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+    override open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
         self.contentsOfDirectory(path: path, including: [], completionHandler: completionHandler)
     }
     
@@ -162,16 +77,16 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
          - `error`: Error returned by system.
      */
     open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
-        let opType = FileOperationType.fetch(path: path)
+        let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path).appendingPathComponent("")
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("1", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
-        runDataTask(with: request, operationHandle: RemoteOperationHandle(operationType: opType, tasks: []), completionHandler: { (data, response, error) in
+        runDataTask(with: request, operation: operation, completionHandler: { (data, response, error) in
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
@@ -190,7 +105,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    override open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         self.attributesOfItem(path: path, including: [], completionHandler: completionHandler)
     }
     
@@ -209,9 +124,9 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
-        request.setValue("1", forHTTPHeaderField: "Depth")
+        request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(including))\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -230,7 +145,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
-    open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    override open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
         // Not all WebDAV clients implements RFC2518 which allows geting storage quota.
         // In this case you won't get error. totalSize is NSURLSessionTransferSizeUnknown
         // and used space is zero.
@@ -241,7 +156,7 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -258,15 +173,18 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+    override open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
-        //request.setValue("1", forHTTPHeaderField: "Depth")
+        // Depth infinity is disabled on some servers. Implement workaround?!
+        request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:allprop/></D:propfind>".data(using: .utf8)
-        runDataTask(with: request, completionHandler: { (data, response, error) in
+        let progress = Progress(parent: nil, userInfo: nil)
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
+        let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
             var responseError: FileProviderWebDavError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -282,21 +200,28 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
                     }
                     
                     fileObjects.append(fileObject)
+                    progress.completedUnitCount = Int64(fileObjects.count)
                     foundItemHandler?(fileObject)
                 }
                 completionHandler(fileObjects, responseError ?? error)
                 return
             }
             completionHandler([], responseError ?? error)
-        })
+        }
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
+        return progress
     }
     
-    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    override open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
+        request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n<D:prop><D:quota-available-bytes/><D:quota-used-bytes/></D:prop>\n</D:propfind>".data(using: .utf8)
         request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -305,243 +230,101 @@ open class WebDAVFileProvider: FileProviderBasicRemote {
         })
     }
     
-    open weak var fileOperationDelegate: FileOperationDelegate?
-}
-
-extension WebDAVFileProvider: FileProviderOperations {
-    @discardableResult
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let url = self.url(of: atPath).appendingPathComponent(folderName, isDirectory: true)
-        var request = URLRequest(url: url)
-        request.httpMethod = "MKCOL"
-        request.set(httpAuthentication: credential, with: credentialType)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: url.relativePath, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
-            }
-            completionHandler?(responseError ?? error)
-            self.delegateNotify(opType, error: responseError ?? error)
-        })
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    @discardableResult
-    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.move(source: path, destination: toPath)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        return self.doOperation(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
-    }
-    
-    @discardableResult
-    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.copy(source: path, destination: toPath)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        return self.doOperation(operation: opType, overwrite: overwrite, completionHandler: completionHandler)
-    }
-    
-    @discardableResult
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.remove(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        return self.doOperation(operation: opType, completionHandler: completionHandler)
-    }
-    
-    fileprivate func doOperation(operation opType: FileOperationType, overwrite: Bool? = nil, completionHandler: SimpleCompletionHandler) -> OperationHandle?  {
-        let source = opType.source!
-        let sourceURL = self.url(of: source)
-        var request = URLRequest(url: sourceURL)
-        if let dest = opType.destination {
-            request.setValue(url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
-        }
-        switch opType {
-        case .copy:
-            request.httpMethod = "COPY"
-        case .move:
-            request.httpMethod = "MOVE"
-        case .remove:
-            request.httpMethod = "DELETE"
-        default:
-            return nil
-        }
-        
-        request.set(httpAuthentication: credential, with: credentialType)
-        if let overwrite = overwrite, !overwrite {
-            request.setValue("F", forHTTPHeaderField: "Overwrite")
-        }
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let response = response as? HTTPURLResponse, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                if response.statusCode >= 300  {
-                    responseError = FileProviderWebDavError(code: code, path: source, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: sourceURL)
-                }
-                if code == .multiStatus, let data = data {
-                    let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                    for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
-                        let error = FileProviderWebDavError(code: code, path: source, errorDescription: String(data: data, encoding: .utf8), url: sourceURL)
-                        completionHandler?(error)
-                    }
-                }
-            }
-            if (response as? HTTPURLResponse)?.statusCode ?? 0 != FileProviderHTTPErrorCode.multiStatus.rawValue {
-                completionHandler?(responseError ?? error)
-            }
-            
-            self.delegateNotify(opType, error: responseError ?? error)
-        })
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    @discardableResult
-    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // check file is not a folder
-        guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
+    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
-                completionHandler?(self.throwError(localFile.path, code: URLError.fileIsDirectory))
+                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
             }
-            return nil
+            return
         }
         
-        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let url = self.url(of:toPath)
-        var request = URLRequest(url: url)
-        if !overwrite {
-            request.setValue("F", forHTTPHeaderField: "Overwrite")
-        }
-        request.httpMethod = "PUT"
-        request.set(httpAuthentication: credential, with: credentialType)
-        let task = session.uploadTask(with: request, fromFile: localFile)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderWebDavError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                // We can't fetch server result from delegate!
-                responseError = FileProviderWebDavError(code: rCode, path: toPath, errorDescription: nil, url: url)
-            }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(.create(path: toPath), error: responseError ?? error)
-        }
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    @discardableResult
-    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let url = self.url(of:path)
-        var request = URLRequest(url: url)
-        request.set(httpAuthentication: credential, with: credentialType)
-        let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
-                let serverError : FileProviderWebDavError? = code != nil ? FileProviderWebDavError(code: code!, path: path, errorDescription: code?.description, url: url) : nil
-                completionHandler?(serverError)
-                return
-            }
-            do {
-                try FileManager.default.moveItem(at: tempURL, to: destURL)
-                completionHandler?(nil)
-            } catch let e {
-                completionHandler?(e)
-            }
-        }
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-}
-
-extension WebDAVFileProvider: FileProviderReadWrite {
-    @discardableResult
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        if length == 0 || offset < 0 {
-            dispatch_queue.async {
-                completionHandler(Data(), nil)
-            }
-            return nil
-        }
-        
-        let opType = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         var request = URLRequest(url: url)
+        request.httpMethod = "PROPPATCH"
         request.set(httpAuthentication: credential, with: credentialType)
-        request.set(rangeWithOffset: offset, length: length)
-        
-        let task = session.downloadTask(with: request)
-        let handle = RemoteOperationHandle(operationType: opType, tasks: [task])
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            completionHandler(nil, error)
-        }
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
-                let serverError : FileProviderWebDavError? = code != nil ? FileProviderWebDavError(code: code!, path: path, errorDescription: code?.description, url: url) : nil
-                completionHandler(nil, serverError)
-                return
+        request.set(httpContentType: .xml, charset: .utf8)
+        let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
+        request.httpBody = body.data(using: .utf8)
+        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
+        runDataTask(with: request, completionHandler: { (data, response, error) in
+            var responseError: FileProviderWebDavError?
+            if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
             }
-            do {
-                let data = try Data(contentsOf: tempURL)
-                self.dispatch_queue.async {
-                    completionHandler(data, nil)
+            if let data = data {
+                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+                if let urlStr = xresponse.first?.prop["public_url"], let url = URL(string: urlStr) {
+                    completionHandler(url, nil, nil, nil)
+                    return
                 }
-            } catch let e {
-                completionHandler(nil, e)
             }
-        }
-        task.taskDescription = opType.json
-        task.resume()
-        return handle
+            completionHandler(nil, nil, nil, responseError ?? error)
+        })
     }
     
-    @discardableResult
-    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.modify(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        // FIXME: lock destination before writing process
-        let url = atomically ? self.url(of: path).appendingPathExtension("tmp") : self.url(of: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.set(httpAuthentication: credential, with: credentialType)
-        if !overwrite {
-            request.setValue("F", forHTTPHeaderField: "Overwrite")
-        }
-        let task = session.uploadTask(with: request, from: data ?? Data())
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderWebDavError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                // We can't fetch server result from delegate!
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: nil, url: url)
+    override func request(for operation: FileOperationType, overwrite: Bool = true, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
+        let method: String
+        let url: URL
+        let sourceURL = self.url(of: operation.source)
+        
+        switch operation {
+        case .fetch:
+            method = "GET"
+            url = sourceURL
+        case .create:
+            if sourceURL.absoluteString.hasSuffix("/") {
+                method = "MKCOL"
+                url = sourceURL
+            } else {
+                fallthrough
             }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(opType, error: responseError ?? error)
+        case .modify:
+            method = "PUT"
+            url = sourceURL
+            break
+        case .copy(let source, let dest):
+            if source.hasPrefix("file://") {
+                method = "PUT"
+                url = self.url(of: dest)
+            } else if dest.hasPrefix("file://") {
+                method = "GET"
+                url = sourceURL
+            } else {
+                method = "COPY"
+                url = sourceURL
+            }
+        case .move:
+            method = "MOVE"
+            url = sourceURL
+        case .remove:
+            method = "DELETE"
+            url = sourceURL
+        default:
+            fatalError("Unimplemented operation \(operation.description) in \(#file)")
         }
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.set(httpAuthentication: credential, with: credentialType)
+        request.setValue(overwrite ? "T" : "F", forHTTPHeaderField: "Overwrite")
+        if let dest = operation.destination, !dest.hasPrefix("file://") {
+            request.setValue(self.url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
+        }
+        
+        return request
+    }
+    
+    override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+        return FileProviderWebDavError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
+    }
+    
+    override func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) {
+        let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+        for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
+            let code = xresponse.status.flatMap { FileProviderHTTPErrorCode(rawValue: $0) } ?? .internalServerError
+            let error = FileProviderWebDavError(code: code, path: source, errorDescription: String(data: data, encoding: .utf8), url: self.url(of: source))
+            completionHandler?(error)
+        }
     }
     
     /*
@@ -606,55 +389,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     }
 }
 
-extension WebDAVFileProvider: FileProviderSharing {
-    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
-        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
-            dispatch_queue.async {
-                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
-            }
-            return
-        }
-        
-        let url = self.url(of: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "PROPPATCH"
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(contentType: .xml)
-        let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
-        request.httpBody = body.data(using: .utf8)
-        request.setValue(String(request.httpBody!.count), forHTTPHeaderField: "Content-Length")
-        runDataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
-            if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
-            }
-            if let data = data {
-                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                if let urlStr = xresponse.first?.prop["public_url"], let url = URL(string: urlStr) {
-                    completionHandler(url, nil, nil, nil)
-                    return
-                }
-            }
-            completionHandler(nil, nil, nil, responseError ?? error)
-        })
-    }
-}
-
-extension WebDAVFileProvider: FileProvider { }
-
 // MARK: WEBDAV XML response implementation
-
-internal extension WebDAVFileProvider {
-    fileprivate func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
-    }
-}
 
 struct DavResponse {
     let href: URL
@@ -666,7 +401,7 @@ struct DavResponse {
         
         func standardizePath(_ str: String) -> String {
             let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
-            return trimmedStr.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))) ?? str
+            return trimmedStr.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? str
         }
         
         // find node names with namespace

@@ -114,47 +114,15 @@ internal extension OneDriveFileProvider {
         task.resume()
     }
     
-    func upload_simple(_ targetPath: String, data: Data? = nil , localFile: URL? = nil, modifiedDate: Date = Date(), overwrite: Bool, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let size = data?.count ?? (try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1
-        if size > 100 * 1024 * 1024 {
-            let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(.create(path: targetPath), error: error)
-            return nil
-        }
-        let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-        let url = self.url(of: targetPath, modifier: "content\(queryStr)")
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .stream)
-        let task: URLSessionUploadTask
-        if let data = data {
-            task = session.uploadTask(with: request, from: data)
-        } else if  let localFile = localFile {
-            task = session.uploadTask(with: request, fromFile: localFile)
-        } else {
-            return nil
+    func search(_ startPath: String = "", query: String, recursive: Bool, next: URL? = nil, progress: Progress, foundItem: @escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
+        if progress.isCancelled {
+            return
         }
         
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderOneDriveError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                // We can't fetch server result from delegate!
-                responseError = FileProviderOneDriveError(code: rCode, path: targetPath, errorDescription: nil)
-            }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(.create(path: targetPath), error: responseError ?? error)
-        }
-        task.taskDescription = operation.json
-        task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
-    }
-    
-    func search(_ startPath: String = "", query: String, next: URL? = nil, foundItem:@escaping ((_ file: OneDriveFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
         let url: URL
         let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)")
+        let expanded = recursive ? "&expand=children" : ""
+        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)\(expanded)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
@@ -172,8 +140,8 @@ internal extension OneDriveFileProvider {
                         }
                     }
                     let next: URL? = (json["@odata.nextLink"] as? String).flatMap { URL(string: $0) }
-                    if let next = next {
-                        self.search(startPath, query: query, next: next, foundItem: foundItem, completionHandler: completionHandler)
+                    if !progress.isCancelled, let next = next {
+                        self.search(startPath, query: query, recursive: recursive, next: next, progress: progress, foundItem: foundItem, completionHandler: completionHandler)
                     } else {
                         completionHandler(responseError ?? error)
                     }
@@ -181,7 +149,11 @@ internal extension OneDriveFileProvider {
                 }
             }
             completionHandler(responseError ?? error)
-        }) 
+        })
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
     }
 }
@@ -258,15 +230,5 @@ internal extension OneDriveFileProvider {
         add(key: "Bitrate", value: (json["video"] as? NSDictionary)?["bitrate"] as? Int)
         
         return (dic, keys)
-    }
-    
-    func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
     }
 }

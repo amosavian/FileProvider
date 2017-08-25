@@ -8,67 +8,6 @@
 
 import Foundation
 
-/// Allows to get progress or cancel an in-progress operation, for remote, `URLSession` based providers.
-/// This class keeps strong reference to tasks.
-open class RemoteOperationHandle: OperationHandle {
-    
-    internal var tasks: [URLSessionTask]
-    
-    open private(set) var operationType: FileOperationType
-    
-    init(operationType: FileOperationType, tasks: [URLSessionTask]) {
-        self.operationType = operationType
-        self.tasks = tasks
-    }
-    
-    internal func add(task: URLSessionTask) {
-        tasks.append(task)
-    }
-    
-    internal func reape() {
-        self.tasks = tasks.filter { $0.state != .completed }
-    }
-    
-    open var bytesSoFar: Int64 {
-        return tasks.reduce(0) {
-            switch $1 {
-            case let task as URLSessionUploadTask:
-                return $0 + task.countOfBytesSent
-            case let task as FileProviderStreamTask:
-                return $0 + task.countOfBytesSent + task.countOfBytesReceived
-            default:
-                return $0 + $1.countOfBytesReceived
-            }
-        }
-    }
-    
-    open var totalBytes: Int64 {
-        return tasks.reduce(0) {
-            switch $1 {
-            case let task as URLSessionUploadTask:
-                return $0 + task.countOfBytesExpectedToSend
-            case let task as FileProviderStreamTask:
-                return $0 + task.countOfBytesExpectedToSend + task.countOfBytesExpectedToReceive
-            default:
-                return $0 + $1.countOfBytesExpectedToReceive
-            }
-        }
-    }
-    
-    open func cancel() -> Bool {
-        var canceled = false
-        for taskbox in tasks {
-            taskbox.cancel()
-            canceled = true
-        }
-        return canceled
-    }
-    
-    open var inProgress: Bool {
-        return tasks.reduce(false) { $0 || $1.state == .running }
-    }
-}
-
 /// A protocol defines properties for errors returned by HTTP/S based providers.
 /// Including Dropbox, OneDrive and WebDAV.
 public protocol FileProviderHTTPError: Error, CustomStringConvertible {
@@ -90,18 +29,6 @@ extension FileProviderHTTPError {
     public var localizedDescription: String {
         return description
     }
-}
-
-/// Defines HTTP Authentication method required to access
-public enum HTTPAuthenticationType {
-    /// Basic method for authentication
-    case basic
-    /// Digest method for authentication
-    case digest
-    /// OAuth 1.0 method for authentication (OAuth)
-    case oAuth1
-    /// OAuth 2.0 method for authentication (Bearer)
-    case oAuth2
 }
 
 internal var completionHandlersForTasks = [String: [Int: SimpleCompletionHandler]]()
@@ -140,8 +67,51 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         self.credential = fileProvider.credential
     }
     
+    open override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if let progress = context?.load(as: Progress.self), let newVal = change?[.newKey] as? Int64 {
+            switch keyPath ?? "" {
+            case #keyPath(URLSessionTask.countOfBytesReceived):
+                progress.completedUnitCount = newVal
+                if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    let throughput = Double(newVal) / elapsed
+                    progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
+                    if task.countOfBytesExpectedToReceive > 0 {
+                        let remain = task.countOfBytesExpectedToReceive - task.countOfBytesReceived
+                        let estimatedTimeRemaining = Double(remain) / elapsed
+                        progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
+                    }
+                }
+            case #keyPath(URLSessionTask.countOfBytesSent):
+                progress.completedUnitCount = newVal
+                if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    let throughput = Double(newVal) / elapsed
+                    progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
+                    if task.countOfBytesExpectedToSend > 0 {
+                        let remain = task.countOfBytesExpectedToSend - task.countOfBytesSent
+                        let estimatedTimeRemaining = Double(remain) / elapsed
+                        progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
+                    }
+                }
+            case #keyPath(URLSessionTask.countOfBytesExpectedToReceive), #keyPath(URLSessionTask.countOfBytesExpectedToSend):
+                progress.totalUnitCount = newVal
+            default:
+                super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+            }
+        }
+    }
+    
     // codebeat:disable[ARITY]
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if task is URLSessionDownloadTask {
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
+        }
+        if task is URLSessionUploadTask {
+            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent))
+            //task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToSend))
+        }
         if !(error == nil && task is URLSessionDownloadTask) {
             let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
             completionHandler?(error)
@@ -163,8 +133,8 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         }
         
         DispatchQueue.main.async {
-            if error != nil {
-                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op)
+            if let error = error {
+                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op, error: error)
             } else {
                 fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
             }
@@ -197,7 +167,10 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         switch op {
         case .create(path: let path):
             if path.hasSuffix("/") { return }
+            break
         case .modify:
+            break
+        case .copy(source: let source, destination: _) where source.hasPrefix("file://"):
             break
         default:
             return

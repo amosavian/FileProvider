@@ -26,7 +26,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var _taskDescription: String?
     
     /// Force using `URLSessionStreamTask` for iOS 9 and later
-    public var useURLSession = true
+    public let useURLSession: Bool
     @available(iOS 9.0, OSX 10.11, *)
     fileprivate static var streamTasks = [Int: URLSessionStreamTask]()
     
@@ -121,8 +121,31 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    fileprivate var _countOfBytesSent: Int64 = 0
-    fileprivate var _countOfBytesRecieved: Int64 = 0
+    fileprivate var _countOfBytesSent: Int64 = 0 {
+        willSet {
+            for observer in observers where observer.keyPath == "countOfBytesSent" {
+                observer.observer.observeValue(forKeyPath: observer.keyPath, of: self, change: [.oldKey: _countOfBytesSent, .oldKey: newValue], context: observer.context)
+            }
+        }
+        didSet {
+            for observer in observers where observer.keyPath == "countOfBytesSent" {
+                observer.observer.observeValue(forKeyPath: observer.keyPath, of: self, change: [.oldKey: oldValue, .oldKey: _countOfBytesSent], context: observer.context)
+            }
+        }
+    }
+    
+    fileprivate var _countOfBytesRecieved: Int64 = 0 {
+        willSet {
+            for observer in observers where observer.keyPath == "countOfBytesRecieved" {
+                observer.observer.observeValue(forKeyPath: observer.keyPath, of: self, change: [.oldKey: _countOfBytesRecieved, .oldKey: newValue], context: observer.context)
+            }
+        }
+        didSet {
+            for observer in observers where observer.keyPath == "countOfBytesRecieved" {
+                observer.observer.observeValue(forKeyPath: observer.keyPath, of: self, change: [.oldKey: oldValue, .oldKey: _countOfBytesRecieved], context: observer.context)
+            }
+        }
+    }
     
     /**
      * The number of bytes that the task has sent to the server in the request body.
@@ -133,7 +156,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * `urlSession(_:task:didSendBodyData:totalBytesSent:totalBytesExpectedToSend:)` delegate method.
     */
     override open var countOfBytesSent: Int64 {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.countOfBytesSent
             }
@@ -192,6 +215,49 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return Int64(dataReceived.count)
     }
     
+    var observers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
+    
+    public override func addObserver(_ observer: NSObject, forKeyPath keyPath: String, options: NSKeyValueObservingOptions = [], context: UnsafeMutableRawPointer?) {
+        if #available(iOS 9.0, macOS 10.11, *) {
+            if self.useURLSession {
+                self._underlyingTask?.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
+                return
+            }
+        }
+        
+        switch keyPath {
+        case #keyPath(countOfBytesSent):
+            fallthrough
+        case #keyPath(countOfBytesReceived):
+            fallthrough
+        case #keyPath(countOfBytesExpectedToSend):
+            fallthrough
+        case #keyPath(countOfBytesExpectedToReceive):
+            observers.append((keyPath: keyPath, observer: observer, context: context))
+        default:
+            break
+        }
+        super.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
+    }
+    
+    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String) {
+        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
+        for observer in observers where observer.keyPath != keyPath {
+            newObservers.append(observer)
+        }
+        self.observers = newObservers
+        super.removeObserver(observer, forKeyPath: keyPath)
+    }
+    
+    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String, context: UnsafeMutableRawPointer?) {
+        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
+        for observer in observers where observer.keyPath != keyPath || observer.context != context {
+            newObservers.append(observer)
+        }
+        self.observers = newObservers
+        super.removeObserver(observer, forKeyPath: keyPath, context: context)
+    }
+    
     override public init() {
         fatalError("Use NSURLSession.fpstreamTask() method")
     }
@@ -199,10 +265,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var host: (hostname: String, port: Int)?
     fileprivate var service: NetService?
     
-    internal init(session: URLSession, host: String, port: Int) {
+    internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = true) {
         self._underlyingSession = session
+        self.useURLSession = useURLSession
         if #available(iOS 9.0, OSX 10.11, *) {
-            if self.useURLSession {
+            if useURLSession {
                 let task = session.streamTask(withHostName: host, port: port)
                 self._taskIdentifier = task.taskIdentifier
                 FileProviderStreamTask.streamTasks[_taskIdentifier] = task
@@ -218,10 +285,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         self.operation_queue.maxConcurrentOperationCount = 1
     }
     
-    internal init(session: URLSession, netService: NetService) {
+    internal init(session: URLSession, netService: NetService, useURLSession: Bool = true) {
         self._underlyingSession = session
+        self.useURLSession = useURLSession
         if #available(iOS 9.0, OSX 10.11, *) {
-            if self.useURLSession {
+            if useURLSession {
                 let task = session.streamTask(with: netService)
                 self._taskIdentifier = task.taskIdentifier
                 FileProviderStreamTask.streamTasks[_taskIdentifier] = task

@@ -16,69 +16,13 @@ import CoreGraphics
  
  - Note: Uploading files and data are limited to 150MB, for now.
  */
-open class DropboxFileProvider: FileProviderBasicRemote {
-    open class var type: String { return "Dropbox" }
-    open let baseURL: URL?
-    open var currentPath: String
+open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
+    override open class var type: String { return "Dropbox" }
     
     /// Dropbox RPC API URL, which is equal with [https://api.dropboxapi.com/2/](https://api.dropboxapi.com/2/)
     open let apiURL: URL
     /// Dropbox contents download/upload API URL, which is equal with [https://content.dropboxapi.com/2/](https://content.dropboxapi.com/2/)
     open let contentURL: URL
-    
-    open var dispatch_queue: DispatchQueue
-    open var operation_queue: OperationQueue {
-        willSet {
-            assert(_session == nil, "It's not effective to change dispatch_queue property after session is initialized.")
-        }
-    }
-    
-    open weak var delegate: FileProviderDelegate?
-    open var credential: URLCredential? {
-        didSet {
-            sessionDelegate?.credential = self.credential
-        }
-    }
-    open private(set) var cache: URLCache?
-    public var useCache: Bool
-    public var validatingCache: Bool
-   
-    fileprivate var _session: URLSession?
-    fileprivate var sessionDelegate: SessionDelegate?
-    public var session: URLSession {
-        get {
-            if _session == nil {
-                self.sessionDelegate = SessionDelegate(fileProvider: self)
-                let config = URLSessionConfiguration.default
-                config.urlCache = cache
-                config.requestCachePolicy = .returnCacheDataElseLoad
-                _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
-                _session!.sessionDescription = UUID().uuidString
-                initEmptySessionHandler(_session!.sessionDescription!)
-            }
-            return _session!
-        }
-        
-        set {
-            assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
-            _session = newValue
-            if session.sessionDescription?.isEmpty ?? true {
-                _session?.sessionDescription = UUID().uuidString
-            }
-            self.sessionDelegate = newValue.delegate as? SessionDelegate
-            initEmptySessionHandler(_session!.sessionDescription!)
-        }
-    }
-    
-    fileprivate var _longpollSession: URLSession?
-    internal var longpollSession: URLSession {
-        if _longpollSession == nil {
-            let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 600
-            _longpollSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
-        }
-        return _longpollSession!
-    }
     
     /**
      Initializer for Dropbox provider with given client ID and Token.
@@ -91,24 +35,9 @@ open class DropboxFileProvider: FileProviderBasicRemote {
      - Parameter cache: A URLCache to cache downloaded files and contents.
     */
     public init(credential: URLCredential?, cache: URLCache? = nil) {
-        self.baseURL = nil
-        self.currentPath = ""
-        self.useCache = false
-        self.validatingCache = true
-        self.cache = cache
-        self.credential = credential
-        
         self.apiURL = URL(string: "https://api.dropboxapi.com/2/")!
         self.contentURL = URL(string: "https://content.dropboxapi.com/2/")!
-        
-        #if swift(>=3.1)
-        let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-        let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
-        dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
-        operation_queue = OperationQueue()
-        operation_queue.name = "\(queueLabel).Operation"
+        super.init(baseURL: nil, credential: credential, cache: cache)
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
@@ -118,18 +47,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
-    public func encode(with aCoder: NSCoder) {
-        aCoder.encode(self.credential, forKey: "credential")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
-        aCoder.encode(self.useCache, forKey: "useCache")
-        aCoder.encode(self.validatingCache, forKey: "validatingCache")
-    }
-    
-    public static var supportsSecureCoding: Bool {
-        return true
-    }
-    
-    open func copy(with zone: NSZone? = nil) -> Any {
+    override open func copy(with zone: NSZone? = nil) -> Any {
         let copy = DropboxFileProvider(credential: self.credential, cache: self.cache)
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
@@ -139,31 +57,19 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         return copy
     }
     
-    deinit {
-        if let sessionuuid = _session?.sessionDescription {
-            removeSessionHandler(for: sessionuuid)
-        }
-        
-        if fileProviderCancelTasksOnInvalidating {
-            _session?.invalidateAndCancel()
-        } else {
-            _session?.finishTasksAndInvalidate()
-        }
-        
-    }
-    
-    open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
-        list(path) { (contents, cursor, error) in
+    open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+        let progress = Progress(parent: nil, userInfo: nil)
+        list(path, progress: progress) { (contents, cursor, error) in
             completionHandler(contents, error)
         }
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -181,7 +87,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
-    open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    open override func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
         let url = URL(string: "users/get_space_usage", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -198,12 +104,13 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         task.resume()
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) {
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+        let progress = Progress(parent: nil, userInfo: nil)
         var foundFiles = [DropboxFileObject]()
         if let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String {
             // Dropbox only support searching for file names begin with query in non-enterprise accounts.
             // We will use it if there is a `name BEGINSWITH[c] "query"` in predicate, then filter to form final result.
-            search(path, query: queryStr, foundItem: { (file) in
+            search(path, query: queryStr, progress: progress, foundItem: { (file) in
                 if query.evaluate(with: file.mapPredicate()) {
                     foundFiles.append(file)
                     foundItemHandler?(file)
@@ -214,7 +121,7 @@ open class DropboxFileProvider: FileProviderBasicRemote {
         } else {
             // Dropbox doesn't support searching attributes natively. The workaround is to fallback to listing all files
             // and filter it locally. It may have a network burden in case there is many files in Dropbox, so please use it concisely.
-            list(path, recursive: true, progressHandler: { (files, _, error) in
+            list(path, recursive: true, progress: progress, progressHandler: { (files, _, error) in
                 for file in files where query.evaluate(with: file.mapPredicate()) {
                     foundItemHandler?(file)
                 }
@@ -223,59 +130,75 @@ open class DropboxFileProvider: FileProviderBasicRemote {
                 completionHandler(predicatedFiles, error)
             })
         }
+        return progress
     }
     
-    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
-        self.storageProperties { total, _ in
-            completionHandler(total > 0)
+    override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
+        // content operations
+        var request: URLRequest
+        switch operation {
+        case .copy(source: let source, destination: let dest) where dest.lowercased().hasPrefix("file://"):
+            let url = URL(string: "files/download", relativeTo: contentURL)!
+            request = URLRequest(url: url)
+            request.set(httpAuthentication: credential, with: .oAuth2)
+            request.set(dropboxArgKey: ["path": correctPath(source)! as NSString])
+        case .fetch(let path):
+            let url = URL(string: "files/download", relativeTo: contentURL)!
+            request = URLRequest(url: url)
+            request.set(httpAuthentication: credential, with: .oAuth2)
+            request.set(dropboxArgKey: ["path": correctPath(path)! as NSString])
+        case .copy(source: let source, destination: let dest) where source.lowercased().hasPrefix("file://"):
+            var requestDictionary = [String: AnyObject]()
+            let url: URL = URL(string: "files/upload", relativeTo: contentURL)!
+            requestDictionary["path"] = correctPath(dest) as NSString?
+            requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
+            requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
+            request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.set(httpAuthentication: credential, with: .oAuth2)
+            request.set(httpContentType: .stream)
+            request.set(dropboxArgKey: requestDictionary)
+        case .modify(let path):
+            var requestDictionary = [String: AnyObject]()
+            let url: URL = URL(string: "files/upload", relativeTo: contentURL)!
+            requestDictionary["path"] = correctPath(path) as NSString?
+            requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
+            requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
+            request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.set(httpAuthentication: credential, with: .oAuth2)
+            request.set(httpContentType: .stream)
+            request.set(dropboxArgKey: requestDictionary)
+        default:
+            return self.apiRequest(for: operation, overwrite: overwrite)
         }
+        return request
     }
     
-    open weak var fileOperationDelegate: FileOperationDelegate?
-}
-
-extension DropboxFileProvider: FileProviderOperations {
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
-        return doOperation(.create(path: path), completionHandler: completionHandler)
-    }
-    
-    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
-    }
-    
-    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
-    }
-    
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        return doOperation(.remove(path: path), completionHandler: completionHandler)
-    }
-    
-    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
-            return nil
-        }
+    func apiRequest(for operation: FileOperationType, overwrite: Bool = false) -> URLRequest {
         let url: String
-        guard let sourcePath = operation.source else { return nil }
+        let sourcePath = operation.source
         let destPath = operation.destination
+        var requestDictionary = [String: AnyObject]()
         switch operation {
         case .create:
-            url = "files/create_folder"
+            url = "files/create_folder_v2"
+            
         case .copy:
-            url = "files/copy"
+            url = "files/copy_v2"
+            requestDictionary["allow_shared_folder"] = NSNumber(value: true)
         case .move:
-            url = "files/move"
+            url = "files/move_v2"
+            requestDictionary["allow_shared_folder"] = NSNumber(value: true)
         case .remove:
-            url = "files/delete"
+            url = "files/delete_v2"
         default: // modify, link, fetch
-            return nil
+            fatalError("Unimplemented operation \(operation.description) in \(#file)")
         }
         var request = URLRequest(url: URL(string: url, relativeTo: apiURL)!)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
-        var requestDictionary = [String: AnyObject]()
+        request.set(httpContentType: .json)
         if let dest = correctPath(destPath) as NSString? {
             requestDictionary["from_path"] = correctPath(sourcePath) as NSString?
             requestDictionary["to_path"] = dest
@@ -283,115 +206,25 @@ extension DropboxFileProvider: FileProviderOperations {
             requestDictionary["path"] = correctPath(sourcePath) as NSString?
         }
         request.httpBody = Data(jsonDictionary: requestDictionary)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
-            if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                 serverError = FileProviderDropboxError(code: code, path: sourcePath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
-            }
-            completionHandler?(serverError ?? error)
-            self.delegateNotify(operation, error: serverError ?? error)
-        })
-        task.taskDescription = operation.json
-        task.resume()
-        return RemoteOperationHandle(operationType: operation, tasks: [task])
+        return request
     }
     
-    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        // check file is not a folder
-        guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
-            dispatch_queue.async {
-                completionHandler?(self.throwError(localFile.path, code: URLError.fileIsDirectory))
-            }
+    override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+        return FileProviderDropboxError(code: code, path: path ?? "", errorDescription: data.flatMap({ String(data: $0, encoding: .utf8) }))
+    }
+    
+    override func upload_simple(_ targetPath: String, request: URLRequest, data: Data?, localFile: URL?, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
+        if size > 150 * 1024 * 1024 {
+            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
+            completionHandler?(error)
+            self.delegateNotify(operation, error: error)
             return nil
         }
         
-        let opType = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        return upload_simple(toPath, localFile: localFile, overwrite: overwrite, operation: opType, completionHandler: completionHandler)
+        return super.upload_simple(targetPath, request: request, data: data, localFile: localFile, operation: operation, completionHandler: completionHandler)
     }
-    
-    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.copy(source: path, destination: destURL.absoluteString)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        let url = URL(string: "files/download", relativeTo: contentURL)!
-        var request = URLRequest(url: url)
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(dropboxArgKey: ["path": path as NSString])
-        let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = completionHandler
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
-                let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
-                let serverError : FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
-                completionHandler?(serverError)
-                return
-            }
-            do {
-                try FileManager.default.moveItem(at: tempURL, to: destURL)
-                completionHandler?(nil)
-            } catch let e {
-                completionHandler?(e)
-            }
-        }
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-}
 
-extension DropboxFileProvider: FileProviderReadWrite {
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> OperationHandle? {
-        if length == 0 || offset < 0 {
-            dispatch_queue.async {
-                completionHandler(Data(), nil)
-            }
-            return nil
-        }
-        
-        let opType = FileOperationType.fetch(path: path)
-        let url = URL(string: "files/download", relativeTo: contentURL)!
-        var request = URLRequest(url: url)
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(rangeWithOffset: offset, length: length)
-        request.set(dropboxArgKey: ["path": correctPath(path)! as NSString])
-        let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            completionHandler(nil, error)
-        }
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
-                let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
-                let serverError : FileProviderDropboxError? = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: errorData ?? Data(), encoding: .utf8)) : nil
-                completionHandler(nil, serverError)
-                return
-            }
-            do {
-                let data = try Data(contentsOf: tempURL)
-                completionHandler(data, nil)
-            } catch let e {
-                completionHandler(nil, e)
-            }
-        }
-        task.taskDescription = opType.json
-        task.resume()
-        return RemoteOperationHandle(operationType: opType, tasks: [task])
-    }
-    
-    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> OperationHandle? {
-        let opType = FileOperationType.modify(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: opType) ?? true == true else {
-            return nil
-        }
-        // FIXME: remove 150MB restriction
-        return upload_simple(path, data: data ?? Data(), overwrite: overwrite, operation: opType, completionHandler: completionHandler)
-    }
-    
     /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is two ways to monitor folders changing in Dropbox. Either using webooks
@@ -407,15 +240,13 @@ extension DropboxFileProvider: FileProviderReadWrite {
     }
     */
     // TODO: Implement /get_account & /get_current_account
-}
-
-extension DropboxFileProvider: FileProviderSharing {
+    
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -461,7 +292,7 @@ extension DropboxFileProvider: FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         let requestDictionary: [String: AnyObject] = ["path": correctPath(toPath)! as NSString, "url" : remoteURL.absoluteString as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -496,7 +327,7 @@ extension DropboxFileProvider: FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         let requestDictionary: [String: AnyObject] = ["path": correctPath(toPath)! as NSString, "copy_reference" : reference as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -605,7 +436,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(contentType: .json)
+        request.set(httpContentType: .json)
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -624,5 +455,3 @@ extension DropboxFileProvider: ExtendedFileProvider {
         task.resume()
     }
 }
-
-extension DropboxFileProvider: FileProvider { }

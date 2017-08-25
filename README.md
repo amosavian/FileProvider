@@ -41,8 +41,8 @@ All functions do async calls and it wont block your main thread.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
     * For now it has limitation in uploading files up to 100MB.
-- [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
 - [ ] **AmazonS3FileProvider** Amazon storage backend. Used by many sites.
+- [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
     * Data types and some basic functions are implemented but *main interface is not implemented yet!*.
     * SMBv1/CIFS is insecure, deprecated and kinda tricky to be implemented due to strict memory allignment in Swift.
@@ -155,7 +155,7 @@ let credential = URLCredential(user: "user", password: "pass", persistence: .per
 let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example.com/dav")!, credential: credential)
 ```
 
-* In case you want to connect non-secure servers for WebDAV (http) in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
+* In case you want to connect non-secure servers for WebDAV (http) or FTP in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
 * For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
 	
@@ -356,6 +356,12 @@ documentsProvider.copyItem(path: "/download/image.jpg", toLocalURL: fileURL, ove
 * It's safe only to assume these methods **won't** handle directories to upload/download recursively. If you need, you can list directories, create directories on target and copy files using these methods.
 * FTP provider allows developer to either use apple implemented `URLSessionDownloadTask` or custom implemented method based on stream task via `useAppleImplementation` property. FTP protocol is not supported by background session.
 
+### Operation Progress
+
+Creating/Copying/Deleting/Searching functions return a `(NS)Progress`. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst. You can check `cancellable` property to check either you can cancel operation via this object or not.
+
+- **Note:** Progress reporting is not supported by native `(NS)FileManager` so `LocalFileProvider`.
+
 ### Undo Operations
 
 Providers conform to `FileProviderUndoable` can perform undo for **some** operations like moving/renaming, copying and creating (file or folder). **Now, only `LocalFileProvider` supports this feature.** To implement:
@@ -399,12 +405,6 @@ class ViewController: UIViewController
 }
 ```
 
-### Operation Handle
-
-Creating/Copying/Deleting functions return a `OperationHandle` for remote operations. It provides operation type, progress and a `.cancel()` method which allows you to cancel operation in midst.
-
-It's not supported by native `(NS)FileManager` so `LocalFileProvider`, but this functionality will be added to future `PosixFileProvider` class.
-
 ### File Coordination
 
 `LocalFileProvider` and its descendents has a `isCoordinating` property. By setting this, provider will use `NSFileCoordinating` class to do all file operations. It's mandatory for iCloud, while recommended when using shared container or anywhere that simultaneous operations on a file/folder is common.
@@ -415,12 +415,12 @@ You can monitor updates in some file system (Local and SMB2), there is three met
 
 ```swift
 // to register a new notification handler
-documentsProvider.registerNotifcation(path: provider.currentPath) {
+documentsProvider.registerNotifcation(path: "/") {
 	// calling functions to update UI 
 }
 	
 // To discontinue monitoring folders:
-documentsProvider.unregisterNotifcation(path: provider.currentPath)
+documentsProvider.unregisterNotifcation(path: "/")
 ```
 
 * **Please note** in LocalFileProvider it will also monitor changes in subfolders. This behaviour can varies according to file system specification.

@@ -9,16 +9,6 @@
 import Foundation
 
 internal extension FTPFileProvider {
-    func delegateNotify(_ operation: FileOperationType, error: Error?) {
-        DispatchQueue.main.async(execute: {
-            if error == nil {
-                self.delegate?.fileproviderSucceed(self, operation: operation)
-            } else {
-                self.delegate?.fileproviderFailed(self, operation: operation)
-            }
-        })
-    }
-    
     func readDataUntilEOF(of task: FileProviderStreamTask, minLength: Int, receivedData: Data? = nil, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ errror:Error?) -> Void) {
         task.readData(ofMinLength: minLength, maxLength: 65535, timeout: timeout) { (data, eof, error) in
             if let error = error {
@@ -399,8 +389,9 @@ internal extension FTPFileProvider {
         }
     }
     
-    func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
-        let queue = DispatchQueue(label: "test")
+    func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress? {
+        let progress = Progress(totalUnitCount: 0)
+        let queue = DispatchQueue(label: "\(self.type).recursiveList")
         queue.async {
             let group = DispatchGroup()
             var result = [FileObject]()
@@ -415,12 +406,14 @@ internal extension FTPFileProvider {
                 }
                 
                 result.append(contentsOf: files)
+                progress.completedUnitCount = Int64(files.count)
                 foundItemsHandler?(files)
                 
                 let directories: [FileObject] = files.filter { $0.isDirectory }
+                progress.becomeCurrent(withPendingUnitCount: Int64(directories.count))
                 for dir in directories {
                     group.enter()
-                    self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler, completionHandler: { (contents, error) in
+                    _=self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler, completionHandler: { (contents, error) in
                         success = success && (error == nil)
                         if let error = error {
                             completionHandler([], error)
@@ -430,9 +423,11 @@ internal extension FTPFileProvider {
                         
                         foundItemsHandler?(files)
                         result.append(contentsOf: contents)
+                        
                         group.leave()
                     })
                 }
+                progress.resignCurrent()
                 group.leave()
             })
             group.wait()
@@ -443,12 +438,13 @@ internal extension FTPFileProvider {
                 }
             }
         }
+        return progress
     }
     
     func ftpRetrieveData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
         
         // Check cache
-        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
             dispatch_queue.async {
                 completionHandler(cachedResponse.data, nil)
             }
@@ -508,7 +504,7 @@ internal extension FTPFileProvider {
                             }
                         }
                         
-                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
                             let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
                             let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
                             let request = URLRequest(url: url)
@@ -546,7 +542,7 @@ internal extension FTPFileProvider {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
         
         // Check cache
-        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
+        if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
             dispatch_queue.async {
                 do {
                     try cachedResponse.data.write(to: tempURL)
@@ -613,7 +609,7 @@ internal extension FTPFileProvider {
                             }
                         }
                         
-                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
+                        if let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL {
                             let urlresponse = URLResponse(url: url, mimeType: nil, expectedContentLength: finalData.count, textEncodingName: nil)
                             let cachedResponse = CachedURLResponse(response: urlresponse, data: finalData)
                             let request = URLRequest(url: url)
