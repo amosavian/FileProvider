@@ -655,14 +655,10 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
                 if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
                     progress?.completedUnitCount = Int64(uploaded / 100 * Double(progress?.totalUnitCount ?? 0))
-                    DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(uploaded / 100))
-                    }
+                    self.delegateNotify(operation, progress: uploaded / 100)
                 } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
                     progress?.completedUnitCount = Int64(downloaded / 100 * Double(progress?.totalUnitCount ?? 0))
-                    DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(downloaded / 100))
-                    }
+                    self.delegateNotify(operation, progress: downloaded / 100)
                 } else if uploaded == 100 || downloaded == 100 {
                     progress?.completedUnitCount = progress?.totalUnitCount ?? 0
                     query.stop()

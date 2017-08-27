@@ -95,6 +95,25 @@ public extension URLRequest {
     }
 }
 
+struct Quality<T> {
+    let value: T
+    let quality: Float
+    
+    var stringifed: String {
+        var representaion = String(describing: value)
+        let quality = min(1, max(self.quality, 0))
+        if let value = value as? Locale {
+            representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
+        }
+        if let value = value as? String.Encoding {
+            let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)
+            representaion = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? ?? "*"
+        }
+        let qualityDesc = String(format: "%.1f", quality)
+        return "\(representaion); q=\(qualityDesc)"
+    }
+}
+
 internal extension URLRequest {
     mutating func set(httpAuthentication credential: URLCredential?, with type: AuthenticationType) {
         func base64(_ str: String) -> String {
@@ -123,25 +142,6 @@ internal extension URLRequest {
             if let bearer = credential.password {
                 self.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
             }
-        }
-    }
-    
-    struct Quality<T> {
-        let value: T
-        let quality: Float
-        
-        var stringifed: String {
-            var representaion = String(describing: value)
-            let quality = min(1, max(self.quality, 0))
-            if let value = value as? Locale {
-                representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
-            }
-            if let value = value as? String.Encoding {
-                let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)
-                representaion = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? ?? "*"
-            }
-            let qualityDesc = String(format: "%.1f", quality)
-            return "\(representaion); q=\(qualityDesc)"
         }
     }
     

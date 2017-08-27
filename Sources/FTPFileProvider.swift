@@ -402,9 +402,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
             }, onProgress: { bytesSent, totalSent, expectedBytes in
                 progress.completedUnitCount = totalSent
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
-                }
+                self.delegateNotify(operation, progress: progress.fractionCompleted)
             }, completionHandler: { (error) in
                 if error != nil {
                     progress.cancel()
@@ -489,9 +487,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 }, onProgress: { recevied, totalReceived, totalSize in
                     progress.totalUnitCount = totalSize
                     progress.completedUnitCount = totalReceived
-                    DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
-                    }
+                    self.delegateNotify(operation, progress: progress.fractionCompleted)
                 }) { (tmpurl, error) in
                     if let error = error {
                         progress.cancel()
@@ -588,9 +584,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
             }, onProgress: { recevied, totalReceived, totalSize in
                 progress.totalUnitCount = totalSize
                 progress.completedUnitCount = totalReceived
-                DispatchQueue.main.async {
-                    self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
-                }
+                self.delegateNotify(operation, progress: progress.fractionCompleted)
             }) { (data, error) in
                 if let error = error {
                     progress.cancel()
@@ -643,9 +637,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
                 }, onProgress: { bytesSent, totalSent, expectedBytes in
                     progress.completedUnitCount = totalSent
-                    DispatchQueue.main.async {
-                        self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress.fractionCompleted))
-                    }
+                    self.delegateNotify(operation, progress: progress.fractionCompleted)
                 }, completionHandler: { (error) in
                     if error != nil {
                         progress.cancel()

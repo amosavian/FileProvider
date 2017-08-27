@@ -410,7 +410,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
             var image: ImageClass? = nil
             if let r = response as? HTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = result.deserializeJSON() {
                 if jsonResult["error"] != nil {
-                    completionHandler(nil, self.throwError(path, code: URLError.cannotDecodeRawData as FoundationErrorEnum))
+                    completionHandler(nil, self.throwError(path, code: URLError.cannotDecodeRawData))
                 }
             }
             if let data = data {

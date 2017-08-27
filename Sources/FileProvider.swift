@@ -429,6 +429,12 @@ internal extension FileProviderOperations {
             }
         })
     }
+    
+    internal func delegateNotify(_ operation: FileOperationType, progress: Double) {
+        DispatchQueue.main.async(execute: {
+            self.delegate?.fileproviderProgress(self, operation: operation, progress: Float(progress))
+        })
+    }
 }
 
 /// Defines method for fetching and modifying file contents
@@ -710,7 +716,7 @@ extension FileProviderBasic {
     /// Returns a file name supposed to be unique with adding numbers to end of file.
     /// - Important: It's a synchronous method. Don't use it on main thread.
     public func fileByUniqueName(_ filePath: String) -> String {
-        assert(!Thread.isMainThread, "\(#function) is not recommended to be executed on Main Thread.")
+        //assert(!Thread.isMainThread, "\(#function) is not recommended to be executed on Main Thread.")
         let fileUrl = URL(fileURLWithPath: filePath)
         let dirPath = fileUrl.deletingLastPathComponent().path 
         let fileName = fileUrl.deletingPathExtension().lastPathComponent
@@ -746,18 +752,14 @@ extension FileProviderBasic {
         return (dirPath as NSString).appendingPathComponent(finalFile)
     }
     
-    internal func throwError(_ path: String, code: FoundationErrorEnum) -> NSError {
+    internal func throwError(_ path: String, code: URLError.Code) -> Error {
         let fileURL = self.url(of: path)
-        let domain: String
-        switch code {
-        case is URLError:
-            fallthrough
-        case is URLError.Code:
-            domain = NSURLErrorDomain
-        default:
-            domain = NSCocoaErrorDomain
-        }
-        return NSError(domain: domain, code: code.rawValue, userInfo: [NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
+        return URLError(code, userInfo: [NSURLErrorKey: fileURL, NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
+    }
+    
+    internal func throwError(_ path: String, code: CocoaError.Code) -> Error {
+        let fileURL = self.url(of: path)
+        return CocoaError(code, userInfo: [NSFilePathErrorKey: path, NSURLErrorKey: fileURL])
     }
     
     internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {

@@ -176,11 +176,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             return
         }
         
-        let progress = Float(totalBytesSent) / Float(totalBytesExpectedToSend)
-        
-        DispatchQueue.main.async {
-            fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: progress)
-        }
+        fileProvider.delegateNotify(op, progress: Double(totalBytesSent) / Double(totalBytesExpectedToSend))
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
@@ -193,9 +189,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             return
         }
         
-        DispatchQueue.main.async {
-            fileProvider.delegate?.fileproviderProgress(fileProvider, operation: op, progress: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
-        }
+        fileProvider.delegateNotify(op, progress: Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
     }
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

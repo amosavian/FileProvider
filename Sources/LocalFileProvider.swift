@@ -222,7 +222,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -240,7 +240,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -264,7 +264,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -485,7 +485,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operationHandler: (URL) -> Void = { url in
             guard let handle = FileHandle(forReadingAtPath: url.path) else {
                 self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileNoSuchFile as FoundationErrorEnum)
+                    let e = self.throwError(path, code: CocoaError.fileNoSuchFile)
                     completionHandler(nil, e)
                     self.delegateNotify(operation, error: e)
                 }
@@ -501,7 +501,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             guard size > offset else {
                 progress.cancel()
                 self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum)
+                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge)
                     completionHandler(nil, e)
                     self.delegateNotify(operation, error: e)
                 }
@@ -512,7 +512,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             guard Int64(handle.offsetInFile) == offset else {
                 progress.cancel()
                 self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge as FoundationErrorEnum)
+                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge)
                     completionHandler(nil, e)
                     self.delegateNotify(operation, error: e)
                 }
@@ -547,7 +547,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: path).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: path).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(path, code: CocoaError.fileWriteFileExists as FoundationErrorEnum)
+            let e = self.throwError(path, code: CocoaError.fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }

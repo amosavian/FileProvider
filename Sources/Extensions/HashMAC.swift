@@ -433,7 +433,7 @@ fileprivate func arrayOfBytes<T>(_ value:T, length:Int? = nil) -> [UInt8] {
     return bytes
 }
 
-extension String {
+public extension String {
     public func fp_sha256() -> [UInt8] {
         return SHA2<SHA256>.calculate([UInt8](self.utf8))
     }
@@ -447,16 +447,16 @@ extension String {
     }
 }
 
-extension Array where Element: Integer {
-    func fp_sha256() -> [UInt8] {
-        return SHA2<SHA256>.calculate(self as? [UInt8] ?? [])
+public extension Data {
+    public func fp_sha256() -> [UInt8] {
+        return SHA2<SHA256>.calculate(Array(self))
     }
     
-    func fp_sha384() -> [UInt8] {
-        return SHA2<SHA384>.calculate(self as? [UInt8] ?? [])
+    public func fp_sha384() -> [UInt8] {
+        return SHA2<SHA384>.calculate(Array(self))
     }
     
-    func fp_sha512() -> [UInt8] {
-        return SHA2<SHA512>.calculate(self as? [UInt8] ?? [])
+    public func fp_sha512() -> [UInt8] {
+        return SHA2<SHA512>.calculate(Array(self))
     }
 }
