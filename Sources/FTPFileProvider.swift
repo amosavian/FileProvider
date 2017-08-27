@@ -866,11 +866,13 @@ extension FTPFileProvider {
                 return
             }
             
+            progress.becomeCurrent(withPendingUnitCount: 1)
             let recursiveProgress = Progress(parent: progress, userInfo: nil)
             recursiveProgress.totalUnitCount = Int64(contents.count)
             let sortedContents = contents.sorted(by: {
                 $0.path.localizedStandardCompare($1.path) == .orderedDescending
             })
+            progress.resignCurrent()
             var command = ""
             for file in sortedContents {
                 command += (file.isDirectory ? "RMD \(self.ftpPath(file.path))" : "DELE \(self.ftpPath(file.path))") + "\r\n"
