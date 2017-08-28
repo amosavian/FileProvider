@@ -505,7 +505,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             return
         }
         
-        
         operation_queue.addOperation {
             self.dataToBeSent.append(data)
             let result = self.write(timeout: timeout, close: false)

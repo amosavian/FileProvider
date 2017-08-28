@@ -118,7 +118,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, root will be iterated.
      - Parameter completionHandler: a closure with result of directory entries or error.
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
@@ -187,7 +187,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, attributes of root will be returned.
      - Parameter completionHandler: a closure with result of directory entries or error.
          `attributes`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by system.
@@ -432,7 +432,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 let toUrl = self.url(of: toPath)
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
                 completionHandler?(nil)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             } catch let e {
                 if self.opFileManager.fileExists(atPath: tmpFile.path) {
                     try? self.opFileManager.removeItem(at: tmpFile)
@@ -663,7 +663,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                     progress?.completedUnitCount = progress?.totalUnitCount ?? 0
                     query.stop()
                     NotificationCenter.default.removeObserver(updateObserver!)
-                    self.delegateNotify(operation, error: nil)
+                    self.delegateNotify(operation)
                 }
                 
                 query.enableUpdates()

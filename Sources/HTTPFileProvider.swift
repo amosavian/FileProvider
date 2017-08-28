@@ -209,7 +209,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             do {
                 try FileManager.default.moveItem(at: tempURL, to: destURL)
                 completionHandler?(nil)
-                self?.delegateNotify(operation, error: nil)
+                self?.delegateNotify(operation)
             } catch let e {
                 completionHandler?(e)
                 self?.delegateNotify(operation, error: e)
@@ -371,7 +371,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
                     progress.cancel()
                 }
                 completionHandler(nil, serverError)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
                 return
             }
             

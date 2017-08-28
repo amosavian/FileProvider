@@ -365,7 +365,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler?(nil)
                 }
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             } catch let e {
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
@@ -432,7 +432,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 self.dispatch_queue.async {
                     completionHandler(data, nil)
                 }
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             } catch let e {
                 progress.cancel()
                 self.dispatch_queue.async {
@@ -523,7 +523,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             progress.completedUnitCount = progress.totalUnitCount
             self.dispatch_queue.async {
                 completionHandler(data, nil)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             }
         }
         
@@ -607,7 +607,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             do {
                 try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
                 completionHandler?(nil)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             } catch let e {
                 completionHandler?(e)
                 self.delegateNotify(operation, error: e)

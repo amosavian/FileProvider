@@ -70,7 +70,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, root will be iterated.
      - Parameter including: An array which determines which file properties should be considered to fetch.
      - Parameter completionHandler: a closure with result of directory entries or error.
          - `contents`: An array of `FileObject` identifying the the directory entries.
@@ -114,7 +114,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, attributes of root will be returned.
      - Parameter including: An array which determines which file properties should be considered to fetch.
      - Parameter completionHandler: a closure with result of directory entries or error.
          - `attributes`: A `FileObject` containing the attributes of the item.

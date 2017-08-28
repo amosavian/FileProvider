@@ -161,7 +161,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, root will be iterated.
      - Parameter rfc3659enabled: uses MLST command instead of old LIST to get files attributes, default is `true`.
      - Parameter completionHandler: a closure with result of directory entries or error.
          `contents`: An array of `FileObject` identifying the the directory entries.
@@ -216,7 +216,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
-     - Parameter path: path to target directory. If empty, `currentPath` value will be used.
+     - Parameter path: path to target directory. If empty, attributes of root will be returned.
      - Parameter rfc3659enabled: uses MLST command instead of old LIST to get files attributes, default is true.
      - Parameter completionHandler: a closure with result of directory entries or error.
          `attributes`: A `FileObject` containing the attributes of the item.
@@ -502,7 +502,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                         try? FileManager.default.moveItem(at: tmpurl, to: destURL)
                         self.dispatch_queue.async {
                             completionHandler?(nil)
-                            self.delegateNotify(operation, error: nil)
+                            self.delegateNotify(operation)
                         }
                     }
                 }
@@ -557,7 +557,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             }
             return nil
         }
@@ -598,7 +598,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 if let data = data {
                     self.dispatch_queue.async {
                         completionHandler(data, nil)
-                        self.delegateNotify(operation, error: nil)
+                        self.delegateNotify(operation)
                     }
                 }
             }
@@ -777,7 +777,7 @@ extension FTPFileProvider {
                 self.dispatch_queue.async {
                     completionHandler?(nil)
                 }
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             })
         }
         
@@ -807,7 +807,7 @@ extension FTPFileProvider {
             progress.becomeCurrent(withPendingUnitCount: 1)
             _ = self.copyItem(localFile: localURL, to: destPath) { error in
                 completionHandler?(nil)
-                self.delegateNotify(operation, error: nil)
+                self.delegateNotify(operation)
             }
             progress.resignCurrent()
         }
