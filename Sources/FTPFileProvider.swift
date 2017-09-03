@@ -239,35 +239,32 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 defer {
                     self.ftpQuit(task)
                 }
-                if let error = error {
+                do {
+                    if let error = error {
+                        throw error
+                    }
+                    
+                    guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
+                        throw self.throwError(path, code: URLError.badServerResponse)
+                    }
+                    
+                    if response.hasPrefix("500") {
+                        self.serverSupportsRFC3659 = false
+                        self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
+                    }
+                    
+                    let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    guard lines.count > 2 else {
+                        throw self.throwError(path, code: URLError.badServerResponse)
+                    }
+                    let file = rfc3659enabled ? self.parseMLST(lines[1], in: path) : self.parseUnixList(lines[1], in: path)
+                    self.dispatch_queue.async {
+                        completionHandler(file, nil)
+                    }
+                } catch {
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
                     }
-                    return
-                }
-                
-                guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
-                    self.dispatch_queue.async {
-                        completionHandler(nil, self.throwError(path, code: URLError.badServerResponse))
-                    }
-                    return
-                }
-                
-                if response.hasPrefix("500") {
-                    self.serverSupportsRFC3659 = false
-                    self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
-                }
-                
-                let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                guard lines.count > 2 else {
-                    self.dispatch_queue.async {
-                        completionHandler(nil, self.throwError(path, code: URLError.badServerResponse))
-                    }
-                    return
-                }
-                let file = rfc3659enabled ? self.parseMLST(lines[1], in: path) : self.parseUnixList(lines[1], in: path)
-                self.dispatch_queue.async {
-                    completionHandler(file, nil)
                 }
             })
         }
@@ -430,17 +427,16 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         
         if self.useAppleImplementation {
             self.attributesOfItem(path: path, completionHandler: { (file, error) in
-                if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(operation, error: error)
+                do {
+                    if let error = error {
+                        throw error
                     }
-                    return
-                }
-                
-                if file?.isDirectory ?? false {
+                    
+                    if file?.isDirectory ?? false {
+                        throw self.throwError(path, code: URLError.fileIsDirectory)
+                    }
+                } catch {
                     self.dispatch_queue.async {
-                        let error = self.throwError(path, code: URLError.fileIsDirectory)
                         completionHandler?(error)
                         self.delegateNotify(operation, error: error)
                     }
@@ -455,8 +451,8 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     do {
                         try FileManager.default.moveItem(at: tempURL, to: destURL)
                         completionHandler?(nil)
-                    } catch let e {
-                        completionHandler?(e)
+                    } catch {
+                        completionHandler?(error)
                     }
                 }
                 task.taskDescription = operation.json
@@ -534,8 +530,8 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 do {
                     let data = try Data(contentsOf: tempURL)
                     completionHandler(data, nil)
-                } catch let e {
-                    completionHandler(nil, e)
+                } catch {
+                    completionHandler(nil, error)
                 }
             }
             task.taskDescription = operation.json
@@ -819,38 +815,34 @@ extension FTPFileProvider {
         let sourcePath = operation.source
         
         self.execute(command: "SITE RMDIR \(ftpPath(sourcePath))", on: task) { (response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let response = response else {
+                    throw  self.throwError(sourcePath, code: URLError.badServerResponse)
+                }
+                
+                if response.hasPrefix("50") {
+                    self.fallbackRecursiveRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
+                    return
+                }
+                
+                if !response.hasPrefix("2") {
+                    throw self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+                }
+                self.dispatch_queue.async {
+                    completionHandler?(nil)
+                }
+                self.delegateNotify(operation)
+            } catch {
                 progress.cancel()
                 self.dispatch_queue.async {
                     completionHandler?(error)
                 }
                 self.delegateNotify(operation, error: error)
-                return
             }
-            
-            guard let response = response else {
-                progress.cancel()
-                let error = self.throwError(sourcePath, code: URLError.badServerResponse)
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                }
-                self.delegateNotify(operation, error: error)
-                return
-            }
-            
-            if response.hasPrefix("50") {
-                self.fallbackRecursiveRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
-                return
-            }
-            
-            var error: Error?
-            if !response.hasPrefix("2") {
-                error = self.throwError(sourcePath, code: URLError.cannotRemoveFile)
-            }
-            self.dispatch_queue.async {
-                completionHandler?(error)
-            }
-            self.delegateNotify(operation, error: error)
         }
     }
     

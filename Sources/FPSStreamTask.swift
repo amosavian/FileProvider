@@ -509,7 +509,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             self.dataToBeSent.append(data)
             let result = self.write(timeout: timeout, close: false)
             if result < 0 {
-                let error = self.outputStream?.streamError ?? NSError(domain: URLError.errorDomain, code: URLError.cannotWriteToFile.rawValue, userInfo: nil)
+                let error = self.outputStream?.streamError ?? URLError(.cannotWriteToFile)
                 completionHandler(error)
             } else {
                 completionHandler(nil)

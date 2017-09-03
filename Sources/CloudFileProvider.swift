@@ -433,12 +433,12 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
                 completionHandler?(nil)
                 self.delegateNotify(operation)
-            } catch let e {
+            } catch  {
                 if self.opFileManager.fileExists(atPath: tmpFile.path) {
                     try? self.opFileManager.removeItem(at: tmpFile)
                 }
-                completionHandler?(e)
-                self.delegateNotify(operation, error: e)
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
             }
         }
         return progress
@@ -466,9 +466,9 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         monitorFile(path: path, operation: operation, progress: progress)
         do {
             try self.opFileManager.startDownloadingUbiquitousItem(at: self.url(of: path))
-        } catch let e {
-            completionHandler?(e)
-            self.delegateNotify(operation, error: e)
+        } catch {
+            completionHandler?(error)
+            self.delegateNotify(operation, error: error)
             return nil
         }
         let _ = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
@@ -684,9 +684,9 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 self.dispatch_queue.async {
                     completionHandler(url, nil, expiration as Date?, nil)
                 }
-            } catch let e {
+            } catch {
                 self.dispatch_queue.async {
-                    completionHandler(nil, nil, nil, e)
+                    completionHandler(nil, nil, nil, error)
                 }
             }
         }
@@ -700,8 +700,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             do {
                 try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
                 completionHandler?(nil)
-            } catch let e {
-                completionHandler?(e)
+            } catch {
+                completionHandler?(error)
             }
         }
     }

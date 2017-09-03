@@ -21,7 +21,7 @@ public final class LocalFileObject: FileObject {
         if relativeURL != nil && rpath.hasPrefix("/") {
             _=rpath.characters.removeFirst()
         }
-        if #available(iOS 9.0, macOS 10.11, tvOS 9.0, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
         } else {
             rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath

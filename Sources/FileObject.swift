@@ -93,9 +93,9 @@ open class FileObject: Equatable {
     }
     
     /// return resource type of file, usually directory, regular or symLink
-    open internal(set) var type: URLFileResourceType? {
+    open internal(set) var type: URLFileResourceType {
         get {
-            return allValues[.fileResourceTypeKey] as? URLFileResourceType
+            return allValues[.fileResourceTypeKey] as? URLFileResourceType ?? .unknown
         }
         set {
             allValues[.fileResourceTypeKey] = newValue
@@ -174,7 +174,7 @@ open class FileObject: Equatable {
         result["isDirectory"] = self.isDirectory
         result["isRegularFile"] = self.isRegularFile
         result["isSymLink"] = self.isSymLink
-        result["type"] = typeDict[self.type ?? .unknown] ?? "unknown"
+        result["type"] = typeDict[self.type] ?? "unknown"
         return result
     }
     

@@ -154,8 +154,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     return LocalFileObject(fileWithPath: path, relativeTo: self.baseURL)
                 })
                 completionHandler(filesAttributes, nil)
-            } catch let e {
-                completionHandler([], e)
+            } catch {
+                completionHandler([], error)
             }
         }
     }
@@ -366,15 +366,15 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     completionHandler?(nil)
                 }
                 self.delegateNotify(operation)
-            } catch let e {
+            } catch {
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
                 }
                 progress.cancel()
                 self.dispatch_queue.async {
-                    completionHandler?(e)
+                    completionHandler?(error)
                 }
-                self.delegateNotify(operation, error: e)
+                self.delegateNotify(operation, error: error)
             }
         }
         
@@ -433,12 +433,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                     completionHandler(data, nil)
                 }
                 self.delegateNotify(operation)
-            } catch let e {
+            } catch {
                 progress.cancel()
                 self.dispatch_queue.async {
-                    completionHandler(nil, e)
+                    completionHandler(nil, error)
                 }
-                self.delegateNotify(operation, error: e)
+                self.delegateNotify(operation, error: error)
             }
         }
         
@@ -483,47 +483,40 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
         
         let operationHandler: (URL) -> Void = { url in
-            guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileNoSuchFile)
-                    completionHandler(nil, e)
-                    self.delegateNotify(operation, error: e)
+            do {
+                guard let handle = FileHandle(forReadingAtPath: url.path) else {
+                    throw self.throwError(path, code: CocoaError.fileNoSuchFile)
                 }
-                return
-            }
-            
-            defer {
-                handle.closeFile()
-            }
-
-            let size = LocalFileObject(fileWithURL: url)?.size ?? -1
-            progress.totalUnitCount = size
-            guard size > offset else {
-                progress.cancel()
-                self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge)
-                    completionHandler(nil, e)
-                    self.delegateNotify(operation, error: e)
+                
+                defer {
+                    handle.closeFile()
                 }
-                return
-            }
-            progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-            handle.seek(toFileOffset: UInt64(offset))
-            guard Int64(handle.offsetInFile) == offset else {
-                progress.cancel()
-                self.dispatch_queue.async {
-                    let e = self.throwError(path, code: CocoaError.fileReadTooLarge)
-                    completionHandler(nil, e)
-                    self.delegateNotify(operation, error: e)
+                
+                let size = LocalFileObject(fileWithURL: url)?.size ?? -1
+                progress.totalUnitCount = size
+                guard size > offset else {
+                    progress.cancel()
+                    throw self.throwError(path, code: CocoaError.fileReadTooLarge)
                 }
-                return
+                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+                handle.seek(toFileOffset: UInt64(offset))
+                guard Int64(handle.offsetInFile) == offset else {
+                    progress.cancel()
+                    throw self.throwError(path, code: CocoaError.fileReadTooLarge)
+                }
+                
+                let data = handle.readData(ofLength: length)
+                progress.completedUnitCount = progress.totalUnitCount
+                self.dispatch_queue.async {
+                    completionHandler(data, nil)
+                    self.delegateNotify(operation)
+                }
             }
-            
-            let data = handle.readData(ofLength: length)
-            progress.completedUnitCount = progress.totalUnitCount
-            self.dispatch_queue.async {
-                completionHandler(data, nil)
-                self.delegateNotify(operation)
+            catch {
+                self.dispatch_queue.async {
+                    completionHandler(nil, error)
+                    self.delegateNotify(operation, error: error)
+                }
             }
         }
         
@@ -608,9 +601,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
                 completionHandler?(nil)
                 self.delegateNotify(operation)
-            } catch let e {
-                completionHandler?(e)
-                self.delegateNotify(operation, error: e)
+            } catch {
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
             }
         }
     }
@@ -626,8 +619,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.url(of: path).path)
                 let destUrl = URL(fileURLWithPath: destPath)
                 completionHandler(destUrl, nil)
-            } catch let e{
-                completionHandler(nil, e)
+            } catch {
+                completionHandler(nil, error)
             }
         }
     }

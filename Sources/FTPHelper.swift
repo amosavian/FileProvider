@@ -80,18 +80,19 @@ internal extension FTPFileProvider {
         let credential = self.credential
         
         task.readData(ofMinLength: 4, maxLength: 2048, timeout: timeout) { (data, eof, error) in
-            if let error = error {
-                completionHandler(error)
-                return
-            }
-            
-            guard let data = data, let response = String(data: data, encoding: .utf8) else {
-                completionHandler(self.throwError("", code: URLError.cannotParseResponse))
-                return
-            }
-            
-            guard response.hasPrefix("22") else {
-                let error = FileProviderFTPError(message: response)
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let data = data, let response = String(data: data, encoding: .utf8) else {
+                    throw self.throwError("", code: URLError.cannotParseResponse)
+                }
+                
+                guard response.hasPrefix("22") else {
+                    throw FileProviderFTPError(message: response)
+                }
+            } catch {
                 completionHandler(error)
                 return
             }
@@ -170,25 +171,25 @@ internal extension FTPFileProvider {
     
     func ftpCwd(_ task: FileProviderStreamTask, to path: String, completionHandler: @escaping (_ error: Error?) -> Void) {
         self.execute(command: "CWD \(path)", on: task) { (response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let response = response else {
+                    throw self.throwError(path, code: URLError.badServerResponse)
+                }
+                
+                // successfully logged in
+                if response.hasPrefix("25") {
+                    completionHandler(nil)
+                }
+                    // not logged in
+                else if response.hasPrefix("55") {
+                    throw FileProviderFTPError(message: response)
+                }
+            } catch {
                 completionHandler(error)
-                return
-            }
-            
-            guard let response = response else {
-                completionHandler(self.throwError(path, code: URLError.badServerResponse))
-                return
-            }
-            
-            // successfully logged in
-            if response.hasPrefix("25") {
-                completionHandler(nil)
-            }
-            // not logged in
-            else if response.hasPrefix("55") {
-                let error = FileProviderFTPError(message: response)
-                completionHandler(error)
-                return
             }
         }
     }
@@ -200,36 +201,39 @@ internal extension FTPFileProvider {
         }
         
         self.execute(command: "PASV", on: task) { (response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap({ String($0) }) else {
+                    throw self.throwError("", code: URLError.badServerResponse)
+                }
+                
+                let destArray = destString.components(separatedBy: ",").flatMap({ UInt32(trimmedNumber($0)) })
+                guard destArray.count == 6 else {
+                    throw self.throwError("", code: URLError.badServerResponse)
+                }
+                
+                // first 4 elements are ip, 2 next are port, as byte
+                var host = destArray.prefix(4).flatMap({ String($0) }).joined(separator: ".")
+                let port = Int(destArray[4] << 8 + destArray[5])
+                // IPv6 workaround
+                if host == "127.555.555.555" {
+                    host = self.baseURL!.host!
+                }
+                
+                let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
+                passiveTask.resume()
+                if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
+                    passiveTask.startSecureConnection()
+                }
+                completionHandler(passiveTask, nil)
+            } catch {
                 completionHandler(nil, error)
                 return
             }
             
-            guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap({ String($0) }) else {
-                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
-                return
-            }
-            
-            let destArray = destString.components(separatedBy: ",").flatMap({ UInt32(trimmedNumber($0)) })
-            guard destArray.count == 6 else {
-                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
-                return
-            }
-            
-            // first 4 elements are ip, 2 next are port, as byte
-            var host = destArray.prefix(4).flatMap({ String($0) }).joined(separator: ".")
-            let port = Int(destArray[4] << 8 + destArray[5])
-            // IPv6 workaround
-            if host == "127.555.555.555" {
-                host = self.baseURL!.host!
-            }
-            
-            let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
-            passiveTask.resume()
-            if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
-                passiveTask.startSecureConnection()
-            }
-            completionHandler(passiveTask, nil)
         }
     }
     
@@ -247,25 +251,24 @@ internal extension FTPFileProvider {
         }
         
         self.execute(command: "PORT \(service.port)", on: task) { (response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let response = response else {
+                    throw self.throwError("", code: URLError.badServerResponse)
+                }
+                
+                guard !response.hasPrefix("5") else {
+                    throw self.throwError("", code: URLError.cannotConnectToHost)
+                }
+                
+                completionHandler(activeTask, nil)
+            } catch {
                 activeTask.cancel()
                 completionHandler(nil, error)
-                return
             }
-            
-            guard let response = response else {
-                activeTask.cancel()
-                completionHandler(nil, self.throwError("", code: URLError.badServerResponse))
-                return
-            }
-            
-            guard !response.hasPrefix("5") else {
-                activeTask.cancel()
-                completionHandler(nil, self.throwError("", code: URLError.cannotConnectToHost))
-                return
-            }
-            
-            completionHandler(activeTask, nil)
         }
     }
     
@@ -281,24 +284,25 @@ internal extension FTPFileProvider {
     
     func ftpRest(_ task: FileProviderStreamTask, startPosition: Int64, completionHandler: @escaping (_ error: Error?) -> Void) {
         self.execute(command: "REST \(startPosition)", on: task) { (response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                // Successful
+                guard let response = response else {
+                    throw self.throwError("", code: URLError.badServerResponse)
+                }
+                
+                if response.hasPrefix("35") {
+                    completionHandler(nil)
+                } else {
+                    throw FileProviderFTPError(message: response, path: "")
+                }
+            } catch {
                 completionHandler(error)
-                return
             }
             
-            // Successful
-            guard let response = response else {
-                completionHandler(self.throwError("", code: URLError.badServerResponse))
-                return
-            }
-            
-            if response.hasPrefix("35") {
-                completionHandler(nil)
-            } else {
-                let error = FileProviderFTPError(message: response, path: "")
-                completionHandler(error)
-                return
-            }
         }
     }
     
@@ -324,66 +328,67 @@ internal extension FTPFileProvider {
                     var finalData = Data()
                     var eof = false
                     var error: Error?
-                    while !eof {
-                        let group = DispatchGroup()
-                        group.enter()
-                        dataTask.readData(ofMinLength: 1, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
-                            if let data = data {
-                                finalData.append(data)
+                    
+                    do {
+                        while !eof {
+                            let group = DispatchGroup()
+                            group.enter()
+                            dataTask.readData(ofMinLength: 1, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                                if let data = data {
+                                    finalData.append(data)
+                                }
+                                eof = seof
+                                error = serror
+                                group.leave()
+                            })
+                            let waitResult = group.wait(timeout: .now() + timeout)
+                            
+                            if let error = error {
+                                if !((error as NSError).domain == URLError.errorDomain && (error as NSError).code == URLError.cancelled.rawValue) {
+                                    throw error
+                                }
+                                return
                             }
-                            eof = seof
-                            error = serror
-                            group.leave()
-                        })
-                        let waitResult = group.wait(timeout: .now() + timeout)
-                        
-                        if let error = error {
-                            if !((error as NSError).domain == URLError.errorDomain && (error as NSError).code == URLError.cancelled.rawValue) {
-                                completionHandler([], error)
+                            
+                            if waitResult == .timedOut {
+                                throw self.throwError(path, code: URLError.timedOut)
                             }
-                            return
                         }
                         
-                        if waitResult == .timedOut {
-                            completionHandler([], self.throwError(path, code: URLError.timedOut))
-                            return
+                        guard let response = String(data: finalData, encoding: .utf8) else {
+                            throw self.throwError(path, code: URLError.badServerResponse)
                         }
+                        
+                        let contents: [String] = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                        success = true
+                        completionHandler(contents, nil)
+                    } catch {
+                        completionHandler([], error)
                     }
-                    
-                    guard let response = String(data: finalData, encoding: .utf8) else {
-                        completionHandler([], self.throwError(path, code: URLError.badServerResponse))
-                        return
-                    }
-                    
-                    let contents: [String] = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-                    success = true
-                    completionHandler(contents, nil)
-                    return
                 }
             }) { (response, error) in
-                if let error = error {
-                    completionHandler([], error)
-                    return
-                }
-                
-                guard let response = response else {
-                    completionHandler([], self.throwError(path, code: URLError.cannotParseResponse))
-                    return
-                }
-                
-                if response.hasPrefix("500") && useMLST {
-                    dataTask.cancel()
-                    self.serverSupportsRFC3659 = false
-                    completionHandler([], self.throwError(path, code: URLError.unsupportedURL))
-                    return
-                }
-                
-                if !success && !(response.hasPrefix("25") || response.hasPrefix("15")) {
-                    let error = FileProviderFTPError(message: response, path: path)
+                do {
+                    if let error = error {
+                        throw error
+                    }
+                    
+                    guard let response = response else {
+                        throw self.throwError(path, code: URLError.cannotParseResponse)
+                    }
+                    
+                    if response.hasPrefix("500") && useMLST {
+                        dataTask.cancel()
+                        self.serverSupportsRFC3659 = false
+                        throw self.throwError(path, code: URLError.unsupportedURL)
+                    }
+                    
+                    if !success && !(response.hasPrefix("25") || response.hasPrefix("15")) {
+                        throw FileProviderFTPError(message: response, path: path)
+                    }
+                } catch {
                     self.dispatch_queue.async {
                         completionHandler([], error)
                     }
-                    return
                 }
             }
         }
@@ -515,23 +520,22 @@ internal extension FTPFileProvider {
                         return
                     }
                 }) { (response, error) in
-                    if let error = error {
-                        completionHandler(nil, error)
-                        return
-                    }
-                    
-                    guard let response = response else {
-                        completionHandler(nil, self.throwError(filePath, code: URLError.cannotParseResponse))
-                        return
-                    }
-                    
-                    if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
-                        let error = FileProviderFTPError(message: response)
+                    do {
+                        if let error = error {
+                            throw error
+                        }
                         
+                        guard let response = response else {
+                            throw self.throwError(filePath, code: URLError.cannotParseResponse)
+                        }
+                        
+                        if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                            throw FileProviderFTPError(message: response)
+                        }
+                    } catch {
                         self.dispatch_queue.async {
                             completionHandler(nil, error)
                         }
-                        return
                     }
                 }
             }
@@ -628,23 +632,22 @@ internal extension FTPFileProvider {
                         return
                     }
                 }) { (response, error) in
-                    if let error = error {
-                        completionHandler(nil, error)
-                        return
-                    }
-                    
-                    guard let response = response else {
-                        completionHandler(nil, self.throwError(filePath, code: URLError.cannotParseResponse))
-                        return
-                    }
-                    
-                    if !(response.hasPrefix("1") || response.hasPrefix("2")) {
-                        let error = FileProviderFTPError(message: response)
+                    do {
+                        if let error = error {
+                            throw error
+                        }
                         
+                        guard let response = response else {
+                            throw self.throwError(filePath, code: URLError.cannotParseResponse)
+                        }
+                        
+                        if !(response.hasPrefix("1") || response.hasPrefix("2")) {
+                            throw FileProviderFTPError(message: response)
+                        }
+                    } catch {
                         self.dispatch_queue.async {
                             completionHandler(nil, error)
                         }
-                        return
                     }
                 }
             }
@@ -659,11 +662,11 @@ internal extension FTPFileProvider {
             var error: Error?
             let chunkSize: Int
             switch size {
-            case 0..<262_144: chunkSize = 32_768 // 0KB To 256KB, page size is 32KB
-            case 262_144..<1_048_576: chunkSize = 65_536 // 256KB To 1MB, page size is 64KB
-            case 1_048_576..<10_485_760: chunkSize = 131_072 // 1MB To 10MB, page size is 128KB
-            case 10_048_576..<33_554_432: chunkSize = 262_144 // 1MB To 10MB, page size is 256KB
-            default: chunkSize = 524_288 // Larger than 32MB, page size is 512KB
+            case 0..<262_144: chunkSize = 32_768 // 0KB To 256KB, chunk size is 32KB
+            case 262_144..<1_048_576: chunkSize = 65_536 // 256KB To 1MB, chunk size is 64KB
+            case 1_048_576..<10_485_760: chunkSize = 131_072 // 1MB To 10MB, chunk size is 128KB
+            case 10_048_576..<33_554_432: chunkSize = 262_144 // 10MB To 32MB, chunk size is 256KB
+            default: chunkSize = 524_288 // Larger than 32MB, chunk size is 512KB
             }
             
             var fileHandle: FileHandle?
@@ -701,12 +704,13 @@ internal extension FTPFileProvider {
                 })
                 let waitResult = group.wait(timeout: .now() + timeout)
                 
-                if waitResult == .timedOut {
-                    error = self.throwError(filePath, code: URLError.timedOut)
+                if let error = error {
                     completionHandler(error)
                     return
                 }
-                if let error = error {
+                
+                if waitResult == .timedOut {
+                    error = self.throwError(filePath, code: URLError.timedOut)
                     completionHandler(error)
                     return
                 }
@@ -733,9 +737,6 @@ internal extension FTPFileProvider {
             self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
-                if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
-                    task.startSecureConnection()
-                }
                 onTask?(dataTask)
                 
                 if data.count == 0 { return }
@@ -753,26 +754,25 @@ internal extension FTPFileProvider {
             }) { (response, error) in
                 guard success else { return }
                 
-                if let error = error {
-                    completionHandler(error)
-                    return
-                }
-                
-                guard let response = response else {
-                    completionHandler(self.throwError(filePath, code: URLError.cannotParseResponse))
-                    return
-                }
-                
-                if !(response.hasPrefix("1") || response.hasPrefix("2")) {
-                    let error = FileProviderFTPError(message: response)
+                do {
+                    if let error = error {
+                        throw error
+                    }
                     
+                    guard let response = response else {
+                        throw self.throwError(filePath, code: URLError.cannotParseResponse)
+                    }
+                    
+                    if !(response.hasPrefix("1") || response.hasPrefix("2")) {
+                        throw FileProviderFTPError(message: response)
+                    }
+                    
+                    completionHandler(nil)
+                } catch {
                     self.dispatch_queue.async {
                         completionHandler(error)
                     }
-                    return
                 }
-                
-                completionHandler(nil)
             }
         }
     }
