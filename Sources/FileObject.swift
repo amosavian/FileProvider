@@ -207,6 +207,97 @@ open class FileObject: Equatable {
     }
 }
 
+/// Containts attributes of a provider.
+open class VolumeObject {
+    /// A `Dictionary` contains volume information,  using `URLResourceKey` keys.
+    open internal(set) var allValues: [URLResourceKey: Any]
+    
+    public init(allValues: [URLResourceKey: Any]) {
+        self.allValues = allValues
+    }
+    
+    /// The root directory of the resource’s volume, returned as an `URL` object.
+    open internal(set) var url: URL? {
+        get {
+            return allValues[.volumeURLKey] as? URL
+        }
+        set {
+            allValues[.volumeURLKey] = newValue
+        }
+    }
+    
+    /// The name of the volume.
+    open internal(set) var name: String? {
+        get {
+            return allValues[.volumeNameKey] as? String
+        }
+        set {
+            allValues[.volumeNameKey] = newValue
+        }
+    }
+
+    
+    /// the volume’s capacity in bytes, return -1 if is undetermined.
+    open internal(set) var totalCapacity: Int64 {
+        get {
+            return allValues[.volumeTotalCapacityKey] as? Int64 ?? -1
+        }
+        set {
+            allValues[.volumeTotalCapacityKey] = newValue
+        }
+    }
+    
+    /// The volume’s available capacity in bytes.
+    open internal(set) var availableCapacity: Int64 {
+        get {
+            return allValues[.volumeAvailableCapacityKey] as? Int64 ?? 0
+        }
+        set {
+            allValues[.volumeAvailableCapacityKey] = newValue
+        }
+    }
+    
+    open internal(set) var usage: Int64 {
+        get {
+            return totalCapacity >= 0 ? totalCapacity - availableCapacity : -availableCapacity
+        }
+        set {
+            availableCapacity = totalCapacity >= 0 ? totalCapacity - newValue : -newValue
+        }
+    }
+    
+    ///  the volume’s creation date, returned as an `Date` object, or NULL if it cannot be determined
+    open internal(set) var creationDate: Date? {
+        get {
+            return allValues[.volumeCreationDateKey] as? Date
+        }
+        set {
+            allValues[.volumeCreationDateKey] = newValue
+        }
+    }
+    
+    /// Determining whether the volume is read-only
+    open internal(set) var isReadOnly: Bool {
+        get {
+            return allValues[.volumeIsReadOnlyKey] as? Bool ?? false
+        }
+        set {
+            allValues[.volumeIsReadOnlyKey] = newValue
+        }
+    }
+    
+    @available(iOS 10.0, macOS 10.12, tvOS 10.0, *)
+    open internal(set) var isEncrypted: Bool {
+        get {
+            return allValues[.volumeIsEncryptedKey] as? Bool ?? false
+        }
+        set {
+            allValues[.volumeIsEncryptedKey] = !newValue
+        }
+    }
+}
+
+
 /// Sorting FileObject array by given criteria, **not thread-safe**
 public struct FileObjectSorting {
     

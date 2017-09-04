@@ -123,7 +123,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
      */
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         // FIXME: create runloop for dispatch_queue, start query on it
         dispatch_queue.async {
             let pathURL = self.url(of: path)
@@ -178,7 +178,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     
     /// Please don't rely this function to get iCloud drive total and remaining capacity
     /// - Important: iCloud Storage size and free space is unavailable, it returns local space
-    open override func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
+    open override func storageProperties(completionHandler: @escaping (VolumeObject?) -> Void) {
         super.storageProperties(completionHandler: completionHandler)
     }
     
@@ -192,7 +192,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
          `attributes`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by system.
      */
-    open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
@@ -249,7 +249,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
          - foundItemHandler: Closure which is called when a file is found
          - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
      */
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         
         let mapDict: [String: String] = ["url": NSMetadataItemURLKey, "name": NSMetadataItemFSNameKey, "path": NSMetadataItemPathKey, "filesize": NSMetadataItemFSSizeKey, "modifiedDate": NSMetadataItemFSContentChangeDateKey, "creationDate": NSMetadataItemFSCreationDateKey, "contentType": NSMetadataItemContentTypeKey]
         

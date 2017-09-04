@@ -12,7 +12,7 @@ import Foundation
  The abstract base class for all REST/Web based providers such as WebDAV, Dropbox, OneDrive, Google Drive, etc. and encapsulates basic
  functionalitis such as downloading/uploading.
  
- No instance of this class should (and can) be created. Use derivated classes instead. It leads to a crash with `fatalError()`.
+ No instance of this class should (and can) be created. Use derived classes instead. It leads to a crash with `fatalError()`.
  */
 open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
@@ -132,25 +132,25 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         }
     }
     
-    open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    open func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
-        self.storageProperties { total, _ in
-            completionHandler(total > 0)
+        self.storageProperties { volume in
+            completionHandler(volume != nil)
         }
     }
     
@@ -193,20 +193,17 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
+        let cantLoadError = throwError(path, code: .cannotLoadFromNetwork)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { [weak self] (tempURL, error) in
-            if let error = error {
-                completionHandler?(error)
-                self?.delegateNotify(operation, error: error)
-                return
-            }
-            
-            guard let tempURL = tempURL else {
-                completionHandler?(error)
-                self?.delegateNotify(operation, error: error)
-                return
-            }
-            
             do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let tempURL = tempURL else {
+                    throw cantLoadError
+                }
+                
                 try FileManager.default.moveItem(at: tempURL, to: destURL)
                 completionHandler?(nil)
                 self?.delegateNotify(operation)
@@ -227,19 +224,18 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
+        let cantLoadError = throwError(path, code: .cannotLoadFromNetwork)
         request.set(httpRangeWithOffset: offset, length: length)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { (tempURL, error) in
-            if let error = error {
-                completionHandler(nil, error)
-                return
-            }
-            
-            guard let tempURL = tempURL else {
-                completionHandler(nil, error)
-                return
-            }
-            
             do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let tempURL = tempURL else {
+                    throw cantLoadError
+                }
+                
                 let data = try Data(contentsOf: tempURL)
                 completionHandler(data, nil)
             } catch {

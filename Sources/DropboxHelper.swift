@@ -51,13 +51,12 @@ public final class DropboxFileObject: FileObject {
     
     /// The document identifier is a value assigned by the Dropbox to a file.
     /// This value is used to identify the document regardless of where it is moved on a volume.
-    /// The identifier persists across system restarts.
     open internal(set) var id: String? {
         get {
-            return allValues[.documentIdentifierKey] as? String
+            return allValues[.fileResourceIdentifierKey] as? String
         }
         set {
-            allValues[.documentIdentifierKey] = newValue
+            allValues[.fileResourceIdentifierKey] = newValue
         }
     }
     
@@ -75,8 +74,6 @@ public final class DropboxFileObject: FileObject {
 
 // codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
-    
-    
     func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, session: URLSession? = nil, progress: Progress, progressHandler: ((_ contents: [FileObject], _ nextCursor: String?, _ error: Error?) -> Void)? = nil, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
         if progress.isCancelled { return }
         

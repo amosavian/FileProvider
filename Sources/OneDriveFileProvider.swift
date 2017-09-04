@@ -67,13 +67,13 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return copy
     }
     
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         list(path) { (contents, cursor, error) in
             completionHandler(contents, error)
         }
     }
     
-    open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
@@ -92,23 +92,28 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
-    open override func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    open override func storageProperties(completionHandler: @escaping  (_ volumeInfo: VolumeObject?) -> Void) {
         var request = URLRequest(url: url(of: ""))
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var totalSize: Int64 = -1
-            var usedSize: Int64 = 0
-            if let json = data?.deserializeJSON() {
-                totalSize = (json["total"] as? NSNumber)?.int64Value ?? -1
-                usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
+            guard let json = data?.deserializeJSON() else {
+                completionHandler(nil)
+                return
             }
-            completionHandler(totalSize, usedSize)
+            
+            let volume = VolumeObject(allValues: [:])
+            volume.url = request.url
+            volume.name = json["name"] as? String
+            volume.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
+            volume.totalCapacity = (json["quota"]?["total"] as? NSNumber)?.int64Value ?? -1
+            volume.availableCapacity = (json["quota"]?["remaining"] as? NSNumber)?.int64Value ?? 0
+            completionHandler(volume)
         }) 
         task.resume()
     }
     
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         var foundFiles = [OneDriveFileObject]()
         var queryStr: String?
         queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first

@@ -166,11 +166,15 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
-    open func storageProperties(completionHandler: (@escaping (_ total: Int64, _ used: Int64) -> Void)) {
-        let values = try? baseURL?.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityKey])
-        let totalSize = Int64(values??.volumeTotalCapacity ?? -1)
-        let freeSize = Int64(values??.volumeAvailableCapacity ?? 0)
-        completionHandler(totalSize, totalSize - freeSize)
+    public func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
+        dispatch_queue.async {
+            var keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeURLKey, .volumeNameKey, .volumeIsReadOnlyKey, .volumeCreationDateKey]
+            if #available(iOS 10.0, macOS 10.12, tvOS 10.0, *) {
+                keys.insert(.isEncryptedKey)
+            }
+            let values: URLResourceValues? = self.baseURL.flatMap { try? $0.resourceValues(forKeys: keys) }
+            completionHandler(values.flatMap({ VolumeObject(allValues: $0.allValues) }))
+        }
     }
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {

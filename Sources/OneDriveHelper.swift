@@ -34,35 +34,38 @@ public final class OneDriveFileObject: FileObject {
     
     internal convenience init? (baseURL: URL?, drive: String, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
-        guard let path = (json["parentReference"] as? NSDictionary)?["path"] as? String else { return nil }
+        guard let path = json["parentReference"]?["path"] as? String else { return nil }
         var lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
         lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
         lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
         self.init(baseURL: baseURL, name: name, path: lPath)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        self.modifiedDate = Date(rfcString: json["lastModifiedDateTime"] as? String ?? "")
-        self.creationDate = Date(rfcString: json["createdDateTime"] as? String ?? "")
+        self.modifiedDate = (json["lastModifiedDateTime"] as? String).flatMap { Date(rfcString: $0) }
+        self.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.type = json["folder"] != nil ? .directory : .regular
+        self.contentType = json["file"]?["mimeType"] as? String ?? "application/octet-stream"
         self.id = json["id"] as? String
         self.entryTag = json["eTag"] as? String
+        let hashes = json["file"]?["hashes"] as? NSDictionary
+        // checks for both sha1 or quickXor. First is available in personal drives, second in business one.
+        self.hash = (hashes?["sha1Hash"] as? String) ?? (hashes?["quickXorHash"] as? String)
     }
     
     /// The document identifier is a value assigned by the OneDrive to a file.
     /// This value is used to identify the document regardless of where it is moved on a volume.
-    /// The identifier persists across system restarts.
     open internal(set) var id: String? {
         get {
-            return allValues[.documentIdentifierKey] as? String
+            return allValues[.fileResourceIdentifierKey] as? String
         }
         set {
-            allValues[.documentIdentifierKey] = newValue
+            allValues[.fileResourceIdentifierKey] = newValue
         }
     }
     
     /// MIME type of file contents returned by OneDrive server.
     open internal(set) var contentType: String {
         get {
-            return allValues[.mimeTypeKey] as? String ?? ""
+            return allValues[.mimeTypeKey] as? String ?? "application/octet-stream"
         }
         set {
             allValues[.mimeTypeKey] = newValue
@@ -76,6 +79,16 @@ public final class OneDriveFileObject: FileObject {
         }
         set {
             allValues[.entryTagKey] = newValue
+        }
+    }
+    
+    /// Calculated hash from OneDrive server. Hex string SHA1 in personal or Base65 string [QuickXOR](https://dev.onedrive.com/snippets/quickxorhash.htm) in business drives.
+    open internal(set) var hash: String? {
+        get {
+            return allValues[.documentIdentifierKey] as? String
+        }
+        set {
+            allValues[.documentIdentifierKey] = newValue
         }
     }
 }

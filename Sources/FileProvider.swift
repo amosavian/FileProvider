@@ -82,11 +82,11 @@ public protocol FileProviderBasic: class, NSSecureCoding {
         - `attributes`: A `FileObject` containing the attributes of the item.
         - `error`: Error returned by system.
      */
-    func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void))
+    func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void)
     
     
-    /// Returns total and used capacity in provider container asynchronously.
-    func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void))
+    /// Returns volume/provider information asynchronously.
+    func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void)
     
     /**
      Search files inside directory using query asynchronously.
@@ -101,7 +101,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
        - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
      */
     @discardableResult
-    func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress?
+    func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress?
     
     /**
      Search files inside directory using query asynchronously.
@@ -126,7 +126,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
      - Returns: An `Progress` to get progress or cancel progress.
      */
     @discardableResult
-    func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress?
+    func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress?
     
     /**
      Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
@@ -150,7 +150,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
 }
 
 extension FileProviderBasic {
-    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    public func searchFiles(path: String, recursive: Bool, query: String, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let predicate = NSPredicate(format: "name BEGINSWITH[c] %@", query)
         return self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
@@ -164,6 +164,14 @@ extension FileProviderBasic {
         }
         set {
             operation_queue.maxConcurrentOperationCount = newValue
+        }
+    }
+    
+    /// Returns total and used capacity in provider container asynchronously.
+    @available(*, deprecated, message: "Use storageProperties which returns VolumeObject")
+    func storageProperties(completionHandler: @escaping (_ total: Int64, _ used: Int64) -> Void) {
+        self.storageProperties { (info) in
+            completionHandler(info?.totalCapacity ?? -1, info?.usage ?? 0)
         }
     }
 }
@@ -783,7 +791,7 @@ public protocol ExtendedFileProvider: FileProviderBasic {
     func propertiesOfFileSupported(path: String) -> Bool
     
     /**
-     Generates ans returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
+     Generates and returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
      regarding provider type, usually 64x64 pixels.
      
      - Parameters:
@@ -795,7 +803,7 @@ public protocol ExtendedFileProvider: FileProviderBasic {
     func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void))
     
     /**
-     Generates ans returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
+     Generates and returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
      regarding provider type, usually 64x64 pixels. Default value used when `dimenstion` is `nil`.
      
      - Note: `LocalFileInformationGenerator` variables can be set to change default behavior of
@@ -1027,26 +1035,8 @@ public enum FileOperationType: CustomStringConvertible {
 }
 
 /// Allows to get progress or cancel an in-progress operation, useful for remote providers
-@available(*, obsoleted: 1.0, message: "Use Progress class class instead.")
-public protocol OperationHandle {
-    /// Operation supposed to be done on files. Contains file paths as associated value.
-    var operationType: FileOperationType { get }
-    
-    /// Bytes written/read by operation so far.
-    var bytesSoFar: Int64 { get }
-    
-    /// Total bytes of operation.
-    var totalBytes: Int64 { get }
-    
-    /// Operation is progress or not, Returns false if operation is done or not initiated yet.
-    var inProgress: Bool { get }
-    
-    /// Progress of operation, usually equals with `bytesSoFar/totalBytes`. or NaN if not available.
-    var progress: Float { get }
-    
-    /// Cancels operation while in progress, or cancels data/download/upload url session task.
-    func cancel() -> Bool
-}
+@available(*, obsoleted: 1.0, message: "Use Foudation.Progress class instead.")
+public protocol OperationHandle {}
 
 /// Delegate methods for reporting provider's operation result and progress, when it's ready to update
 /// user interface.

@@ -57,14 +57,14 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return copy
     }
     
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let progress = Progress(parent: nil, userInfo: nil)
         list(path, progress: progress) { (contents, cursor, error) in
             completionHandler(contents, error)
         }
     }
     
-    open override func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -87,24 +87,26 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
-    open override func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    open override func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         let url = URL(string: "users/get_space_usage", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var totalSize: Int64 = -1
-            var usedSize: Int64 = 0
-            if let json = data?.deserializeJSON() {
-                totalSize = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
-                usedSize = (json["used"] as? NSNumber)?.int64Value ?? 0
+            guard let json = data?.deserializeJSON() else {
+                completionHandler(nil)
+                return
             }
-            completionHandler(totalSize, usedSize)
+            
+            let volume = VolumeObject(allValues: [:])
+            volume.totalCapacity = ((json["allocation"] as? NSDictionary)?["allocated"] as? NSNumber)?.int64Value ?? -1
+            volume.usage = (json["used"] as? NSNumber)?.int64Value ?? 0
+            completionHandler(volume)
         }) 
         task.resume()
     }
     
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(parent: nil, userInfo: nil)
         var foundFiles = [DropboxFileObject]()
         if let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String {

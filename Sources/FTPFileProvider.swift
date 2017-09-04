@@ -152,7 +152,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     
     internal var serverSupportsRFC3659: Bool = true
     
-    open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
     }
     
@@ -167,7 +167,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
          `contents`: An array of `FileObject` identifying the the directory entries.
          `error`: Error returned by system.
      */
-    open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -207,7 +207,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((FileObject?, Error?) -> Void)) {
+    open func attributesOfItem(path: String, completionHandler: @escaping (FileObject?, Error?) -> Void) {
         self.attributesOfItem(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
     }
     
@@ -222,7 +222,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
          `attributes`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by system.
      */
-    open func attributesOfItem(path apath: String, rfc3659enabled: Bool, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open func attributesOfItem(path apath: String, rfc3659enabled: Bool, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -270,13 +270,13 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
     }
     
-    open func storageProperties(completionHandler: @escaping ((_ total: Int64, _ used: Int64) -> Void)) {
+    open func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
         dispatch_queue.async {
-            completionHandler(-1, 0)
+            completionHandler(nil)
         }
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(parent: nil, userInfo: nil)
         if recursive {
             return self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
