@@ -162,11 +162,11 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     }
     
     open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
-        return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
+        return doOperation(.move(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
     open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
-        return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
+        return doOperation(.copy(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
@@ -265,7 +265,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         // WebDAV will override this function
     }
     
-    fileprivate func doOperation(_ operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+    fileprivate func doOperation(_ operation: FileOperationType, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
@@ -275,7 +275,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        let request = self.request(for: operation)
+        let request = self.request(for: operation, overwrite: overwrite)
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderHTTPError?
