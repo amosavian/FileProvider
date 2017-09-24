@@ -169,7 +169,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             DispatchQueue.main.async {
                 if !query.start() {
                     self.dispatch_queue.async {
-                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                        completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
                     }
                 }
             }
@@ -209,7 +209,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 query.disableUpdates()
                 
                 guard let result = (query.results as? [NSMetadataItem])?.first, let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                    let error = self.throwError(path, code: CocoaError.fileNoSuchFile)
+                    let error = self.cocoaError(path, code: .fileNoSuchFile)
                     self.dispatch_queue.async {
                         completionHandler(nil, error)
                     }
@@ -221,7 +221,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                         completionHandler(file, nil)
                     }
                 } else {
-                    let noFileError = self.throwError(path, code: CocoaError.fileNoSuchFile)
+                    let noFileError = self.cocoaError(path, code: .fileNoSuchFile)
                     self.dispatch_queue.async {
                         completionHandler(nil, noFileError)
                     }
@@ -230,7 +230,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             DispatchQueue.main.async {
                 if !query.start() {
                     self.dispatch_queue.async {
-                        completionHandler(nil, self.throwError(path, code: CocoaError.fileReadNoPermission))
+                        completionHandler(nil, self.cocoaError(path, code: .fileReadNoPermission))
                     }
                 }
             }
@@ -364,7 +364,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
                 if !mdquery.start() {
                     self.dispatch_queue.async {
-                        completionHandler([], self.throwError(path, code: CocoaError.fileReadNoPermission))
+                        completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
                     }
                 }
             }
@@ -617,7 +617,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
         
         let path = self.relativePathOf(url: url)
+        #if swift(>=4.0)
+        let rpath = path.hasPrefix("/") ? String(path[path.index(after: path.startIndex)...]) : path
+        #else
         let rpath = path.hasPrefix("/") ? path.substring(from: path.index(after: path.startIndex)) : path
+        #endif
         let relativeUrl = URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath, relativeTo: self.baseURL)
         let file = FileObject(url: relativeUrl ?? url, name: name, path: path)
         

@@ -234,7 +234,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
-                completionHandler(nil, nil, nil, self.throwError(path, code: URLError.resourceUnavailable))
+                completionHandler(nil, nil, nil, self.urlError(path, code: .resourceUnavailable))
             }
             return
         }
@@ -355,7 +355,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
-                completionHandler(nil, self.throwError(path, code: URLError.resourceUnavailable))
+                completionHandler(nil, self.urlError(path, code: .resourceUnavailable))
             }
             return
         }
@@ -384,7 +384,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     
     open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) {
         dispatch_queue.async {
-            completionHandler([:], [], self.throwError(path, code: URLError.resourceUnavailable))
+            completionHandler([:], [], self.urlError(path, code: .resourceUnavailable))
         }
     }
 }
@@ -400,7 +400,11 @@ struct DavResponse {
     init? (_ node: AEXMLElement, baseURL: URL?) {
         
         func standardizePath(_ str: String) -> String {
+            #if swift(>=4.0)
+            let trimmedStr = str.hasPrefix("/") ? String(str[str.index(after: str.startIndex)...]) : str
+            #else
             let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
+            #endif
             return trimmedStr.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? str
         }
         

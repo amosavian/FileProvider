@@ -64,7 +64,10 @@ extension SMB2 {
             var contextCount: UInt16
             fileprivate let reserved2: UInt16
             var clientStartTime: SMBTime {
-                let time = Int64(contextOffset) + (Int64(contextCount) << 32) + (Int64(contextCount) << 48)
+                let lo = Int64(contextOffset)
+                let hi1 = Int64(contextCount) << 32
+                let hi2 = Int64(contextCount) << 48
+                let time: Int64 = lo + hi1 + hi2
                 return SMBTime(time: time)
             }
             

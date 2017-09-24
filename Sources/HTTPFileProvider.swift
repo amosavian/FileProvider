@@ -177,7 +177,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
-                completionHandler?(self.throwError(localFile.path, code: URLError.fileIsDirectory))
+                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
             }
             return nil
         }
@@ -193,7 +193,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
-        let cantLoadError = throwError(path, code: .cannotLoadFromNetwork)
+        let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { [weak self] (tempURL, error) in
             do {
                 if let error = error {
@@ -224,7 +224,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
-        let cantLoadError = throwError(path, code: .cannotLoadFromNetwork)
+        let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
         request.set(httpRangeWithOffset: offset, length: length)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { (tempURL, error) in
             do {

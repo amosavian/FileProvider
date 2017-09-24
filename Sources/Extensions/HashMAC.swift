@@ -42,16 +42,13 @@ extension SHA2Variant32 {
             msgLength += 1
         }
         
-        tmpMessage += [UInt8](repeating: 0, count: counter)
+        tmpMessage.append(contentsOf: [UInt8](repeating: 0, count: counter))
         
         // hash values
-        var hh = [UInt32]()
-        Self.h.forEach {(h) -> () in
-            hh.append(UInt32(h))
-        }
+        var hh: [UInt32] = Self.h.map { UInt32($0) }
         
         // append message length, in a 64-bit big-endian integer. So now the message length is a multiple of 512 bits.
-        tmpMessage += arrayOfBytes(message.count * 8, length: 64 / 8)
+        tmpMessage.append(contentsOf: arrayOfBytes(message.count * 8, length: 64 / 8))
         
         // Process the message in successive 512-bit chunks:
         let chunkSizeBytes = 512 / 8 // 64
@@ -62,8 +59,8 @@ extension SHA2Variant32 {
             for x in 0..<M.count {
                 switch (x) {
                 case 0...15:
-                    let start = chunk.startIndex + (x * MemoryLayout.size(ofValue: M[x]))
-                    let end = start + MemoryLayout.size(ofValue: M[x])
+                    let start: Int = chunk.startIndex + (x * MemoryLayout.size(ofValue: M[x]))
+                    let end: Int = start + MemoryLayout.size(ofValue: M[x])
                     let le = toUInt32Array(chunk[start..<end])[0]
                     M[x] = le.bigEndian
                     break
@@ -118,7 +115,10 @@ extension SHA2Variant32 {
         result.reserveCapacity(hh.count / 4)
         Self.resultingArray(hh).forEach {
             let item = $0.bigEndian
-            result += [UInt8(item & 0xff), UInt8((item >> 8) & 0xff), UInt8((item >> 16) & 0xff), UInt8((item >> 24) & 0xff)]
+            result.append(UInt8(truncatingIfNeeded: item))
+            result.append(UInt8(truncatingIfNeeded: item >> 8))
+            result.append(UInt8(truncatingIfNeeded: item >> 16))
+            result.append(UInt8(truncatingIfNeeded: item >> 24))
         }
         return result
     }
@@ -145,11 +145,7 @@ extension SHA2Variant64 {
         tmpMessage += [UInt8](repeating: 0, count: counter)
         
         // hash values
-        var hh = [UInt64]()
-        Self.h.forEach {(h) -> () in
-            hh.append(h)
-        }
-        
+        var hh: [UInt64] = Self.h
         
         // append message length, in a 64-bit big-endian integer. So now the message length is a multiple of 512 bits.
         tmpMessage += arrayOfBytes(message.count * 8, length: 64 / 8)

@@ -100,8 +100,8 @@ struct Quality<T> {
     let quality: Float
     
     var stringifed: String {
-        var representaion = String(describing: value)
-        let quality = min(1, max(self.quality, 0))
+        var representaion: String = String(describing: value)
+        let quality: Float = min(1, max(self.quality, 0))
         if let value = value as? Locale {
             representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
         }
@@ -474,5 +474,18 @@ internal extension NSPredicate {
     }
 }
 
-extension URLError.Code: FoundationErrorEnum {}
-extension CocoaError.Code: FoundationErrorEnum {}
+func ~=<T>(pattern: (T) -> Bool, value: T) -> Bool {
+    return pattern(value)
+}
+
+func hasPrefix(_ prefix: String) -> (_ value: String) -> Bool {
+    return { (value: String) -> Bool in
+        value.hasPrefix(prefix)
+    }
+}
+
+func hasSuffix(_ suffix: String) -> (_ value: String) -> Bool {
+    return { (value: String) -> Bool in
+        value.hasSuffix(suffix)
+    }
+}

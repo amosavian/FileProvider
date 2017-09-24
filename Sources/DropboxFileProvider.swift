@@ -287,7 +287,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     open func copyItem(remoteURL: URL, to toPath: String, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
         if remoteURL.isFileURL {
-            completionHandler(nil, nil, self.throwError(remoteURL.path, code: URLError.badURL))
+            completionHandler(nil, nil, self.urlError(remoteURL.path, code: .badURL))
             return
         }
         let url = URL(string: "files/save_url", relativeTo: apiURL)!
@@ -412,7 +412,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
             var image: ImageClass? = nil
             if let r = response as? HTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = result.deserializeJSON() {
                 if jsonResult["error"] != nil {
-                    completionHandler(nil, self.throwError(path, code: URLError.cannotDecodeRawData))
+                    completionHandler(nil, self.urlError(path, code: .cannotDecodeRawData))
                 }
             }
             if let data = data {

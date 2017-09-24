@@ -760,12 +760,12 @@ extension FileProviderBasic {
         return (dirPath as NSString).appendingPathComponent(finalFile)
     }
     
-    internal func throwError(_ path: String, code: URLError.Code) -> Error {
+    internal func urlError(_ path: String, code: URLError.Code) -> Error {
         let fileURL = self.url(of: path)
         return URLError(code, userInfo: [NSURLErrorKey: fileURL, NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
     }
     
-    internal func throwError(_ path: String, code: CocoaError.Code) -> Error {
+    internal func cocoaError(_ path: String, code: CocoaError.Code) -> Error {
         let fileURL = self.url(of: path)
         return CocoaError(code, userInfo: [NSFilePathErrorKey: path, NSURLErrorKey: fileURL])
     }
@@ -1063,12 +1063,3 @@ public protocol FileOperationDelegate: class {
     /// fileProvider(_:shouldProceedAfterError:copyingItemAtPath:toPath:) gives the delegate an opportunity to recover from or continue copying after an error. If an error occurs, the error object will contain an ErrorType indicating the problem. The source path and destination paths are also provided. If this method returns true, the FileProvider instance will continue as if the error had not occurred. If this method returns false, the NSFileManager instance will stop copying, return false from copyItemAtPath:toPath:error: and the error will be provied there.
     func fileProvider(_ fileProvider: FileProviderOperations, shouldProceedAfterError error: Error, operation: FileOperationType) -> Bool
 }
-
-/// For internal use in `FileProvider` framework
-public protocol FoundationErrorEnum {
-    /// Init from error code
-    init? (rawValue: Int)
-    // Raw error code
-    var rawValue: Int { get }
-}
-

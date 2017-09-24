@@ -226,7 +226,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
+            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -244,7 +244,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
+            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -268,7 +268,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(toPath, code: CocoaError.fileWriteFileExists)
+            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -489,7 +489,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operationHandler: (URL) -> Void = { url in
             do {
                 guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                    throw self.throwError(path, code: CocoaError.fileNoSuchFile)
+                    throw self.cocoaError(path, code: .fileNoSuchFile)
                 }
                 
                 defer {
@@ -500,13 +500,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 progress.totalUnitCount = size
                 guard size > offset else {
                     progress.cancel()
-                    throw self.throwError(path, code: CocoaError.fileReadTooLarge)
+                    throw self.cocoaError(path, code: .fileReadTooLarge)
                 }
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
                 handle.seek(toFileOffset: UInt64(offset))
                 guard Int64(handle.offsetInFile) == offset else {
                     progress.cancel()
-                    throw self.throwError(path, code: CocoaError.fileReadTooLarge)
+                    throw self.cocoaError(path, code: .fileReadTooLarge)
                 }
                 
                 let data = handle.readData(ofLength: length)
@@ -544,7 +544,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let fileExists = ((try? self.url(of: path).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: path).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.throwError(path, code: CocoaError.fileWriteFileExists)
+            let e = self.cocoaError(path, code: .fileWriteFileExists)
             dispatch_queue.async {
                 completionHandler?(e)
             }

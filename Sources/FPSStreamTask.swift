@@ -27,10 +27,10 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     
     /// Force using `URLSessionStreamTask` for iOS 9 and later
     public let useURLSession: Bool
-    @available(iOS 9.0, OSX 10.11, *)
+    @available(iOS 9.0, macOS 10.11, *)
     fileprivate static var streamTasks = [Int: URLSessionStreamTask]()
     
-    @available(iOS 9.0, OSX 10.11, *)
+    @available(iOS 9.0, macOS 10.11, *)
     internal var _underlyingTask: URLSessionStreamTask? {
         return FileProviderStreamTask.streamTasks[_taskIdentifier]
     }
@@ -42,7 +42,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * tasks in other sessions may have the same `taskIdentifier` value.
      */
     open override var taskIdentifier: Int {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.taskIdentifier
             }
@@ -57,7 +57,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     /// then display to the user as part of your app’s user interface.
     open override var taskDescription: String? {
         get {
-            if #available(iOS 9.0, OSX 10.11, *) {
+            if #available(iOS 9.0, macOS 10.11, *) {
                 if self.useURLSession {
                     return _underlyingTask!.taskDescription
                 }
@@ -67,7 +67,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         @objc(setTaskDescription:)
         set {
-            if #available(iOS 9.0, OSX 10.11, *) {
+            if #available(iOS 9.0, macOS 10.11, *) {
                 if self.useURLSession {
                     _underlyingTask!.taskDescription = newValue
                     return
@@ -84,7 +84,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * of being canceled, or completed.
     */
     override open var state: URLSessionTask.State {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.state
             }
@@ -99,7 +99,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * except when the server has responded to the initial request with a redirect to a different URL.
     */
     override open var originalRequest: URLRequest? {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.originalRequest
             }
@@ -114,7 +114,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * except when the server has responded to the initial request with a redirect to a different URL.
     */
     override open var currentRequest: URLRequest? {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             return _underlyingTask!.currentRequest
         } else {
             return nil
@@ -172,7 +172,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * or the `urlSession(_:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:)` method (for download tasks).
     */
     override open var countOfBytesReceived: Int64 {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.countOfBytesReceived
             }
@@ -192,7 +192,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * Otherwise, the value is `NSURLSessionTransferSizeUnknown` (`-1`) if you provided a stream or body data object, or zero (`0`) if you did not.
     */
     override open var countOfBytesExpectedToSend: Int64 {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             return _underlyingTask!.countOfBytesExpectedToSend
         } else {
             return Int64(dataToBeSent.count)
@@ -206,7 +206,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * If that header is absent, the value is `NSURLSessionTransferSizeUnknown`.
     */
     override open var countOfBytesExpectedToReceive: Int64 {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 return _underlyingTask!.countOfBytesExpectedToReceive
             }
@@ -268,7 +268,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = true) {
         self._underlyingSession = session
         self.useURLSession = useURLSession
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if useURLSession {
                 let task = session.streamTask(withHostName: host, port: port)
                 self._taskIdentifier = task.taskIdentifier
@@ -288,7 +288,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     internal init(session: URLSession, netService: NetService, useURLSession: Bool = true) {
         self._underlyingSession = session
         self.useURLSession = useURLSession
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if useURLSession {
                 let task = session.streamTask(with: netService)
                 self._taskIdentifier = task.taskIdentifier
@@ -316,7 +316,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * This method may be called on a task that is suspended.
     */
     override open func cancel() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.cancel()
                 return
@@ -352,7 +352,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * This value is `NULL` if the task is still active or if the transfer completed successfully.
     */
     override open var error: Error? {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if useURLSession {
                 return _underlyingTask!.error
             }
@@ -369,7 +369,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * All other tasks must start over when resumed.
     */
     override open func suspend() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.suspend()
                 return
@@ -382,7 +382,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     
     // Resumes the task, if it is suspended.
     override open func resume() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.resume()
                 return
@@ -444,7 +444,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      *     - error: An error object that indicates why the read failed, or `nil` if the read was successful.
     */
     open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ atEOF: Bool, _ error :Error?) -> Void) {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.readData(ofMinLength: minBytes, maxLength: maxBytes, timeout: timeout, completionHandler: completionHandler)
                 return
@@ -494,7 +494,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      *      - error: An error object that indicates why the write failed, or nil if the write was successful.
     */
     open func write(_ data: Data, timeout: TimeInterval, completionHandler: @escaping (_ error: Error?) -> Void) {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.write(data, timeout: timeout, completionHandler: completionHandler)
                 return
@@ -522,7 +522,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * `urlSession(_:streamTask:didBecome:outputStream:)` delegate message.
     */
     open func captureStreams() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.captureStreams()
                 return
@@ -552,7 +552,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * you continue reading until the stream reaches end-of-file (EOF).
     */
     open func closeWrite() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.closeWrite()
                 return
@@ -604,7 +604,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * after calling this method will result in an error.
     */
     open func closeRead() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.closeRead()
                 return
@@ -630,7 +630,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * `urlSession(_:task:didReceive:completionHandler:)` method.
     */
     open func startSecureConnection() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.startSecureConnection()
                 return
@@ -647,7 +647,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * Completes any enqueued reads and writes, and closes the secure connection.
     */
     open func stopSecureConnection() {
-        if #available(iOS 9.0, OSX 10.11, *) {
+        if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.stopSecureConnection()
                 return

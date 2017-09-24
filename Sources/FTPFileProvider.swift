@@ -245,7 +245,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     }
                     
                     guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
-                        throw self.throwError(path, code: URLError.badServerResponse)
+                        throw self.urlError(path, code: .badServerResponse)
                     }
                     
                     if response.hasPrefix("500") {
@@ -255,9 +255,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     
                     let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     guard lines.count > 2 else {
-                        throw self.throwError(path, code: URLError.badServerResponse)
+                        throw self.urlError(path, code: .badServerResponse)
                     }
-                    let file = rfc3659enabled ? self.parseMLST(lines[1], in: path) : self.parseUnixList(lines[1], in: path)
+                    let file: FileObject? = rfc3659enabled ? self.parseMLST(lines[1], in: path) : self.parseUnixList(lines[1], in: path)
                     self.dispatch_queue.async {
                         completionHandler(file, nil)
                     }
@@ -366,7 +366,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
-                completionHandler?(self.throwError(localFile.path, code: URLError.fileIsDirectory))
+                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
             }
             return nil
         }
@@ -433,7 +433,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     }
                     
                     if file?.isDirectory ?? false {
-                        throw self.throwError(path, code: URLError.fileIsDirectory)
+                        throw self.urlError(path, code: .fileIsDirectory)
                     }
                 } catch {
                     self.dispatch_queue.async {
@@ -729,7 +729,7 @@ extension FTPFileProvider {
                 guard let response = response else {
                     self.dispatch_queue.async {
                         completionHandler?(error)
-                        self.delegateNotify(operation, error: self.throwError(sourcePath, code: URLError.badServerResponse))
+                        self.delegateNotify(operation, error: self.urlError(sourcePath, code: .badServerResponse))
                     }
                     return
                 }
@@ -744,23 +744,23 @@ extension FTPFileProvider {
                     let errorCode: URLError.Code
                     switch operation {
                     case .create:
-                        errorCode = URLError.cannotCreateFile
+                        errorCode = .cannotCreateFile
                     case .modify:
-                        errorCode = URLError.cannotWriteToFile
+                        errorCode = .cannotWriteToFile
                     case .copy:
                         self.fallbackCopy(operation, progress: progress, completionHandler: completionHandler)
                         return
                     case .move:
-                        errorCode = URLError.cannotMoveFile
+                        errorCode = .cannotMoveFile
                     case .remove:
                         self.fallbackRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
                         return
                     case .link:
-                        errorCode = URLError.cannotWriteToFile
+                        errorCode = .cannotWriteToFile
                     default:
-                        errorCode = URLError.cannotOpenFile
+                        errorCode = .cannotOpenFile
                     }
-                    let error = self.throwError(sourcePath, code: errorCode)
+                    let error = self.urlError(sourcePath, code: errorCode)
                     progress.cancel()
                     self.dispatch_queue.async {
                         completionHandler?(error)
@@ -821,7 +821,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    throw  self.throwError(sourcePath, code: URLError.badServerResponse)
+                    throw  self.urlError(sourcePath, code: .badServerResponse)
                 }
                 
                 if response.hasPrefix("50") {
@@ -830,7 +830,7 @@ extension FTPFileProvider {
                 }
                 
                 if !response.hasPrefix("2") {
-                    throw self.throwError(sourcePath, code: URLError.cannotRemoveFile)
+                    throw self.urlError(sourcePath, code: .cannotRemoveFile)
                 }
                 self.dispatch_queue.async {
                     completionHandler?(nil)
