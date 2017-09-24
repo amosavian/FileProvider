@@ -115,10 +115,18 @@ extension SHA2Variant32 {
         result.reserveCapacity(hh.count / 4)
         Self.resultingArray(hh).forEach {
             let item = $0.bigEndian
-            result.append(UInt8(truncatingIfNeeded: item))
-            result.append(UInt8(truncatingIfNeeded: item >> 8))
-            result.append(UInt8(truncatingIfNeeded: item >> 16))
-            result.append(UInt8(truncatingIfNeeded: item >> 24))
+            #if swift(>=4.0)
+                result.append(UInt8(truncatingIfNeeded: item))
+                result.append(UInt8(truncatingIfNeeded: item >> 8))
+                result.append(UInt8(truncatingIfNeeded: item >> 16))
+                result.append(UInt8(truncatingIfNeeded: item >> 24))
+            #else
+                result.append(UInt8(item))
+                result.append(UInt8((item >> 8)  & 0xFF))
+                result.append(UInt8((item >> 16) & 0xFF))
+                result.append(UInt8((item >> 24) & 0xFF))
+            #endif
+            
         }
         return result
     }
