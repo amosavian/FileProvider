@@ -49,9 +49,9 @@ All functions do async calls and it wont block your main thread.
 
 ## Requirements
 
-- **Swift 3.0 or higher**
+- **Swift 4.0 or higher**
 - iOS 8.0 , OSX 10.10
-- XCode 8.0
+- XCode 9.0
 
 Legacy version is available in swift-2 branch.
 
@@ -493,7 +493,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 
 [cocoapods]: https://cocoapods.org/pods/FilesProvider
 [cocoapods-old]: https://cocoapods.org/pods/FileProvider
-[swift-image]: https://img.shields.io/badge/swift-3.0,%203.1-orange.svg
+[swift-image]: https://img.shields.io/badge/swift-4.0-orange.svg
 [swift-url]: https://swift.org/
 [platform-image]: https://img.shields.io/cocoapods/p/FilesProvider.svg
 [license-image]: https://img.shields.io/github/license/amosavian/FileProvider.svg
