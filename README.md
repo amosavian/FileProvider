@@ -500,7 +500,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [license-url]: LICENSE
 [codebeat-image]: https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517
 [codebeat-url]: https://codebeat.co/projects/github-com-amosavian-fileprovider
-[travis-image]: https://img.shields.io/travis/amosavian/FileProvider/master.svg
+[travis-image]: https://travis-ci.org/amosavian/FileProvider.svg?branch=swift-4
 [travis-url]: https://travis-ci.org/amosavian/FileProvider
 [release-url]: https://github.com/amosavian/FileProvider/releases
 [release-image]: https://img.shields.io/github/release/amosavian/FileProvider.svg
