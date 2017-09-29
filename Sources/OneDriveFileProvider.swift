@@ -19,8 +19,71 @@ import CoreGraphics
  */
 open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "OneDrive" }
-    /// Drive name for user, default is `root`. Changing its value will effect on new operations.
-    open var drive: String
+    
+    public enum SubAddress: RawRepresentable {
+        case me
+        case drive(uuid: UUID)
+        case group(uuid: UUID)
+        case site(uuid: UUID)
+        case user(uuid: UUID)
+        
+        public init?(rawValue: String) {
+            let components = rawValue.components(separatedBy: ";")
+            guard let type = components.first else {
+                return nil
+            }
+            if type == "me" {
+                self = .me
+            }
+            guard let uuid = components.last.flatMap({ UUID(uuidString: $0) }) else {
+                return nil
+            }
+            switch type {
+            case "drive":
+                self = .drive(uuid: uuid)
+            case "group":
+                self = .group(uuid: uuid)
+            case "site":
+                self = .site(uuid: uuid)
+            case "user":
+                self = .user(uuid: uuid)
+            default:
+                return nil
+            }
+        }
+        
+        public var rawValue: String {
+            switch self {
+            case .me:
+                return "me;"
+            case .drive(uuid: let uuid):
+                return "drive;" + uuid.uuidString
+            case .group(uuid: let uuid):
+                return "group;" + uuid.uuidString
+            case .site(uuid: let uuid):
+                return "site;" + uuid.uuidString
+            case .user(uuid: let uuid):
+                return "user;" + uuid.uuidString
+            }
+        }
+        
+        var drivePath: String {
+            switch self {
+                case .me:
+                return "me/drive"
+                case .drive(uuid: let uuid):
+                return "drives/" + uuid.uuidString
+                case .group(uuid: let uuid):
+                return "groups/" + uuid.uuidString + "/drive"
+                case .site(uuid: let uuid):
+                return "sites/" + uuid.uuidString + "/drive"
+                case .user(uuid: let uuid):
+                return "users/" + uuid.uuidString + "/drive"
+            }
+        }
+    }
+    /// Sub Address for container, default is `.me`. Changing its value will effect on new operations.
+    open var subAddress: SubAddress
     
     /**
      Initializer for Onedrive provider with given client ID and Token.
@@ -36,17 +99,45 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - drive: drive name for user on server, default value is `root`.
        - cache: A URLCache to cache downloaded files and contents.
      */
-    public init(credential: URLCredential?, serverURL: URL? = nil, drive: String = "root", cache: URLCache? = nil) {
+    @available(*, deprecated, message: "use init(credential:, serverURL, subAddress:, cache:) instead.")
+    public init(credential: URLCredential?, serverURL: URL? = nil, drive: String?, cache: URLCache? = nil) {
         let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
-        self.drive = drive
+        self.subAddress = drive.flatMap({ UUID(uuidString: $0) }).flatMap({ SubAddress.drive(uuid: $0) }) ?? .me
+        super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
+    }
+    
+    /**
+     Initializer for Onedrive provider with given client ID and Token.
+     These parameters must be retrieved via [Authentication for the OneDrive API](https://dev.onedrive.com/auth/readme.htm).
+     
+     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token.
+     The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
+     
+     - Parameters:
+       - credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
+       - serverURL: server url, Set it if you are trying to connect OneDrive Business server, otherwise leave it
+         `nil` to connect to OneDrive Personal uses.
+       - subAddress: drive name for user on server, default value is `.me`.
+       - cache: A URLCache to cache downloaded files and contents.
+     */
+    public init(credential: URLCredential?, serverURL: URL? = nil, subAddress: SubAddress = .me, cache: URLCache? = nil) {
+        let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
+        let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
+        self.subAddress = subAddress
         super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
+        let subAddress: SubAddress
+        if let driveId = aDecoder.decodeObject(forKey: "drive") as? String, let uuid = UUID(uuidString: driveId) {
+            subAddress = .drive(uuid: uuid)
+        } else {
+            subAddress = (aDecoder.decodeObject(forKey: "subAddress") as? String).flatMap({ SubAddress(rawValue: $0) }) ?? .me
+        }
         self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential,
                   serverURL: aDecoder.decodeObject(forKey: "baseURL") as? URL,
-                  drive: aDecoder.decodeObject(forKey: "drive") as? String ?? "root")
+                  subAddress: subAddress)
         self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
@@ -54,11 +145,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     
     open override func encode(with aCoder: NSCoder) {
         super.encode(with: aCoder)
-        aCoder.encode(self.drive, forKey: "drive")
+        aCoder.encode(self.subAddress.rawValue, forKey: "subAddress")
     }
     
     open override func copy(with zone: NSZone? = nil) -> Any {
-        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, drive: self.drive, cache: self.cache)
+        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, subAddress: self.subAddress, cache: self.cache)
         copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
@@ -83,7 +174,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
-                if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: json) {
+                if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: json) {
                     fileObject = file
                 }
             }
@@ -132,26 +223,40 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open func url(of path: String, modifier: String? = nil) -> URL {
+        var url: URL = baseURL!
         var rpath: String = path
+        let isId = path.hasPrefix("id:")
         
-        let driveURL = baseURL!.appendingPathComponent("drive/\(drive):/")
+        url.appendPathComponent(subAddress.drivePath)
+        
+        if isId {
+            url.appendPathComponent("root:")
+        } else {
+            url.appendPathComponent("items")
+        }
         
         if rpath.hasPrefix("/") {
             _=rpath.characters.removeFirst()
         }
-        if rpath.isEmpty {
-            if let modifier = modifier {
-                return driveURL.appendingPathComponent(modifier)
-            }
-            return driveURL
-        }
         
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
-        if let modifier = modifier {
-            rpath = rpath + ":/" + modifier
+        
+        switch (modifier == nil, rpath.isEmpty, isId) {
+        case (true, false, _):
+            url.appendPathComponent(rpath)
+        case (true, true, _):
+            break
+        case (false, true, _):
+            url.appendPathComponent(modifier!)
+        case (false, false, true):
+            url.appendPathComponent(rpath)
+            url.appendPathComponent(modifier!)
+        case (false, false, false):
+            url.appendPathComponent(rpath + ":")
+            url.appendPathComponent(modifier!)
         }
         
-        return  driveURL.appendingPathComponent(rpath)
+        return url
     }
     
     open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
@@ -167,8 +272,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
         
-        func correctPath(_ path: String?) -> String? {
-            guard let path = path else { return nil }
+        func correctPath(_ path: String) -> String {
             if path.hasPrefix("id:") {
                 return path
             }
@@ -219,10 +323,22 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
              .move(source: let source, destination: let dest):
             request.set(httpContentType: .json)
-            let cdest = (correctPath(dest) as NSString?)!
+            let cdest = correctPath(dest) as NSString
+            var parentRefrence: [String: AnyObject] = [:]
+            if cdest.hasPrefix("id:") {
+                parentRefrence["id"] = cdest.components(separatedBy: "/").first as NSString?
+                switch self.subAddress {
+                case .drive(uuid: let uuid):
+                    parentRefrence["driveId"] = uuid.uuidString as NSString
+                default:
+                    break
+                }
+            } else {
+                parentRefrence["path"] = cdest.deletingLastPathComponent as NSString
+            }
             var requestDictionary = [String: AnyObject]()
-            requestDictionary["parentReference"] = ("/drive/\(drive):" + cdest.deletingLastPathComponent) as NSString
-            requestDictionary["name"] = cdest.lastPathComponent as NSString
+            requestDictionary["parentReference"] = parentRefrence as NSDictionary
+            requestDictionary["name"] = (cdest as NSString).lastPathComponent as NSString
             request.httpBody = Data(jsonDictionary: requestDictionary)
         default:
             break

@@ -27,15 +27,15 @@ public final class OneDriveFileObject: FileObject {
         super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
     }
     
-    internal convenience init? (baseURL: URL?, drive: String, jsonStr: String) {
+    internal convenience init? (baseURL: URL?, subAddress: OneDriveFileProvider.SubAddress, jsonStr: String) {
         guard let json = jsonStr.deserializeJSON() else { return nil }
-        self.init(baseURL: baseURL, drive: drive, json: json)
+        self.init(baseURL: baseURL, subAddress: subAddress, json: json)
     }
     
-    internal convenience init? (baseURL: URL?, drive: String, json: [String: AnyObject]) {
+    internal convenience init? (baseURL: URL?, subAddress: OneDriveFileProvider.SubAddress, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["parentReference"]?["path"] as? String else { return nil }
-        var lPath = path.replacingOccurrences(of: "/drive/\(drive):", with: "/", options: .anchored, range: nil)
+        var lPath = path.replacingOccurrences(of: subAddress.drivePath, with: "", options: .anchored, range: nil)
         lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
         lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
         self.init(baseURL: baseURL, name: name, path: lPath)
@@ -109,7 +109,7 @@ internal extension OneDriveFileProvider {
             if let json = data?.deserializeJSON() {
                 if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
+                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry) {
                             files.append(file)
                         }
                     }
@@ -133,9 +133,19 @@ internal extension OneDriveFileProvider {
         }
         
         let url: URL
-        let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let expanded = recursive ? "&expand=children" : ""
-        url = next ?? self.url(of: startPath, modifier: "view.search?q=\(q)\(expanded)")
+        if let next = next {
+            url = next
+        } else {
+            let bURL = self.baseURL!.appendingPathComponent(subAddress.drivePath).appendingPathComponent("root/search")
+            var components = URLComponents(url: bURL, resolvingAgainstBaseURL: false)!
+            let qItem = URLQueryItem(name: "q", value: query)
+            components.queryItems = [qItem]
+            if recursive {
+                components.queryItems?.append(URLQueryItem(name: "expand", value: "children"))
+            }
+            url = components.url!
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
@@ -148,7 +158,7 @@ internal extension OneDriveFileProvider {
             if let json = data?.deserializeJSON() {
                 if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
                     for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, drive: self.drive, json: entry) {
+                        if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry) {
                             foundItem(file)
                         }
                     }
