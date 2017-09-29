@@ -712,15 +712,6 @@ extension FileProviderBasic {
         }
     }
     
-    internal func correctPath(_ path: String?) -> String? {
-        guard let path = path else { return nil }
-        var p = path.hasPrefix("/") ? path : "/" + path
-        if p.hasSuffix("/") {
-            p.remove(at: p.index(before:p.endIndex))
-        }
-        return p
-    }
-    
     /// Returns a file name supposed to be unique with adding numbers to end of file.
     /// - Important: It's a synchronous method. Don't use it on main thread.
     public func fileByUniqueName(_ filePath: String) -> String {

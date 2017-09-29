@@ -166,6 +166,19 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
+        
+        func correctPath(_ path: String?) -> String? {
+            guard let path = path else { return nil }
+            if path.hasPrefix("id:") {
+                return path
+            }
+            var p = path.hasPrefix("/") ? path : "/" + path
+            if p.hasSuffix("/") {
+                p.remove(at: p.index(before:p.endIndex))
+            }
+            return p
+        }
+        
         let method: String
         let url: URL
         switch operation {
