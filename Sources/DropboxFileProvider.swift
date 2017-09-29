@@ -58,6 +58,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+        // We don't want this progress became in another progress' hierarchy
         let progress = Progress(parent: nil, userInfo: nil)
         list(path, progress: progress) { (contents, cursor, error) in
             completionHandler(contents, error)
@@ -107,7 +108,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         var foundFiles = [DropboxFileObject]()
         if let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String {
             // Dropbox only support searching for file names begin with query in non-enterprise accounts.

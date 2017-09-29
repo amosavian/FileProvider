@@ -178,7 +178,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         
         dispatch_queue.async {
@@ -293,7 +293,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     @discardableResult
     fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
@@ -339,11 +339,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                         progress.totalUnitCount = 1
                         try self.opFileManager.createDirectory(at: source, withIntermediateDirectories: true, attributes: [:])
                     } else {
-                        progress.totalUnitCount = Int64(data?.count ?? 0)
+                        progress.totalUnitCount = Int64(data?.count ?? -1)
                         try data?.write(to: source, options: .atomic)
                     }
                 case .modify:
-                    progress.totalUnitCount = Int64(data?.count ?? 0)
+                    progress.totalUnitCount = Int64(data?.count ?? -1)
                     try data?.write(to: source, options: atomically ? [.atomic] : [])
                 case .copy:
                     guard let dest = dest else { return }
@@ -420,13 +420,12 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: url.fileSize)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
-        progress.totalUnitCount = url.fileSize
         
         let operationHandler: (URL) -> Void = { url in
             progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
@@ -479,7 +478,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let operation = FileOperationType.fetch(path: path)
         let url = self.url(of: path)
         
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false

@@ -307,7 +307,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     internal func upload_simple(_ targetPath: String, request: URLRequest, data: Data? = nil, localFile: URL? = nil, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
         let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
         
-        var progress = Progress(parent: nil, userInfo: nil)
+        var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -345,7 +345,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     }
     
     internal func download_simple(path: String, request: URLRequest, operation: FileOperationType, completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
-        var progress = Progress(parent: nil, userInfo: nil)
+        var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)

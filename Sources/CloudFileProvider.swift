@@ -129,7 +129,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             let pathURL = self.url(of: path)
             
             let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemPathKey, pathURL.path)
+            query.predicate = NSPredicate(format: "%K BEGINSWITH[CD] %@", NSMetadataItemPathKey, pathURL.path)
             query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
@@ -196,7 +196,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         dispatch_queue.async {
             let pathURL = self.url(of: path)
             let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
+            query.predicate = NSPredicate(format: "%K LIKE[CD] %@", NSMetadataItemPathKey, pathURL.path)
             query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
             query.searchScopes = [self.scope.rawValue]
             var finishObserver: NSObjectProtocol?
@@ -282,7 +282,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             }
         }
         
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         
         dispatch_queue.async {
             let pathURL = self.url(of: path)
@@ -303,9 +303,9 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 // FIXME: Remove this section as it won't work as expected on iCloud
                 updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: mdquery, queue: nil, using: { (notification) in
                     
-                    mdquery.disableUpdates()
-                    
                     guard mdquery.resultCount > lastReportedCount else { return }
+                    
+                    mdquery.disableUpdates()
                     
                     for index in lastReportedCount..<mdquery.resultCount {
                         guard let attribs = (mdquery.result(at: index) as? NSMetadataItem)?.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
@@ -411,7 +411,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // TODO: Make use of overwrite parameter
         let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.isCancellable = false
@@ -428,9 +428,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             let tmpFile = tempFolder.appendingPathComponent(UUID().uuidString)
             
             do {
+                progress.totalUnitCount = localFile.fileSize
                 try self.opFileManager.copyItem(at: localFile, to: tmpFile)
                 let toUrl = self.url(of: toPath)
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
+                self.monitorFile(path: toPath, operation: operation, progress: progress)
                 completionHandler?(nil)
                 self.delegateNotify(operation)
             } catch  {
@@ -457,12 +459,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     @discardableResult
     open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
-        let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.isCancellable = false
-        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        let progress = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
         monitorFile(path: path, operation: operation, progress: progress)
         do {
             try self.opFileManager.startDownloadingUbiquitousItem(at: self.url(of: path))
@@ -471,7 +468,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             self.delegateNotify(operation, error: error)
             return nil
         }
-        let _ = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
         return progress
     }
     
@@ -489,13 +485,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     @discardableResult
     open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
-        let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        let progress = super.contents(path: path, completionHandler: completionHandler)
         monitorFile(path: path, operation: operation, progress: progress)
-        _ = super.contents(path: path, completionHandler: completionHandler)
         return progress
     }
     
@@ -515,13 +506,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     @discardableResult
     open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
-        let progress = Progress(parent: nil, userInfo: nil)
-        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-        progress.kind = .file
-        progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
-        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        let progress = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
         monitorFile(path: path, operation: operation, progress: progress)
-        _ = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
         return progress
     }
     
@@ -539,7 +525,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     @discardableResult
     open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
@@ -635,48 +621,20 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return file
     }
     
+    lazy fileprivate var observer: KVOObserver = KVOObserver()
+    
     fileprivate func monitorFile(path: String, operation: FileOperationType, progress: Progress?) {
-        dispatch_queue.async {
-            let pathURL = self.url(of: path)
-            let size = pathURL.fileSize
-            progress?.totalUnitCount = size > 0 ? size : 0
-            let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemPathKey, pathURL.path)
-            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataUbiquitousItemPercentDownloadedKey, NSMetadataUbiquitousItemPercentUploadedKey, NSMetadataItemFSSizeKey]
-            query.searchScopes = [self.scope.rawValue]
-            var updateObserver: NSObjectProtocol?
-            updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: nil, using: { (notification) in
-                query.disableUpdates()
-                
-                guard let item = (query.results as? [NSMetadataItem])?.first else {
-                    return
-                }
-                
-                if progress?.totalUnitCount == 0, let size = item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 {
-                    progress?.totalUnitCount = size
-                }
-                let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
-                let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
-                if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
-                    progress?.completedUnitCount = Int64(uploaded / 100 * Double(progress?.totalUnitCount ?? 0))
-                    self.delegateNotify(operation, progress: uploaded / 100)
-                } else if (uploaded == 0 || uploaded == 100) && (downloaded > 0 && downloaded < 100) {
-                    progress?.completedUnitCount = Int64(downloaded / 100 * Double(progress?.totalUnitCount ?? 0))
-                    self.delegateNotify(operation, progress: downloaded / 100)
-                } else if uploaded == 100 || downloaded == 100 {
-                    progress?.completedUnitCount = progress?.totalUnitCount ?? 0
-                    query.stop()
-                    NotificationCenter.default.removeObserver(updateObserver!)
-                    self.delegateNotify(operation)
-                }
-                
-                query.enableUpdates()
-            })
-            
-            DispatchQueue.main.async {
-                progress?.setUserInfoObject(Date(), forKey: .startingTimeKey)
-                query.start()
-            }
+        let pathURL = self.url(of: path).standardizedFileURL
+        let query = NSMetadataQuery()
+        query.predicate = NSPredicate(format: "%K LIKE[CD] %@", NSMetadataItemPathKey, pathURL.path)
+        query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataUbiquitousItemPercentDownloadedKey, NSMetadataUbiquitousItemPercentUploadedKey, NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataItemFSSizeKey]
+        query.searchScopes = [self.scope.rawValue]
+        var context = QueryProgressWrapper(provider: self, progress: progress, operation: operation)
+        query.addObserver(self.observer, forKeyPath: "results", options: [.initial, .new, .old], context: &context)
+        
+        DispatchQueue.main.async {
+            query.start()
+            progress?.setUserInfoObject(Date(), forKey: .startingTimeKey)
         }
     }
     
@@ -760,6 +718,56 @@ public enum UbiquitousScope: RawRepresentable {
         case .documents:
             return NSMetadataQueryUbiquitousDocumentsScope
         }
+    }
+}
+
+struct QueryProgressWrapper {
+    weak var provider: CloudFileProvider?
+    weak var progress: Progress?
+    let operation: FileOperationType
+}
+
+fileprivate class KVOObserver: NSObject {
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        guard let query = object as? NSMetadataQuery else {
+            return
+        }
+        guard let wrapper = context?.load(as: QueryProgressWrapper.self) else {
+            query.stop()
+            query.removeObserver(self, forKeyPath: "results")
+            return
+        }
+        let provider = wrapper.provider
+        let progress = wrapper.progress
+        let operation = wrapper.operation
+        
+        guard let results = change?[.newKey], let item = (results as? [NSMetadataItem])?.first else {
+            return
+        }
+        
+        query.disableUpdates()
+        var size = progress?.totalUnitCount ?? -1
+        if size < 0, let size_d = item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 {
+            size = size_d
+            progress?.totalUnitCount = size
+        }
+        let downloadStatus = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? String ?? ""
+        let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
+        let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
+        if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
+            progress?.completedUnitCount = Int64(uploaded / 100 * Double(size))
+            provider?.delegateNotify(operation, progress: uploaded / 100)
+        } else if (uploaded == 0 || uploaded == 100) && downloadStatus != NSMetadataUbiquitousItemDownloadingStatusCurrent {
+            progress?.completedUnitCount = Int64(downloaded / 100 * Double(size))
+            provider?.delegateNotify(operation, progress: downloaded / 100)
+        } else if uploaded == 100 || downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent {
+            progress?.completedUnitCount = size
+            query.stop()
+            query.removeObserver(self, forKeyPath: "results")
+            provider?.delegateNotify(operation)
+        }
+        
+        query.enableUpdates()
     }
 }
 

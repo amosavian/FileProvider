@@ -277,7 +277,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         if recursive {
             return self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
                 if let foundItemHandler = foundItemHandler {
@@ -859,8 +859,7 @@ extension FTPFileProvider {
             }
             
             progress.becomeCurrent(withPendingUnitCount: 1)
-            let recursiveProgress = Progress(parent: progress, userInfo: nil)
-            recursiveProgress.totalUnitCount = Int64(contents.count)
+            let recursiveProgress = Progress(totalUnitCount: Int64(contents.count))
             let sortedContents = contents.sorted(by: {
                 $0.path.localizedStandardCompare($1.path) == .orderedDescending
             })

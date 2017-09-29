@@ -683,7 +683,7 @@ extension FileProviderBasic {
             }
             return URL(string: rpath, relativeTo: baseURL) ?? baseURL
         } else {
-            return URL(string: rpath)!
+            return URL(string: rpath) ?? URL(string: "/")!
         }
     }
     

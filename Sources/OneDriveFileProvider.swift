@@ -118,7 +118,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var queryStr: String?
         queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         guard let finalQueryStr = queryStr else { return nil }
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
         search(path, query: finalQueryStr, recursive: recursive, progress: progress, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {

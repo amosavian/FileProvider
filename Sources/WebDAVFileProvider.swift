@@ -184,7 +184,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.set(httpAuthentication: credential, with: credentialType)
         request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp([])
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
         let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
