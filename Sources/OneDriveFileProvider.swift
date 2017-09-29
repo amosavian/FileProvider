@@ -118,7 +118,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var queryStr: String?
         queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         guard let finalQueryStr = queryStr else { return nil }
-        let progress = Progress(parent: nil, userInfo: nil)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
         search(path, query: finalQueryStr, recursive: recursive, progress: progress, foundItem: { (file) in
             if query.evaluate(with: file.mapPredicate()) {
@@ -166,6 +166,19 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
+        
+        func correctPath(_ path: String?) -> String? {
+            guard let path = path else { return nil }
+            if path.hasPrefix("id:") {
+                return path
+            }
+            var p = path.hasPrefix("/") ? path : "/" + path
+            if p.hasSuffix("/") {
+                p.remove(at: p.index(before:p.endIndex))
+            }
+            return p
+        }
+        
         let method: String
         let url: URL
         switch operation {

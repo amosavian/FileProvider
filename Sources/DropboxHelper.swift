@@ -74,6 +74,18 @@ public final class DropboxFileObject: FileObject {
 
 // codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
+    internal func correctPath(_ path: String?) -> String? {
+        guard let path = path else { return nil }
+        if path.hasPrefix("id:") || path.hasPrefix("rev:") {
+            return path
+        }
+        var p = path.hasPrefix("/") ? path : "/" + path
+        if p.hasSuffix("/") {
+            p.remove(at: p.index(before:p.endIndex))
+        }
+        return p
+    }
+    
     func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, session: URLSession? = nil, progress: Progress, progressHandler: ((_ contents: [FileObject], _ nextCursor: String?, _ error: Error?) -> Void)? = nil, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
         if progress.isCancelled { return }
         
