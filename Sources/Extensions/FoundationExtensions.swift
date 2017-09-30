@@ -103,7 +103,7 @@ struct Quality<T> {
         var representaion: String = String(describing: value)
         let quality: Float = min(1, max(self.quality, 0))
         if let value = value as? Locale {
-            representaion = "\(value.identifier.replacingOccurrences(of: "_", with: "-"))"
+            representaion = value.identifier.replacingOccurrences(of: "_", with: "-")
         }
         if let value = value as? String.Encoding {
             let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)

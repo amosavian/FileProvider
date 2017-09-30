@@ -105,10 +105,10 @@ internal extension DropboxFileProvider {
         request.set(httpContentType: .json)
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = (session ?? self.session).dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderDropboxError?
+            var responseError: FileProviderHTTPError?
             var files = [DropboxFileObject]()
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             if let json = data?.deserializeJSON() {
                 if let entries = json["entries"] as? [AnyObject] , entries.count > 0 {
@@ -153,9 +153,9 @@ internal extension DropboxFileProvider {
         requestDictionary["max_results"] = maxResultPerPage as NSNumber
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderDropboxError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderDropboxError(code: rCode, path: startPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                responseError = self.serverError(with: rCode, path: startPath, data: data)
             }
             if let json = data?.deserializeJSON() {
                 if let entries = json["matches"] as? [AnyObject] , entries.count > 0 {

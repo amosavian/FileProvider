@@ -89,9 +89,9 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp(including)
         runDataTask(with: request, operation: operation, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             var fileObjects = [WebDavFileObject]()
             if let data = data {
@@ -131,9 +131,9 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.set(httpContentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp(including)
         runDataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             if let data = data {
                 let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
@@ -188,9 +188,9 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         progress.setUserInfoObject(url, forKey: .fileURLKey)
         let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
-            var responseError: FileProviderWebDavError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             if let data = data {
                 let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
@@ -247,9 +247,9 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
         request.httpBody = body.data(using: .utf8)
         runDataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode, code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             if let data = data {
                 let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
@@ -322,7 +322,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
         for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
             let code = xresponse.status.flatMap { FileProviderHTTPErrorCode(rawValue: $0) } ?? .internalServerError
-            let error = FileProviderWebDavError(code: code, path: source, errorDescription: String(data: data, encoding: .utf8), url: self.url(of: source))
+            let error = self.serverError(with: code, path: source, data: data)
             completionHandler?(error)
         }
     }
@@ -366,9 +366,9 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: credentialType)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderWebDavError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderWebDavError(code: rCode, path: url.relativePath, errorDescription: String(data: data ?? Data(), encoding: .utf8), url: url)
+                responseError = self.serverError(with: rCode, path: url.relativePath, data: data)
                 completionHandler(nil, responseError ?? error)
                 return
             }

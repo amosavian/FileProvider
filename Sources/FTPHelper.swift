@@ -206,7 +206,7 @@ internal extension FTPFileProvider {
                     throw error
                 }
                 
-                guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap({ String($0) }) else {
+                guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap(String.init) else {
                     throw self.urlError("", code: .badServerResponse)
                 }
                 
@@ -216,7 +216,7 @@ internal extension FTPFileProvider {
                 }
                 
                 // first 4 elements are ip, 2 next are port, as byte
-                var host = destArray.prefix(4).flatMap({ String($0) }).joined(separator: ".")
+                var host = destArray.prefix(4).flatMap(String.init).joined(separator: ".")
                 let portHi = Int(destArray[4]) << 8
                 let portLo = Int(destArray[5])
                 let port = portHi + portLo
