@@ -362,7 +362,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
                 let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
                 let errorData : Data? = nil //Data(contentsOf:cacheURL) // TODO: Figure out how to get error response data for the error description
-                let serverError : FileProviderHTTPError? = code != nil ? self.serverError(with: code!, path: path, data: errorData) : nil
+                let serverError = code.flatMap { self.serverError(with: $0, path: path, data: errorData) }
                 if serverError != nil {
                     progress.cancel()
                 }

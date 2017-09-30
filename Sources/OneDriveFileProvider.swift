@@ -169,11 +169,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderOneDriveError?
+            var serverError: FileProviderHTTPError?
             var fileObject: OneDriveFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: json) {
                     fileObject = file
                 }
@@ -382,11 +382,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderOneDriveError?
+            var serverError: FileProviderHTTPError?
             var link: URL?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON() {
                     if let linkDic = json["link"] as? NSDictionary, let linkStr = linkDic["webUrl"] as? String {
                         link = URL(string: linkStr)
@@ -433,7 +433,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                let responseError = FileProviderOneDriveError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                let responseError = self.serverError(with: rCode, path: path, data: data)
                 completionHandler(nil, responseError)
                 return
             }
@@ -450,12 +450,12 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderOneDriveError?
+            var serverError: FileProviderHTTPError?
             var dic = [String: Any]()
             var keys = [String]()
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderOneDriveError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON() {
                     (dic, keys) = self.mapMediaInfo(json)
                 }

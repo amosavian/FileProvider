@@ -74,11 +74,11 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
+            var serverError: FileProviderHTTPError?
             var fileObject: DropboxFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON(), let file = DropboxFileObject(json: json) {
                     fileObject = file
                 }
@@ -253,12 +253,12 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
+            var serverError: FileProviderHTTPError?
             var link: URL?
             var fileObject: DropboxFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON() {
                     if let linkStr = json["link"] as? String {
                         link = URL(string: linkStr)
@@ -299,12 +299,12 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(toPath)! as NSString, "url" : remoteURL.absoluteString as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
+            var serverError: FileProviderHTTPError?
             var jobId: String?
             var fileObject: DropboxFileObject?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderDropboxError(code: code!, path: toPath, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: toPath, data: data) }
                 if let json = data?.deserializeJSON() {
                     jobId = json["async_job_id"] as? String
                     if let attribDic = json["metadata"] as? [String: AnyObject] {
@@ -334,10 +334,10 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(toPath)! as NSString, "copy_reference" : reference as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
+            var serverError: FileProviderHTTPError?
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderDropboxError(code: code!, path: toPath, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: toPath, data: data) }
             }
             completionHandler?(serverError ?? error)
         })
@@ -443,12 +443,12 @@ extension DropboxFileProvider: ExtendedFileProvider {
         let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderDropboxError?
+            var serverError: FileProviderHTTPError?
             var dic = [String: Any]()
             var keys = [String]()
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code != nil ? FileProviderDropboxError(code: code!, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8)) : nil
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON(), let properties = (json["media_info"] as? [String: Any])?["metadata"] as? [String: Any] {
                     (dic, keys) = self.mapMediaInfo(properties)
                 }

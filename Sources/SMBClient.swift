@@ -138,7 +138,8 @@ extension FileProviderSMBTask {
             let paramData = Data(bytesNoCopy: UnsafeMutablePointer<UInt8>(&rawParamWords), count: rawParamWords.count, deallocator: .free)
             paramWords = paramData.scanValue()!
             offset += paramWordsCount * 2
-            let messageBytesCount = Int(UInt16(buffer[0]) + UInt16(buffer[1]) << 8)
+            let messageBytesCountHi = Int(buffer[1]) << 8
+            let messageBytesCount = Int(buffer[0]) + messageBytesCountHi
             offset += MemoryLayout<UInt16>.size
             guard data.count >= (offset + messageBytesCount) else {
                 throw SMBFileProviderError.incorrectMessageLength

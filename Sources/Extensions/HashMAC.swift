@@ -67,7 +67,9 @@ extension SHA2Variant32 {
                 default:
                     let s0 = rotateRight(M[x-15], n: 7) ^ rotateRight(M[x-15], n: 18) ^ (M[x-15] >> 3) //FIXME: n
                     let s1 = rotateRight(M[x-2], n: 17) ^ rotateRight(M[x-2], n: 19) ^ (M[x-2] >> 10)
-                    M[x] = M[x-16] &+ s0 &+ M[x-7] &+ s1
+                    let s2 = M[x-16]
+                    let s3 = M[x-7]
+                    M[x] = s2 &+ s0 &+ s3 &+ s1
                     break
                 }
             }
@@ -175,7 +177,9 @@ extension SHA2Variant64 {
                 default:
                     let s0 = rotateRight(M[x-15], n: 1) ^ rotateRight(M[x-15], n: 8) ^ (M[x-15] >> 7)
                     let s1 = rotateRight(M[x-2], n: 19) ^ rotateRight(M[x-2], n: 61) ^ (M[x-2] >> 6)
-                    M[x] = M[x-16] &+ s0 &+ M[x-7] &+ s1
+                    let s2 = M[x-16]
+                    let s3 = M[x-7]
+                    M[x] = s2 &+ s0 &+ s3 &+ s1
                     break
                 }
             }

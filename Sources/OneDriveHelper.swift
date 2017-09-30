@@ -101,10 +101,10 @@ internal extension OneDriveFileProvider {
         request.httpMethod = "GET"
         request.set(httpAuthentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderOneDriveError?
+            var responseError: FileProviderHTTPError?
             var files = prevContents
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: path, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                responseError = self.serverError(with: rCode, path: path, data: data)
             }
             if let json = data?.deserializeJSON() {
                 if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
@@ -151,9 +151,9 @@ internal extension OneDriveFileProvider {
         request.set(httpAuthentication: credential, with: .oAuth2)
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderOneDriveError?
+            var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = FileProviderOneDriveError(code: rCode, path: startPath, errorDescription: String(data: data ?? Data(), encoding: .utf8))
+                responseError = self.serverError(with: rCode, path: startPath, data: data)
             }
             if let json = data?.deserializeJSON() {
                 if let entries = json["value"] as? [AnyObject] , entries.count > 0 {
