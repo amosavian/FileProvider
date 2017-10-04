@@ -354,7 +354,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         } else if let localFile = localFile {
             var error: NSError?
             NSFileCoordinator().coordinate(readingItemAt: localFile, options: .forUploading, error: &error, byAccessor: { (url) in
-                let task = session.uploadTask(with: request, fromFile: localFile)
+                let task = self.session.uploadTask(with: request, fromFile: localFile)
                 taskHandler(task)
             })
             if let error = error {
