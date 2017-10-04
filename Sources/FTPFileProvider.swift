@@ -448,10 +448,16 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 let task = self.session.downloadTask(with: self.url(of: path))
                 completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = completionHandler
                 downloadCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-                    do {
-                        try FileManager.default.moveItem(at: tempURL, to: destURL)
-                        completionHandler?(nil)
-                    } catch {
+                    var error: NSError?
+                    NSFileCoordinator().coordinate(writingItemAt: tempURL, options: .forMoving, writingItemAt: destURL, options: .forReplacing, error: &error, byAccessor: { (tempURL, destURL) in
+                        do {
+                            try FileManager.default.moveItem(at: tempURL, to: destURL)
+                            completionHandler?(nil)
+                        } catch {
+                            completionHandler?(error)
+                        }
+                    })
+                    if let error = error {
                         completionHandler?(error)
                     }
                 }

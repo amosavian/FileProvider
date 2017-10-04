@@ -18,10 +18,7 @@ public struct FileProviderOneDriveError: FileProviderHTTPError {
 /// Containts path, url and attributes of a OneDrive file or resource.
 public final class OneDriveFileObject: FileObject {
     internal init(baseURL: URL?, name: String, path: String) {
-        var rpath = (URL(string:path)?.appendingPathComponent(name).absoluteString)!
-        if rpath.hasPrefix("/") {
-            _=rpath.characters.removeFirst()
-        }
+        let rpath = (URL(string:path)?.appendingPathComponent(name).absoluteString)!.replacingOccurrences(of: "/", with: "", options: .anchored)
         let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: rpath)!
         
         super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)

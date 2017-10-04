@@ -17,10 +17,7 @@ public final class LocalFileObject: FileObject {
     /// Initiates a `LocalFileObject` with attributes of file in path.
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
         var fileURL: URL?
-        var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored)
-        if relativeURL != nil && rpath.hasPrefix("/") {
-            _=rpath.characters.removeFirst()
-        }
+        var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored).replacingOccurrences(of: "/", with: "", options: .anchored)
         if #available(iOS 9.0, macOS 10.11, *) {
             fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
         } else {

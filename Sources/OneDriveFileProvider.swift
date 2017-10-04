@@ -15,6 +15,8 @@ import CoreGraphics
  This provider doesn't cache or save files internally, however you can set `useCache` and `cache` properties
  to use Foundation `NSURLCache` system.
  
+ - Note: You can pass file id instead of file path, e.g `"id:1234abcd"`, to point to a file or folder by ID.
+ 
  - Note: Uploading files and data are limited to 100MB, for now.
  */
 open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
@@ -89,8 +91,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      Initializer for Onedrive provider with given client ID and Token.
      These parameters must be retrieved via [Authentication for the OneDrive API](https://dev.onedrive.com/auth/readme.htm).
      
-     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token.
-     The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
+     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
      
      - Parameters:
        - credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
@@ -99,7 +100,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - drive: drive name for user on server, default value is `root`.
        - cache: A URLCache to cache downloaded files and contents.
      */
-    @available(*, deprecated, message: "use init(credential:, serverURL, subAddress:, cache:) instead.")
+    @available(*, deprecated, message: "use init(credential:, serverURL:, subAddress:, cache:) instead.")
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String?, cache: URLCache? = nil) {
         let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
@@ -233,10 +234,6 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             url.appendPathComponent("root:")
         } else {
             url.appendPathComponent("items")
-        }
-        
-        if rpath.hasPrefix("/") {
-            _=rpath.characters.removeFirst()
         }
         
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
