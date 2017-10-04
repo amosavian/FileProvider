@@ -956,7 +956,7 @@ public struct FileProviderFTPError: Error {
             #if swift(>=4.0)
             self.errorDescription = message[startIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
             #else
-            self.errorDescription = message.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+            self.errorDescription = message.substring(from: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)
             #endif
         } else {
             self.errorDescription = message
