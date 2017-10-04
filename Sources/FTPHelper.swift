@@ -625,10 +625,13 @@ internal extension FTPFileProvider {
                             do {
                                 try finalData.write(to: tempURL)
                                 completionHandler(tempURL, nil)
+                                // Removing temporary file after coordinating
+                                NSFileCoordinator().coordinate(writingItemAt: tempURL, options: .forDeleting, error: nil, byAccessor: { (tempURL) in
+                                    try? FileManager.default.removeItem(at: tempURL)
+                                })
                             } catch {
                                 completionHandler(nil, error)
                             }
-                            try? FileManager.default.removeItem(at: tempURL)
                         }
                         return
                     }

@@ -204,9 +204,22 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
                     throw cantLoadError
                 }
                 
-                try FileManager.default.moveItem(at: tempURL, to: destURL)
-                completionHandler?(nil)
-                self?.delegateNotify(operation)
+                var coordError: NSError?
+                NSFileCoordinator().coordinate(writingItemAt: tempURL, options: .forMoving, writingItemAt: destURL, options: .forReplacing, error: &coordError, byAccessor: { (tempURL, destURL) in
+                    do {
+                        try FileManager.default.moveItem(at: tempURL, to: destURL)
+                        
+                        completionHandler?(nil)
+                        self?.delegateNotify(operation)
+                    } catch {
+                        completionHandler?(error)
+                        self?.delegateNotify(operation, error: error)
+                    }
+                })
+                
+                if let error = coordError {
+                    throw error
+                }
             } catch {
                 completionHandler?(error)
                 self?.delegateNotify(operation, error: error)
@@ -313,34 +326,44 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         progress.totalUnitCount = Int64(size)
         
-        let task: URLSessionUploadTask
+        let taskHandler = { (task: URLSessionTask) -> Void in
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
+                var responseError: FileProviderHTTPError?
+                if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                    // We can't fetch server result from delegate!
+                    responseError = self?.serverError(with: rCode, path: targetPath, data: nil)
+                }
+                if !(responseError == nil && error == nil) {
+                    progress.cancel()
+                }
+                completionHandler?(responseError ?? error)
+                self?.delegateNotify(operation, error: responseError ?? error)
+            }
+            task.taskDescription = operation.json
+            task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+            progress.cancellationHandler = { [weak task] in
+                task?.cancel()
+            }
+            progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+            task.resume()
+        }
+        
         if let data = data {
-            task = session.uploadTask(with: request, from: data)
+            let task = session.uploadTask(with: request, from: data)
+            taskHandler(task)
         } else if let localFile = localFile {
-            task = session.uploadTask(with: request, fromFile: localFile)
+            var error: NSError?
+            NSFileCoordinator().coordinate(readingItemAt: localFile, options: .forUploading, error: &error, byAccessor: { (url) in
+                let task = session.uploadTask(with: request, fromFile: localFile)
+                taskHandler(task)
+            })
+            if let error = error {
+                completionHandler?(error)
+            }
         } else {
             return nil
         }
         
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderHTTPError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                // We can't fetch server result from delegate!
-                responseError = self?.serverError(with: rCode, path: targetPath, data: nil)
-            }
-            if !(responseError == nil && error == nil) {
-                progress.cancel()
-            }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(operation, error: responseError ?? error)
-        }
-        task.taskDescription = operation.json
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
-        }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        task.resume()
         return progress
     }
     
