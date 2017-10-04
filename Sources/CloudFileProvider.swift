@@ -26,7 +26,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             return true
         }
         set {
-            assert(true, "CloudFileProvider.isCoorinating can't be set")
+            assert(newValue, "CloudFileProvider.isCoorinating can't be set to false")
             return
         }
     }

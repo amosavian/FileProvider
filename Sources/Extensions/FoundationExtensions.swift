@@ -372,6 +372,15 @@ internal extension String {
     }
 }
 
+#if swift(>=4.0)
+#else
+extension String {
+    var count: Int {
+        return self.characters.count
+    }
+}
+#endif
+
 internal extension TimeInterval {
     internal var formatshort: String {
         var result = "0:00"

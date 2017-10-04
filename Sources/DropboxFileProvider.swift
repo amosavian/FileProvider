@@ -14,6 +14,8 @@ import CoreGraphics
  Allows accessing to Dropbox stored files. This provider doesn't cache or save files internally, however you can
  set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
  
+ - Note: You can pass file id or rev instead of file path, e.g `"id:1234abcd"` or `"rev:1234abcd"`, to point to a file or folder by ID.
+ 
  - Note: Uploading files and data are limited to 150MB, for now.
  */
 open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
@@ -28,8 +30,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      Initializer for Dropbox provider with given client ID and Token.
      These parameters must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide).
      
-     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. 
-     The latter is easier to use and prefered. Also you can use [auth0/Lock](https://github.com/auth0/Lock.iOS-OSX) which provides graphical user interface.
+     There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered.
      
      - Parameter credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
      - Parameter cache: A URLCache to cache downloaded files and contents.

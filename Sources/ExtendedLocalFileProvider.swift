@@ -442,10 +442,7 @@ public struct LocalFileInformationGenerator {
         
         func convertDate(_ date: String?) -> Date? {
             guard let date = date else { return nil }
-            var dateStr = date.replacingOccurrences(of: "'", with: "")
-            if dateStr.hasPrefix("D:") {
-                dateStr.characters.removeFirst(2)
-            }
+            let dateStr = date.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "D:", with: "", options: .anchored)
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyyMMddHHmmssTZ"
             if let result = dateFormatter.date(from: dateStr) {

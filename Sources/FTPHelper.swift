@@ -196,8 +196,7 @@ internal extension FTPFileProvider {
     
     func ftpPassive(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
         func trimmedNumber(_ s : String) -> String {
-            let characterSet = Set("+*#0123456789".characters)
-            return String(s.characters.lazy.filter(characterSet.contains))
+            return s.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
         }
         
         self.execute(command: "PASV", on: task) { (response, error) in
@@ -473,7 +472,7 @@ internal extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 53 + filePath.characters.count + String(totalSize).characters.count /* RETR open response */ + 26 /* RETR Transfer complete message. */
+                let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 53 + filePath.count + String(totalSize).count /* RETR open response */ + 26 /* RETR Transfer complete message. */
                 self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: len, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
@@ -576,7 +575,7 @@ internal extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 53 + filePath.characters.count + String(totalSize).characters.count /* RETR open response */ + 26 /* RETR Transfer complete message. */
+                let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 53 + filePath.count + String(totalSize).count /* RETR open response */ + 26 /* RETR Transfer complete message. */
                 self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: len, afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
@@ -735,7 +734,7 @@ internal extension FTPFileProvider {
             
             // Send retreive command
             var success = false
-            let len = 19 /* TYPE response */ + 65 + String(position).characters.count /* REST Response */ + 44 + filePath.characters.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
+            let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
             self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
@@ -789,15 +788,12 @@ internal extension FTPFileProvider {
     func ftpPath(_ apath: String) -> String {
         var path = apath.isEmpty ? self.currentPath : apath
         
-        // path of base url should be concreted into file path!
-        path = baseURL!.appendingPathComponent(path).path
+        // path of base url should be concreted into file path! And remove final slash
+        path = baseURL!.appendingPathComponent(path).path.replacingOccurrences(of: "/", with: "", options: [.anchored, .backwards])
         
         // Fixing slashes
         if !path.hasPrefix("/") {
             path = "/" + path
-        }
-        if path.hasSuffix("/"){
-            path.characters.removeLast()
         }
         
         if path.isEmpty {
@@ -830,13 +826,15 @@ internal extension FTPFileProvider {
         let name = components[8..<components.count].joined(separator: " ")
         
         guard name != "." && name != ".." else { return nil }
-        var path = (path as NSString).appendingPathComponent(name)
-        if path.hasPrefix("/") {
-            path.characters.removeFirst()
-        }
+        let path = (path as NSString).appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
         
         let file = FileObject(url: url(of: path), name: name, path: path)
-        switch String(posixPermission.characters.first!) {
+        #if swift(>=4.0)
+        let typeChar = posixPermission.first ?? Character(" ")
+        #else
+        let typeChar = posixPermission.characters.first ?? Character(" ")
+        #endif
+        switch String(typeChar) {
         case "d": file.type = .directory
         case "l": file.type = .symbolicLink
         default:  file.type = .regular
@@ -872,9 +870,7 @@ internal extension FTPFileProvider {
             name = nameOrPath
             correctedPath = (path as NSString).appendingPathComponent(nameOrPath)
         }
-        if correctedPath.hasPrefix("/") {
-            correctedPath.characters.removeFirst()
-        }
+        correctedPath = correctedPath.replacingOccurrences(of: "/", with: "", options: .anchored)
         
         var attributes = [String: String]()
         for component in components {
@@ -945,16 +941,17 @@ public struct FileProviderFTPError: Error {
     
     init(message response: String, path: String = "") {
         let message = response.components(separatedBy: .newlines).last ?? "No Response"
-        let spaceIndex = message.characters.index(of: "-") ?? message.characters.index(of: " ") ?? message.startIndex
         #if swift(>=4.0)
-        self.code = Int(message[..<spaceIndex].trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+        let startIndex = (message.index(of: "-") ?? message.index(of: " ")) ?? message.startIndex
+        self.code = Int(message[..<startIndex].trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
         #else
-        self.code = Int(message.substring(to: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
+        let startIndex = (message.characters.index(of: "-") ?? message.characters.index(of: " ")) ?? message.startIndex
+        self.code = Int(message.substring(to: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
         #endif
         self.path = path
         if code > 0 {
             #if swift(>=4.0)
-            self.errorDescription = message[spaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
+            self.errorDescription = message[startIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
             #else
             self.errorDescription = message.substring(from: spaceIndex).trimmingCharacters(in: .whitespacesAndNewlines)
             #endif
