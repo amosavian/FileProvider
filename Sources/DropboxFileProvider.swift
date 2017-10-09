@@ -43,14 +43,12 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     
     public required convenience init?(coder aDecoder: NSCoder) {
         self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
-        self.currentPath     = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
     override open func copy(with zone: NSZone? = nil) -> Any {
         let copy = DropboxFileProvider(credential: self.credential, cache: self.cache)
-        copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
@@ -60,10 +58,28 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         // We don't want this progress became in another progress' hierarchy
-        let progress = Progress(parent: nil, userInfo: nil)
-        list(path, progress: progress) { (contents, cursor, error) in
-            completionHandler(contents, error)
-        }
+        _ = paginated(path, requestHandler: self.listRequest(path: path),
+        pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
+            guard let json = data?.deserializeJSON(), let entries = json["entries"] as? [AnyObject] else {
+                let err = self?.urlError(path, code: .badServerResponse)
+                return ([], err, nil)
+            }
+            
+            var files = [FileObject]()
+            for entry in entries {
+                if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
+                    files.append(file)
+                    progress.completedUnitCount += 1
+                }
+            }
+            let ncursor: String?
+            if let hasmore = (json["has_more"] as? NSNumber)?.boolValue, hasmore {
+                ncursor = json["cursor"] as? String
+            } else {
+                ncursor = nil
+            }
+            return (files, nil, ncursor)
+        }, completionHandler: completionHandler)
     }
     
     open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
@@ -109,32 +125,33 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let progress = Progress(totalUnitCount: -1)
-        var foundFiles = [DropboxFileObject]()
-        if let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String {
-            // Dropbox only support searching for file names begin with query in non-enterprise accounts.
-            // We will use it if there is a `name BEGINSWITH[c] "query"` in predicate, then filter to form final result.
-            search(path, query: queryStr, progress: progress, foundItem: { (file) in
-                if query.evaluate(with: file.mapPredicate()) {
-                    foundFiles.append(file)
+        let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String
+        let requestHandler = self.listRequest(path: path, queryStr: queryStr, recursive: true)
+        return paginated(path, requestHandler: requestHandler,
+            pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
+            guard let json = data?.deserializeJSON(), let entries = (json["entries"] ?? json["matches"]) as? [AnyObject] else {
+                let err = self?.urlError(path, code: .badServerResponse)
+                return ([], err, nil)
+            }
+            
+            var files = [FileObject]()
+            for entry in entries {
+                if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry), query.evaluate(with: file.mapPredicate()) {
+                    files.append(file)
+                    progress.completedUnitCount += 1
                     foundItemHandler?(file)
                 }
-            }, completionHandler: { (error) in
-                completionHandler(foundFiles, error)
-            })
-        } else {
-            // Dropbox doesn't support searching attributes natively. The workaround is to fallback to listing all files
-            // and filter it locally. It may have a network burden in case there is many files in Dropbox, so please use it concisely.
-            list(path, recursive: true, progress: progress, progressHandler: { (files, _, error) in
-                for file in files where query.evaluate(with: file.mapPredicate()) {
-                    foundItemHandler?(file)
-                }
-            }, completionHandler: { (files, _, error) in
-                let predicatedFiles = files.filter { query.evaluate(with: $0.mapPredicate()) }
-                completionHandler(predicatedFiles, error)
-            })
-        }
-        return progress
+            }
+            let ncursor: String?
+            if let hasmore = (json["has_more"] as? NSNumber)?.boolValue, hasmore {
+                ncursor = json["cursor"] as? String
+            } else if let hasmore = (json["more"] as? NSNumber)?.boolValue, hasmore {
+                ncursor = (json["start"] as? Int).flatMap(String.init)
+            } else {
+                ncursor = nil
+            }
+            return (files, nil, ncursor)
+        }, completionHandler: completionHandler)
     }
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {

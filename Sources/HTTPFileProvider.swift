@@ -17,7 +17,10 @@ import Foundation
 open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
     open let baseURL: URL?
-    open var currentPath: String
+    
+    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
+    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
+    open var currentPath: String = ""
     
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {
@@ -84,7 +87,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
      */
     public init(baseURL: URL?, credential: URLCredential?, cache: URLCache?) {
         self.baseURL = baseURL
-        self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
         self.cache = cache
@@ -107,7 +109,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     public func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.credential, forKey: "credential")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
     }
@@ -309,6 +310,46 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             self.delegateNotify(operation, error: serverError ?? error)
         })
         task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
+        return progress
+    }
+    
+    internal func paginated(_ path: String, startToken: String? = nil, currentProgress: Progress? = nil, previousResult: [FileObject] = [], requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress {
+        let progress = currentProgress ?? Progress(totalUnitCount: -1)
+        if progress.isCancelled { return progress }
+        
+        guard let request = requestHandler(startToken) else {
+            return progress
+        }
+        
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            if let error = error {
+                completionHandler(previousResult, error)
+                return
+            }
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                let responseError = self.serverError(with: rCode, path: path, data: data)
+                completionHandler(previousResult, responseError)
+                return
+            }
+            
+            let (newFiles, err, newToken) = pageHandler(data, progress)
+            if let error = err {
+                completionHandler(previousResult, error)
+                return
+            }
+            let files = previousResult + newFiles
+            if let newToken = newToken, !progress.isCancelled {
+                _ = self.paginated(path, startToken: newToken, currentProgress: progress, previousResult: files, requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
+            } else {
+                completionHandler(files, nil)
+            }
+            
+        })
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
         }

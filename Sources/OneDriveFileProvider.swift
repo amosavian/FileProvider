@@ -139,7 +139,6 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential,
                   serverURL: aDecoder.decodeObject(forKey: "baseURL") as? URL,
                   subAddress: subAddress)
-        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
@@ -151,7 +150,6 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     
     open override func copy(with zone: NSZone? = nil) -> Any {
         let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, subAddress: self.subAddress, cache: self.cache)
-        copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
@@ -160,9 +158,29 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
-        list(path) { (contents, cursor, error) in
-            completionHandler(contents, error)
-        }
+        _ = paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
+            guard let `self` = self else { return nil }
+            let url = token.flatMap(URL.init(string:)) ?? self.url(of: path, modifier: "children")
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.set(httpAuthentication: self.credential, with: .oAuth2)
+            return request
+        }, pageHandler: { [weak self] (data, _) -> (files: [FileObject], error: Error?, newToken: String?) in
+            guard let `self` = self else { return ([], nil, nil) }
+            
+            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [AnyObject] else {
+                let err = self.urlError(path, code: .badServerResponse)
+                return ([], err, nil)
+            }
+            
+            var files = [FileObject]()
+            for entry in entries {
+                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry) {
+                    files.append(file)
+                }
+            }
+            return (files, nil, json["@odata.nextLink"] as? String)
+        }, completionHandler: completionHandler)
     }
     
     open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
@@ -206,21 +224,45 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        var foundFiles = [OneDriveFileObject]()
-        var queryStr: String?
-        queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
-        guard let finalQueryStr = queryStr else { return nil }
-        let progress = Progress(totalUnitCount: -1)
-        progress.setUserInfoObject(url(of: path), forKey: .fileURLKey)
-        search(path, query: finalQueryStr, recursive: recursive, progress: progress, foundItem: { (file) in
-            if query.evaluate(with: file.mapPredicate()) {
-                foundFiles.append(file)
-                foundItemHandler?(file)
+        let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
+        
+        return paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
+            guard let `self` = self else { return nil }
+            
+            let url: URL
+            if let next = token.flatMap(URL.init(string:)) {
+                url = next
+            } else {
+                let bURL = self.baseURL!.appendingPathComponent(self.subAddress.drivePath).appendingPathComponent("root/search")
+                var components = URLComponents(url: bURL, resolvingAgainstBaseURL: false)!
+                let qItem = URLQueryItem(name: "q", value: (queryStr ?? "*"))
+                components.queryItems = [qItem]
+                if recursive {
+                    components.queryItems?.append(URLQueryItem(name: "expand", value: "children"))
+                }
+                url = components.url!
             }
-        }, completionHandler: { (error) in
-            completionHandler(foundFiles, error)
-        })
-        return progress
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            return request
+        }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
+            guard let `self` = self else { return ([], nil, nil) }
+            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [AnyObject] else {
+                let err = self.urlError(path, code: .badServerResponse)
+                return ([], err, nil)
+            }
+            
+            var foundFiles = [FileObject]()
+            for entry in entries {
+                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry), query.evaluate(with: file.mapPredicate()) {
+                    foundFiles.append(file)
+                    foundItemHandler?(file)
+                }
+            }
+            
+            return (foundFiles, nil, json["@odata.nextLink"] as? String)
+        }, completionHandler: completionHandler)
     }
     
     open func url(of path: String, modifier: String? = nil) -> URL {

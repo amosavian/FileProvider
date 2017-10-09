@@ -789,18 +789,12 @@ internal extension FTPFileProvider {
     }
     
     func ftpPath(_ apath: String) -> String {
-        var path = apath.isEmpty ? self.currentPath : apath
-        
         // path of base url should be concreted into file path! And remove final slash
-        path = baseURL!.appendingPathComponent(path).path.replacingOccurrences(of: "/", with: "", options: [.anchored, .backwards])
+        var path = baseURL!.appendingPathComponent(apath).path.replacingOccurrences(of: "/", with: "", options: [.anchored, .backwards])
         
         // Fixing slashes
         if !path.hasPrefix("/") {
             path = "/" + path
-        }
-        
-        if path.isEmpty {
-            path = "/"
         }
         
         return path

@@ -94,20 +94,17 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             return nil
         }
         self.init(containerId: containerId, scope: scope)
-        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     
     open override func encode(with aCoder: NSCoder) {
         aCoder.encode(self.containerId, forKey: "containerId")
         aCoder.encode(self.scope.rawValue, forKey: "scope")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
         aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
     }
     
     open override func copy(with zone: NSZone? = nil) -> Any {
         let copy = CloudFileProvider(containerId: self.containerId, scope: self.scope)
-        copy?.currentPath = self.currentPath
         copy?.delegate = self.delegate
         copy?.fileOperationDelegate = self.fileOperationDelegate
         return copy as Any
