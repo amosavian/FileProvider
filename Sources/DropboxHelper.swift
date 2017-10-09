@@ -96,7 +96,7 @@ internal extension DropboxFileProvider {
                 request.set(httpContentType: .json)
                 var requestDictionary: [String: AnyObject] = ["path": self.correctPath(path) as NSString!]
                 requestDictionary["query"] = queryStr as NSString
-                requestDictionary["start"] = NSNumber(value: (token.flatMap(Int.init) ?? 0))
+                requestDictionary["start"] = NSNumber(value: (token.flatMap( { Int($0) } ) ?? 0))
                 request.httpBody = Data(jsonDictionary: requestDictionary)
                 return request
             }
