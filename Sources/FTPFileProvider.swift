@@ -15,7 +15,9 @@ import Foundation
 open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { return "FTP" }
     open let baseURL: URL?
-    open var currentPath: String
+    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
+    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
+    open var currentPath: String = ""
     
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {
@@ -88,7 +90,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         
         self.baseURL =  (urlComponents.url!.path.hasSuffix("/") ? urlComponents.url! : urlComponents.url!.appendingPathComponent("")).absoluteURL
         self.passiveMode = passive
-        self.currentPath = ""
         self.useCache = false
         self.validatingCache = true
         self.cache = cache
@@ -107,7 +108,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else { return nil }
         self.init(baseURL: baseURL, passive: aDecoder.decodeBool(forKey: "passiveMode"), credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
-        self.currentPath     = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
         self.useAppleImplementation = aDecoder.decodeBool(forKey: "useAppleImplementation")
@@ -116,7 +116,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     public func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.credential, forKey: "credential")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
         aCoder.encode(self.useAppleImplementation, forKey: "useAppleImplementation")
@@ -129,7 +128,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     
     open func copy(with zone: NSZone? = nil) -> Any {
         let copy = FTPFileProvider(baseURL: self.baseURL!, credential: self.credential, cache: self.cache)!
-        copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
@@ -315,7 +313,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func url(of path: String?) -> URL {
-        let path = (path ?? self.currentPath).trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? (path ?? self.currentPath)
+        let path = path?.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? (path ?? "")
         
         var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
         baseUrlComponent?.user = credential?.user

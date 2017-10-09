@@ -17,7 +17,9 @@ import Foundation
 open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
-    open var currentPath: String
+    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
+    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
+    open var currentPath: String = ""
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue
     open weak var delegate: FileProviderDelegate?
@@ -99,7 +101,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             fatalError("Cannot initialize a Local provider from remote URL.")
         }
         self.baseURL = (baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")).absoluteURL
-        self.currentPath = ""
         self.credential = nil
         self.isCoorinating = false
         
@@ -121,13 +122,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             return nil
         }
         self.init(baseURL: baseURL)
-        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     
     open func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "currentPath")
-        aCoder.encode(self.currentPath, forKey: "currentPath")
         aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
     }
     
@@ -137,7 +136,6 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     
     public func copy(with zone: NSZone? = nil) -> Any {
         let copy = LocalFileProvider(baseURL: self.baseURL!)
-        copy.currentPath = self.currentPath
         copy.undoManager = self.undoManager
         copy.isCoorinating = self.isCoorinating
         copy.delegate = self.delegate

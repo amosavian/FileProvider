@@ -29,10 +29,6 @@ public protocol FileProviderBasic: class, NSSecureCoding {
     /// The url of which paths should resolve against.
     var baseURL: URL? { get }
     
-    /// **DEPRECATED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
-    @available(*, deprecated, message: "This property is redundant with almost no use internally.")
-    var currentPath: String { get set }
-    
     /**
      Dispatch queue usually used in query methods.
      Set it to a new object to switch between cuncurrent and serial queues.

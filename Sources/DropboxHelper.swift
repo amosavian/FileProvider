@@ -72,7 +72,6 @@ public final class DropboxFileObject: FileObject {
     }
 }
 
-// codebeat:disable[ARITY]
 internal extension DropboxFileProvider {
     internal func correctPath(_ path: String?) -> String? {
         guard let path = path else { return nil }
@@ -86,105 +85,44 @@ internal extension DropboxFileProvider {
         return p
     }
     
-    func list(_ path: String, cursor: String? = nil, prevContents: [DropboxFileObject] = [], recursive: Bool = false, session: URLSession? = nil, progress: Progress, progressHandler: ((_ contents: [FileObject], _ nextCursor: String?, _ error: Error?) -> Void)? = nil, completionHandler: @escaping ((_ contents: [FileObject], _ cursor: String?, _ error: Error?) -> Void)) {
-        if progress.isCancelled { return }
-        
-        var requestDictionary = [String: AnyObject]()
-        let url: URL
-        if let cursor = cursor {
-            url = URL(string: "files/list_folder/continue", relativeTo: apiURL)!
-            requestDictionary["cursor"] = cursor as NSString?
+    internal func listRequest(path: String, queryStr: String? = nil, recursive: Bool = false) -> ((_ token: String?) -> URLRequest?) {
+        if let queryStr = queryStr {
+            return { [weak self] (token) -> URLRequest? in
+                guard let `self` = self else { return nil }
+                let url = URL(string: "files/search", relativeTo: self.apiURL)!
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.set(httpAuthentication: self.credential, with: .oAuth2)
+                request.set(httpContentType: .json)
+                var requestDictionary: [String: AnyObject] = ["path": self.correctPath(path) as NSString!]
+                requestDictionary["query"] = queryStr as NSString
+                requestDictionary["start"] = NSNumber(value: (token.flatMap(Int.init) ?? 0))
+                request.httpBody = Data(jsonDictionary: requestDictionary)
+                return request
+            }
         } else {
-            url = URL(string: "files/list_folder", relativeTo: apiURL)!
-            requestDictionary["path"] = correctPath(path) as NSString?
-            requestDictionary["recursive"] = recursive as NSNumber?
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(httpContentType: .json)
-        request.httpBody = Data(jsonDictionary: requestDictionary)
-        let task = (session ?? self.session).dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderHTTPError?
-            var files = [DropboxFileObject]()
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = self.serverError(with: rCode, path: path, data: data)
-            }
-            if let json = data?.deserializeJSON() {
-                if let entries = json["entries"] as? [AnyObject] , entries.count > 0 {
-                    files.reserveCapacity(entries.count)
-                    for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
-                            files.append(file)
-                            progress.totalUnitCount = Int64(files.count)
-                        }
-                    }
-                    let ncursor = json["cursor"] as? String
-                    let hasmore = (json["has_more"] as? NSNumber)?.boolValue ?? false
-                    if hasmore && !progress.isCancelled {
-                        progressHandler?(files, ncursor, responseError ?? error)
-                        self.list(path, cursor: ncursor, prevContents: prevContents + files, progress: progress, completionHandler: completionHandler)
-                        return
-                    }
+            return { [weak self] (token) -> URLRequest? in
+                guard let `self` = self else { return nil }
+                var requestDictionary = [String: AnyObject]()
+                let url: URL
+                if let token = token {
+                    url = URL(string: "files/list_folder/continue", relativeTo: self.apiURL)!
+                    requestDictionary["cursor"] = token as NSString?
+                } else {
+                    url = URL(string: "files/list_folder", relativeTo: self.apiURL)!
+                    requestDictionary["path"] = self.correctPath(path) as NSString?
+                    requestDictionary["recursive"] = NSNumber(value: recursive)
                 }
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.set(httpAuthentication: self.credential, with: .oAuth2)
+                request.set(httpContentType: .json)
+                request.httpBody = Data(jsonDictionary: requestDictionary)
+                return request
             }
-            progressHandler?(files, nil, responseError ?? error)
-            completionHandler(prevContents + files, nil, responseError ?? error)
-        })
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
         }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        task.taskDescription = FileOperationType.fetch(path: path).json
-        task.resume()
-    }
-    
-    func search(_ startPath: String = "", query: String, start: Int = 0, maxResultPerPage: Int = 25, maxResults: Int = -1, progress: Progress, foundItem:@escaping ((_ file: DropboxFileObject) -> Void), completionHandler: @escaping ((_ error: Error?) -> Void)) {
-        if progress.isCancelled { return }
-        
-        let url = URL(string: "files/search", relativeTo: apiURL)!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.set(httpAuthentication: credential, with: .oAuth2)
-        request.set(httpContentType: .json)
-        var requestDictionary: [String: AnyObject] = ["path": startPath as NSString]
-        requestDictionary["query"] = query as NSString
-        requestDictionary["start"] = start as NSNumber
-        requestDictionary["max_results"] = maxResultPerPage as NSNumber
-        request.httpBody = Data(jsonDictionary: requestDictionary)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var responseError: FileProviderHTTPError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = self.serverError(with: rCode, path: startPath, data: data)
-            }
-            if let json = data?.deserializeJSON() {
-                if let entries = json["matches"] as? [AnyObject] , entries.count > 0 {
-                    for entry in entries {
-                        if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
-                            foundItem(file)
-                            progress.completedUnitCount += 1
-                        }
-                    }
-                    let rstart = json["start"] as? Int
-                    let hasmore = (json["more"] as? NSNumber)?.boolValue ?? false
-                    if hasmore && !progress.isCancelled, let rstart = rstart {
-                        self.search(startPath, query: query, start: rstart + entries.count, maxResultPerPage: maxResultPerPage, progress: progress, foundItem: foundItem, completionHandler: completionHandler)
-                    } else {
-                        completionHandler(responseError ?? error)
-                    }
-                    return
-                }
-            }
-            completionHandler(responseError ?? error)
-        })
-        progress.cancellationHandler = { [weak task] in
-            task?.cancel()
-        }
-        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-        task.resume()
     }
 }
-// codebeat:enable[ARITY]
 
 internal extension DropboxFileProvider {
     static let dateFormatter = DateFormatter()

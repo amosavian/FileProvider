@@ -49,14 +49,12 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         }
         self.init(baseURL: baseURL,
                   credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
-        self.currentPath   = aDecoder.decodeObject(forKey: "currentPath") as? String ?? ""
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
     override open func copy(with zone: NSZone? = nil) -> Any {
         let copy = WebDAVFileProvider(baseURL: self.baseURL!, credential: self.credential, cache: self.cache)!
-        copy.currentPath = self.currentPath
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
