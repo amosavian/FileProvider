@@ -31,8 +31,8 @@ public final class DropboxFileObject: FileObject {
         guard let path = json["path_display"] as? String else { return nil }
         super.init(url: nil, name: name, path: path)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        self.serverTime = Date(rfcString: json["server_modified"] as? String ?? "")
-        self.modifiedDate = Date(rfcString: json["client_modified"] as? String ?? "")
+        self.serverTime =  (json["server_modified"] as? String).flatMap(Date.init(rfcString:))
+        self.modifiedDate = (json["client_modified"] as? String).flatMap(Date.init(rfcString:))
         self.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
         self.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
         self.id = json["id"] as? String
