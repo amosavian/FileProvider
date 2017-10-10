@@ -318,12 +318,36 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
-    internal func paginated(_ path: String, startToken: String? = nil, currentProgress: Progress? = nil, previousResult: [FileObject] = [], requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress {
-        let progress = currentProgress ?? Progress(totalUnitCount: -1)
-        if progress.isCancelled { return progress }
-        
-        guard let request = requestHandler(startToken) else {
-            return progress
+    /// This method should be used in subclasses to fetch directory content from servers which support paginated results.
+    /// Almost all HTTP based provider, except WebDAV, supports this method.
+    ///
+    /// - Important: Please use `[weak self]` when implementing handlers to prevent retain cycles. In these cases,
+    ///     return `nil` as the result of handler as the operation will be aborted.
+    ///
+    /// - Parameters:
+    ///    - path: path of directory which enqueued for listing, for informational use like errpr reporting.
+    ///    - requestHandler: Get token of next page and returns appropriate `URLRequest` to be sent to server.
+    ///        handler can return `nil` to cancel entire operation.
+    ///    - token: Token of the page which `URLRequest` is needed, token will be `nil` for initial page. .
+    ///    - pageHandler: Handler which is called after fetching results of a page to parse data. will return parse result as
+    ///        array of `FileObject` or error if data is nil or parsing is failed. Method will not continue to next page if
+    ///        `error` is returned, otherwise `nextToken` will be used for next page. `nil` value for `newToken` will indicate
+    ///        last page of directory contents.
+    ///    - data: Raw data returned from server. Handler should parse them and return files.
+    ///    - progress: `Progress` object that `completedUnits` will be increased when a new `FileObject` is parsed in method.
+    ///    - completionHandler: All file objects returned by `pageHandler` will be passed to this handler, or error if occured.
+    ///        This handler will be called when `pageHandler` returns `nil for `newToken`.
+    ///    - contents: all files parsed via `pageHandler` will be return aggregated.
+    ///    - error: `Error` returned by server. `nil` means success. If exists, it means `contents` are incomplete.
+    internal func paginated(_ path: String, requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress {
+        let progress = Progress(totalUnitCount: -1)
+        self.paginated(path, startToken: nil, currentProgress: progress, previousResult: [], requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
+        return progress
+    }
+    
+    private func paginated(_ path: String, startToken: String?, currentProgress progress: Progress, previousResult: [FileObject], requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+        guard !progress.isCancelled, let request = requestHandler(startToken) else {
+            return
         }
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -355,11 +379,19 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         }
         progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return progress
+        return
     }
+ 
+    internal var maxUploadSimpleSupported: Int64 { return Int64.max }
     
     internal func upload_simple(_ targetPath: String, request: URLRequest, data: Data? = nil, localFile: URL? = nil, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
         let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
+        if size > maxUploadSimpleSupported {
+            let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
+            completionHandler?(error)
+            self.delegateNotify(operation, error: error)
+            return nil
+        }
         
         var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)

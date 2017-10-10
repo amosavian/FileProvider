@@ -143,7 +143,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return copy
     }
     
-    open func contentsOfDirectory(path: String, completionHandler: @escaping ((_ contents: [FileObject], _ error: Error?) -> Void)) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         dispatch_queue.async {
             do {
                 let contents = try self.fileManager.contentsOfDirectory(at: self.url(of: path), includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)
@@ -158,7 +158,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping ((_ attributes: FileObject?, _ error: Error?) -> Void)) {
+    open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             completionHandler(LocalFileObject(fileWithPath: path, relativeTo: self.baseURL), nil)
         }
@@ -175,7 +175,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ((_ files: [FileObject], _ error: Error?) -> Void)) -> Progress? {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         
@@ -203,7 +203,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return progress
     }
     
-    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool) -> Void) {
         dispatch_queue.async {
             completionHandler(self.fileManager.isReadableFile(atPath: self.baseURL!.path))
         }
@@ -461,7 +461,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping (_ contents: Data?, _ error: Error?) -> Void) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)

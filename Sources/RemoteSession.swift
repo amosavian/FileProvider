@@ -132,13 +132,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             }
         }
         
-        DispatchQueue.main.async {
-            if let error = error {
-                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op, error: error)
-            } else {
-                fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
-            }
-        }
+        fileProvider.delegateNotify(op, error: error)
     }
     
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {

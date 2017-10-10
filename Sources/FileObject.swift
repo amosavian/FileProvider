@@ -72,6 +72,16 @@ open class FileObject: Equatable {
         }
     }
     
+    /// Count of children items of a driectory.
+    open internal(set) var childrensCount: Int? {
+        get {
+            return allValues[.childrensCount] as? Int
+        }
+        set {
+            allValues[.childrensCount] = newValue
+        }
+    }
+    
     /// The time contents of file has been created, returns nil if not set
     open internal(set) var creationDate: Date? {
         get {

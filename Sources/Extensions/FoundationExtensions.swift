@@ -54,11 +54,13 @@ public extension URLResourceKey {
     public static let mimeTypeKey = URLResourceKey(rawValue: "NSURLMIMETypeIdentifierKey")
     /// **FileProvider** returns either file is encrypted or not
     public static let isEncryptedKey = URLResourceKey(rawValue: "NSURLIsEncryptedKey")
+    /// **FileProvider** count of items in directory
+    public static let childrensCount = URLResourceKey(rawValue: "MFPURLChildrensCount")
 }
 
 public extension ProgressUserInfoKey {
     /// **FileProvider** returns associated `FileProviderOperationType`
-    public static let fileProvderOperationTypeKey = ProgressUserInfoKey("FilesProviderOperationTypeKey")
+    public static let fileProvderOperationTypeKey = ProgressUserInfoKey("MFPOperationTypeKey")
     /// **FileProvider** returns start date/time of operation
     public static let startingTimeKey = ProgressUserInfoKey("NSProgressStartingTimeKey")
 }

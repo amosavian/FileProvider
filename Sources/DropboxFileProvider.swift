@@ -56,8 +56,18 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return copy
     }
     
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameters:
+       - path: path to target directory. If empty, root will be iterated.
+       - completionHandler: a closure with result of directory entries or error.
+       - contents: An array of `FileObject` identifying the the directory entries.
+       - error: Error returned by system.
+     */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
-        // We don't want this progress became in another progress' hierarchy
         _ = paginated(path, requestHandler: self.listRequest(path: path),
         pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let json = data?.deserializeJSON(), let entries = json["entries"] as? [AnyObject] else {
@@ -82,6 +92,17 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         }, completionHandler: completionHandler)
     }
     
+    /**
+     Returns a `FileObject` containing the attributes of the item (file, directory, symlink, etc.) at the path in question via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
+     
+     - Parameters:
+       - path: path to target directory. If empty, attributes of root will be returned.
+       - completionHandler: a closure with result of directory entries or error.
+       - attributes: A `FileObject` containing the attributes of the item.
+       - error: Error returned by system.
+     */
     open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
@@ -105,6 +126,8 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
+    /// Returns volume/provider information asynchronously.
+    /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
     open override func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         let url = URL(string: "users/get_space_usage", relativeTo: apiURL)!
         var request = URLRequest(url: url)
@@ -124,6 +147,30 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - files: all files meat the `query` criteria.
+       - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
+     */
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String
         let requestHandler = self.listRequest(path: path, queryStr: queryStr, recursive: true)
@@ -234,18 +281,10 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return FileProviderDropboxError(code: code, path: path ?? "", errorDescription: data.flatMap({ String(data: $0, encoding: .utf8) }))
     }
     
-    override func upload_simple(_ targetPath: String, request: URLRequest, data: Data?, localFile: URL?, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
-        if size > 150 * 1024 * 1024 {
-            let error = FileProviderDropboxError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(operation, error: error)
-            return nil
-        }
-        
-        return super.upload_simple(targetPath, request: request, data: data, localFile: localFile, operation: operation, completionHandler: completionHandler)
+    override var maxUploadSimpleSupported: Int64 {
+        return 157_286_400 // 150MB
     }
-
+    
     /*
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {
         /* There is two ways to monitor folders changing in Dropbox. Either using webooks

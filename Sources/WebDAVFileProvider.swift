@@ -74,8 +74,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter path: path to target directory. If empty, root will be iterated.
      - Parameter including: An array which determines which file properties should be considered to fetch.
      - Parameter completionHandler: a closure with result of directory entries or error.
-         - `contents`: An array of `FileObject` identifying the the directory entries.
-         - `error`: Error returned by system.
+     - Parameter contents: An array of `FileObject` identifying the the directory entries.
+     - Parameter error: Error returned by system.
      */
     open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let operation = FileOperationType.fetch(path: path)
@@ -117,8 +117,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter path: path to target directory. If empty, attributes of root will be returned.
      - Parameter including: An array which determines which file properties should be considered to fetch.
      - Parameter completionHandler: a closure with result of directory entries or error.
-         - `attributes`: A `FileObject` containing the attributes of the item.
-         - `error`: Error returned by system.
+     - Parameter attributes: A `FileObject` containing the attributes of the item.
+     - Parameter error: Error returned by system.
      */
     open func attributesOfItem(path: String, including: [URLResourceKey], completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = self.url(of: path)

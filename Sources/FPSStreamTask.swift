@@ -439,9 +439,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      *        the read is canceled and the completionHandler is called with an error. Pass `0` to prevent a read from timing out.
      * - Parameter completionHandler: The completion handler to call when all bytes are read, or an error occurs.
      *        This handler is executed on the delegate queue. This completion handler takes the following parameters:
-     *     - data: The data read from the stream.
-     *     - atEOF: Whether or not the stream reached end-of-file (`EOF`), such that no more data can be read.
-     *     - error: An error object that indicates why the read failed, or `nil` if the read was successful.
+     * - Parameter data: The data read from the stream.
+     * - Parameter atEOF: Whether or not the stream reached end-of-file (`EOF`), such that no more data can be read.
+     * - Parameter error: An error object that indicates why the read failed, or `nil` if the read was successful.
     */
     open func readData(ofMinLength minBytes: Int, maxLength maxBytes: Int, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ atEOF: Bool, _ error :Error?) -> Void) {
         if #available(iOS 9.0, macOS 10.11, *) {
@@ -491,7 +491,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * - Parameter completionHandler: The completion handler to call when all bytes are written, or an error occurs.
      *      This handler is executed on the delegate queue.
      *      This completion handler takes the following parameter:
-     *      - error: An error object that indicates why the write failed, or nil if the write was successful.
+     * - Parameter error: An error object that indicates why the write failed, or `nil` if the write was successful.
     */
     open func write(_ data: Data, timeout: TimeInterval, completionHandler: @escaping (_ error: Error?) -> Void) {
         if #available(iOS 9.0, macOS 10.11, *) {
