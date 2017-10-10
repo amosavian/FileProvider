@@ -385,7 +385,15 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     internal var maxUploadSimpleSupported: Int64 { return Int64.max }
     
     internal func upload_simple(_ targetPath: String, request: URLRequest, data: Data? = nil, localFile: URL? = nil, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
+        let size: Int64
+        if let data = data {
+            size = Int64(data.count)
+        } else if let localFile = localFile {
+            let fSize = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+            size = Int64(fSize ?? -1)
+        } else {
+            return nil
+        }
         if size > maxUploadSimpleSupported {
             let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
             completionHandler?(error)
@@ -397,7 +405,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        progress.totalUnitCount = Int64(size)
+        progress.totalUnitCount = size
         
         let taskHandler = { (task: URLSessionTask) -> Void in
             completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
@@ -433,8 +441,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             if let error = error {
                 completionHandler?(error)
             }
-        } else {
-            return nil
         }
         
         return progress
