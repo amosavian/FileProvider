@@ -354,6 +354,10 @@ public enum FileProviderHTTPErrorCode: Int, CustomStringConvertible {
         }
     }
     
+    public var localizedDescription: String {
+        return HTTPURLResponse.localizedString(forStatusCode: self.rawValue)
+    }
+    
     /// Description of status based on first digit which indicated fail or success.
     public var typeDescription: String {
         switch self.rawValue {

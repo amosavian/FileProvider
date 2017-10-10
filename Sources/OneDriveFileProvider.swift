@@ -395,7 +395,13 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        return FileProviderOneDriveError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }))
+        let errorDesc: String?
+        if let response = data?.deserializeJSON() {
+            errorDesc = response["error"]?["message"] as? String
+        } else {
+            errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
+        }
+        return FileProviderOneDriveError(code: code, path: path ?? "", errorDescription: errorDesc)
     }
     
     override var maxUploadSimpleSupported: Int64 {

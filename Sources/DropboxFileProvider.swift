@@ -202,45 +202,43 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
-        // content operations
-        var request: URLRequest
-        switch operation {
-        case .copy(source: let source, destination: let dest) where dest.lowercased().hasPrefix("file://"):
-            let url = URL(string: "files/download", relativeTo: contentURL)!
-            request = URLRequest(url: url)
-            request.set(httpAuthentication: credential, with: .oAuth2)
-            request.set(dropboxArgKey: ["path": correctPath(source)! as NSString])
-        case .fetch(let path):
-            let url = URL(string: "files/download", relativeTo: contentURL)!
-            request = URLRequest(url: url)
-            request.set(httpAuthentication: credential, with: .oAuth2)
-            request.set(dropboxArgKey: ["path": correctPath(path)! as NSString])
-        case .copy(source: let source, destination: let dest) where source.lowercased().hasPrefix("file://"):
-            var requestDictionary = [String: AnyObject]()
-            let url: URL = URL(string: "files/upload", relativeTo: contentURL)!
-            requestDictionary["path"] = correctPath(dest) as NSString?
-            requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-            requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
-            request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.set(httpAuthentication: credential, with: .oAuth2)
-            request.set(httpContentType: .stream)
-            request.set(dropboxArgKey: requestDictionary)
-        case .modify(let path):
+        
+        func uploadRequest(to path: String) -> URLRequest {
             var requestDictionary = [String: AnyObject]()
             let url: URL = URL(string: "files/upload", relativeTo: contentURL)!
             requestDictionary["path"] = correctPath(path) as NSString?
             requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
             requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
-            request = URLRequest(url: url)
+            var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.set(httpAuthentication: credential, with: .oAuth2)
             request.set(httpContentType: .stream)
             request.set(dropboxArgKey: requestDictionary)
+            return request
+        }
+        
+        func downloadRequest(from path: String) -> URLRequest {
+            let url = URL(string: "files/download", relativeTo: contentURL)!
+            var request = URLRequest(url: url)
+            request = URLRequest(url: url)
+            request.set(httpAuthentication: credential, with: .oAuth2)
+            request.set(dropboxArgKey: ["path": correctPath(path)! as NSString])
+            return request
+        }
+        
+        // content operations
+        switch operation {
+        case .copy(source: let source, destination: let dest) where dest.lowercased().hasPrefix("file://"):
+            return downloadRequest(from: source)
+        case .fetch(let path):
+            return downloadRequest(from: path)
+        case .copy(source: let source, destination: let dest) where source.lowercased().hasPrefix("file://"):
+            return uploadRequest(to: dest)
+        case .modify(let path):
+            return uploadRequest(to: path)
         default:
             return self.apiRequest(for: operation, overwrite: overwrite)
         }
-        return request
     }
     
     func apiRequest(for operation: FileOperationType, overwrite: Bool = false) -> URLRequest {
@@ -278,7 +276,13 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        return FileProviderDropboxError(code: code, path: path ?? "", errorDescription: data.flatMap({ String(data: $0, encoding: .utf8) }))
+        let errorDesc: String?
+        if let response = data?.deserializeJSON() {
+            errorDesc = (response["user_message"] as? String) ?? (response["error"]?["tag"] as? String)
+        } else {
+            errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
+        }
+        return FileProviderDropboxError(code: code, path: path ?? "", errorDescription: errorDesc)
     }
     
     override var maxUploadSimpleSupported: Int64 {

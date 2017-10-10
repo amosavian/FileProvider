@@ -10,7 +10,7 @@ import Foundation
 
 private var lasttaskIdAssociated = 1_000_000_000
 
-// codebeat:disable[LOC]
+// codebeat:disable[TOTAL_LOC]
 /// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
 /// while it can actually fallback to NSURLSessionStreamTask in iOS 9.
 public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
@@ -735,7 +735,8 @@ internal protocol FPSStreamDelegate : URLSessionTaskDelegate {
      */
     @objc optional func urlSession(_ session: URLSession, streamTask: FileProviderStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream)
 }
-// codebeat:enable[LOC]
+// codebeat:enable[TOTAL_LOC]
+
 private let ports: [String: Int] = ["http": 80, "https": 443, "smb": 445,"ftp": 21,
                                     "telnet": 23, "pop": 110, "smtp": 25, "imap": 143]
 private let securePorts: [String: Int] =  ["ssh": 22, "https": 443, "smb": 445, "smtp": 465,
