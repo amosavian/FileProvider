@@ -379,7 +379,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         }
         progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
-        return
     }
  
     internal var maxUploadSimpleSupported: Int64 { return Int64.max }

@@ -68,28 +68,8 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
        - error: Error returned by system.
      */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
-        _ = paginated(path, requestHandler: self.listRequest(path: path),
-        pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
-            guard let json = data?.deserializeJSON(), let entries = json["entries"] as? [AnyObject] else {
-                let err = self?.urlError(path, code: .badServerResponse)
-                return ([], err, nil)
-            }
-            
-            var files = [FileObject]()
-            for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry) {
-                    files.append(file)
-                    progress.completedUnitCount += 1
-                }
-            }
-            let ncursor: String?
-            if let hasmore = (json["has_more"] as? NSNumber)?.boolValue, hasmore {
-                ncursor = json["cursor"] as? String
-            } else {
-                ncursor = nil
-            }
-            return (files, nil, ncursor)
-        }, completionHandler: completionHandler)
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
     /**
@@ -172,8 +152,14 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String
-        let requestHandler = self.listRequest(path: path, queryStr: queryStr, recursive: true)
+        let queryStr: String?
+        if query.predicateFormat == "TRUEPREDICATE" {
+            queryStr = nil
+        } else {
+            queryStr = query.findValue(forKey: "name", operator: .beginsWith) as? String
+        }
+        let requestHandler = self.listRequest(path: path, queryStr: queryStr, recursive: recursive)
+        let queryIsTruePredicate = query.predicateFormat == "TRUEPREDICATE"
         return paginated(path, requestHandler: requestHandler,
             pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let json = data?.deserializeJSON(), let entries = (json["entries"] ?? json["matches"]) as? [AnyObject] else {
@@ -183,7 +169,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
             
             var files = [FileObject]()
             for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry), query.evaluate(with: file.mapPredicate()) {
+                if let entry = entry as? [String: AnyObject], let file = DropboxFileObject(json: entry), queryIsTruePredicate || query.evaluate(with: file.mapPredicate()) {
                     files.append(file)
                     progress.completedUnitCount += 1
                     foundItemHandler?(file)

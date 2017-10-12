@@ -27,7 +27,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
         set {
             assert(newValue, "CloudFileProvider.isCoorinating can't be set to false")
-            return
         }
     }
     
@@ -133,55 +132,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         // FIXME: create runloop for dispatch_queue, start query on it
-        dispatch_queue.async {
-            let pathURL = self.url(of: path)
-            
-            let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "%K BEGINSWITH[CD] %@", NSMetadataItemPathKey, pathURL.path)
-            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
-            query.searchScopes = [self.scope.rawValue]
-            var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
-                defer {
-                    query.stop()
-                    NotificationCenter.default.removeObserver(finishObserver!)
-                }
-                
-                guard let results = query.results as? [NSMetadataItem] else {
-                    return
-                }
-                
-                query.disableUpdates()
-                
-                var contents = [FileObject]()
-                for result in results {
-                    guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                        continue
-                    }
-                    
-                    guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
-                        continue
-                    }
-                    
-                    if let file = self.mapFileObject(attributes: attribs) {
-                        contents.append(file)
-                    }
-                }
-                
-                query.stop()
-                self.dispatch_queue.async {
-                    completionHandler(contents, nil)
-                }
-                
-            })
-            DispatchQueue.main.async {
-                if !query.start() {
-                    self.dispatch_queue.async {
-                        completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
-                    }
-                }
-            }
-        }
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
     /// Please don't rely this function to get iCloud drive total and remaining capacity
@@ -309,7 +261,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             let pathURL = self.url(of: path)
             progress.setUserInfoObject(pathURL, forKey: .fileURLKey)
             let mdquery = NSMetadataQuery()
-            mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (\(updateQueryKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
+            mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH[CD] %@) && (\(updateQueryKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
             mdquery.searchScopes = [self.scope.rawValue]
             
             var lastReportedCount = 0
@@ -337,7 +289,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                             continue
                         }
                         
-                        if let file = self.mapFileObject(attributes: attribs) {
+                        if let file = self.mapFileObject(attributes: attribs), query.evaluate(with: file.mapPredicate()) {
                             foundItemHandler(file)
                         }
                     }
@@ -371,7 +323,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                         continue
                     }
                     
-                    if let file = self.mapFileObject(attributes: attribs) {
+                    if let file = self.mapFileObject(attributes: attribs), query.evaluate(with: file.mapPredicate()) {
                         contents.append(file)
                     }
                 }

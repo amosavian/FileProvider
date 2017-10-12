@@ -129,7 +129,6 @@ internal extension FTPFileProvider {
                     
                     let error = FileProviderFTPError(message: response)
                     completionHandler(error)
-                    return
                 }
             }
             
@@ -633,7 +632,6 @@ internal extension FTPFileProvider {
                                 completionHandler(nil, error)
                             }
                         }
-                        return
                     }
                 }) { (response, error) in
                     do {

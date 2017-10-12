@@ -63,7 +63,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
-        self.contentsOfDirectory(path: path, including: [], completionHandler: completionHandler)
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, including: [], foundItemHandler: nil, completionHandler: completionHandler)
     }
     
     /**
@@ -78,31 +79,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter error: Error returned by system.
      */
     open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
-        let operation = FileOperationType.fetch(path: path)
-        let url = self.url(of: path).appendingPathComponent("")
-        var request = URLRequest(url: url)
-        request.httpMethod = "PROPFIND"
-        request.setValue("1", forHTTPHeaderField: "Depth")
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
-        request.httpBody = WebDavFileObject.xmlProp(including)
-        runDataTask(with: request, operation: operation, completionHandler: { (data, response, error) in
-            var responseError: FileProviderHTTPError?
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = self.serverError(with: rCode, path: path, data: data)
-            }
-            var fileObjects = [WebDavFileObject]()
-            if let data = data {
-                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                for attr in xresponse where attr.href != url {
-                    if attr.href.path == url.path {
-                        continue
-                    }
-                    fileObjects.append(WebDavFileObject(attr))
-                }
-            }
-            completionHandler(fileObjects, responseError ?? error)
-        })
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, including: including, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
     override open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
@@ -173,7 +151,26 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         })
     }
     
-    override open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ([FileObject], Error?) -> Void) -> Progress? {
+        return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
+    }
+    
+    /**
+     Search files inside directory using query asynchronously.
+     
+     - Note: Query string is limited to file name, to search based on other file attributes, use NSPredicate version.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: Simple string that file name begins with to be search, case-insensitive.
+       - including: An array which determines which file properties should be considered to fetch.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - files: all files meat the `query` criteria.
+       - error: `Error` returned by server if occured.
+     */
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -184,29 +181,32 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpBody = WebDavFileObject.xmlProp([])
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
+        
+        let queryIsTruePredicate = query.predicateFormat == "TRUEPREDICATE"
         let task = session.dataTask(with: request) { (data, response, error) in
             // FIXME: paginating results
             var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 responseError = self.serverError(with: rCode, path: path, data: data)
             }
-            if let data = data {
-                let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
-                var fileObjects = [WebDavFileObject]()
-                for attr in xresponse {
-                    let fileObject = WebDavFileObject(attr)
-                    if !query.evaluate(with: fileObject.mapPredicate()) {
-                        continue
-                    }
-                    
-                    fileObjects.append(fileObject)
-                    progress.completedUnitCount = Int64(fileObjects.count)
-                    foundItemHandler?(fileObject)
-                }
-                completionHandler(fileObjects, responseError ?? error)
+            guard let data = data else {
+                completionHandler([], responseError ?? error)
                 return
             }
-            completionHandler([], responseError ?? error)
+            
+            let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+            var fileObjects = [WebDavFileObject]()
+            for attr in xresponse where attr.href.path != url.path {
+                let fileObject = WebDavFileObject(attr)
+                if !queryIsTruePredicate && !query.evaluate(with: fileObject.mapPredicate()) {
+                    continue
+                }
+                
+                fileObjects.append(fileObject)
+                progress.completedUnitCount = Int64(fileObjects.count)
+                foundItemHandler?(fileObject)
+            }
+            completionHandler(fileObjects, responseError ?? error)
         }
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
