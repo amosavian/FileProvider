@@ -100,7 +100,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         guard baseURL.isFileURL else {
             fatalError("Cannot initialize a Local provider from remote URL.")
         }
-        self.baseURL = baseURL.absoluteURL
+        self.baseURL = URL(fileURLWithPath: baseURL.path, isDirectory: true)
         self.credential = nil
         self.isCoorinating = false
         
@@ -381,7 +381,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         
         if isCoorinating {
-            //successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
+            successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             var intents = [NSFileAccessIntent]()
             switch operation {
             case .create, .modify:

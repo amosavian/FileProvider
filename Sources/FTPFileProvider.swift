@@ -42,30 +42,28 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     /// Force to use URLSessionDownloadTask/URLSessionDataTask when possible
     public var useAppleImplementation = true
     
-    fileprivate var _session: URLSession?
+    fileprivate var _session: URLSession!
     internal var sessionDelegate: SessionDelegate?
     public var session: URLSession {
         get {
             if _session == nil {
                 self.sessionDelegate = SessionDelegate(fileProvider: self)
                 let config = URLSessionConfiguration.default
-                config.urlCache = cache
-                config.requestCachePolicy = .returnCacheDataElseLoad
                 _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
-                _session?.sessionDescription = UUID().uuidString
-                initEmptySessionHandler(_session!.sessionDescription!)
+                _session.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session.sessionDescription!)
             }
-            return _session!
+            return _session
         }
         
         set {
             assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
             _session = newValue
-            if session.sessionDescription?.isEmpty ?? true {
-                _session?.sessionDescription = UUID().uuidString
+            if _session.sessionDescription?.isEmpty ?? true {
+                _session.sessionDescription = UUID().uuidString
             }
             self.sessionDelegate = newValue.delegate as? SessionDelegate
-            initEmptySessionHandler(_session!.sessionDescription!)
+            initEmptySessionHandler(_session.sessionDescription!)
         }
     }
     
@@ -87,8 +85,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         let defaultPort: Int = baseURL.scheme == "ftps" ? 990 : 21
         urlComponents.port = urlComponents.port ?? defaultPort
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
+        urlComponents.path = urlComponents.path.hasSuffix("/") ? urlComponents.path : urlComponents.path + "/"
         
-        self.baseURL =  (urlComponents.url!.path.hasSuffix("/") ? urlComponents.url! : urlComponents.url!.appendingPathComponent("")).absoluteURL
+        self.baseURL =  urlComponents.url!.absoluteURL
         self.passiveMode = passive
         self.useCache = false
         self.validatingCache = true

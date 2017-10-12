@@ -39,7 +39,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     public var useCache: Bool
     public var validatingCache: Bool
     
-    fileprivate var _session: URLSession?
+    fileprivate var _session: URLSession!
     internal fileprivate(set) var sessionDelegate: SessionDelegate?
     public var session: URLSession {
         get {
@@ -49,20 +49,20 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
                 config.urlCache = cache
                 config.requestCachePolicy = .returnCacheDataElseLoad
                 _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
-                _session!.sessionDescription = UUID().uuidString
-                initEmptySessionHandler(_session!.sessionDescription!)
+                _session.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session.sessionDescription!)
             }
-            return _session!
+            return _session
         }
         
         set {
             assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
             _session = newValue
-            if session.sessionDescription?.isEmpty ?? true {
-                _session?.sessionDescription = UUID().uuidString
+            if _session.sessionDescription?.isEmpty ?? true {
+                _session.sessionDescription = UUID().uuidString
             }
             self.sessionDelegate = newValue.delegate as? SessionDelegate
-            initEmptySessionHandler(_session!.sessionDescription!)
+            initEmptySessionHandler(_session.sessionDescription!)
         }
     }
     
@@ -86,7 +86,9 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
      - cache: A URLCache to cache downloaded files and contents.
      */
     public init(baseURL: URL?, credential: URLCredential?, cache: URLCache?) {
-        self.baseURL = baseURL
+        // Make base url absolute and path as directory
+        let urlStr = baseURL?.absoluteString
+        self.baseURL = urlStr.flatMap { $0.hasSuffix("/") ? URL(string: $0) : URL(string: $0 + "/") }
         self.useCache = false
         self.validatingCache = true
         self.cache = cache
@@ -345,6 +347,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
+    // codebeat:disable[ARITY]
     private func paginated(_ path: String, startToken: String?, currentProgress progress: Progress, previousResult: [FileObject], requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         guard !progress.isCancelled, let request = requestHandler(startToken) else {
             return
@@ -380,6 +383,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         task.resume()
     }
+    // codebeat:enable[ARITY]
  
     internal var maxUploadSimpleSupported: Int64 { return Int64.max }
     
