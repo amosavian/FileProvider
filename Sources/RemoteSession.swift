@@ -132,13 +132,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             }
         }
         
-        DispatchQueue.main.async {
-            if let error = error {
-                fileProvider.delegate?.fileproviderFailed(fileProvider, operation: op, error: error)
-            } else {
-                fileProvider.delegate?.fileproviderSucceed(fileProvider, operation: op)
-            }
-        }
+        fileProvider.delegateNotify(op, error: error)
     }
     
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
@@ -358,6 +352,10 @@ public enum FileProviderHTTPErrorCode: Int, CustomStringConvertible {
         case 500...511: return FileProviderHTTPErrorCode.status5xx[self.rawValue]!
         default: return typeDescription
         }
+    }
+    
+    public var localizedDescription: String {
+        return HTTPURLResponse.localizedString(forStatusCode: self.rawValue)
     }
     
     /// Description of status based on first digit which indicated fail or success.

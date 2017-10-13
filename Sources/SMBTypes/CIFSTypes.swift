@@ -8,6 +8,7 @@
 
 import Foundation
 
+// codebeat:disable[TOO_MANY_IVARS]
 // SMB/CIFS Types
 struct SMB1 {
     struct Header { // 32 bytes
@@ -75,6 +76,7 @@ struct SMB1 {
             }
         }
         
+        // codebeat:disable[ARITY]
         init(command: Command, treeId: UInt16, pid: UInt32, userId: UInt16, multiplexId: UInt16, flags: Flags, flags2: Flags2 = [.LONG_NAMES, .ERR_STATUS, .UNICODE], ntStatus: UInt32 = 0, securityKey: UInt32 = 0, securityCID: UInt16 = 0, securitySequenceNumber: UInt16 = 0) {
             self.protocolID = Header.protocolConst
             self._command = command.rawValue
@@ -91,6 +93,7 @@ struct SMB1 {
             self.userId = userId
             self.multiplexId = multiplexId
         }
+        // codebeat:enable[ARITY]
     }
     
     struct Flags: OptionSet {
@@ -215,3 +218,4 @@ struct SMB1 {
         case INVALID                = 0xFE
     }
 }
+// codebeat:enable[TOO_MANY_IVARS]

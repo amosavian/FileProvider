@@ -42,30 +42,28 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     /// Force to use URLSessionDownloadTask/URLSessionDataTask when possible
     public var useAppleImplementation = true
     
-    fileprivate var _session: URLSession?
+    fileprivate var _session: URLSession!
     internal var sessionDelegate: SessionDelegate?
     public var session: URLSession {
         get {
             if _session == nil {
                 self.sessionDelegate = SessionDelegate(fileProvider: self)
                 let config = URLSessionConfiguration.default
-                config.urlCache = cache
-                config.requestCachePolicy = .returnCacheDataElseLoad
                 _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
-                _session?.sessionDescription = UUID().uuidString
-                initEmptySessionHandler(_session!.sessionDescription!)
+                _session.sessionDescription = UUID().uuidString
+                initEmptySessionHandler(_session.sessionDescription!)
             }
-            return _session!
+            return _session
         }
         
         set {
             assert(newValue.delegate is SessionDelegate, "session instances should have a SessionDelegate instance as delegate.")
             _session = newValue
-            if session.sessionDescription?.isEmpty ?? true {
-                _session?.sessionDescription = UUID().uuidString
+            if _session.sessionDescription?.isEmpty ?? true {
+                _session.sessionDescription = UUID().uuidString
             }
             self.sessionDelegate = newValue.delegate as? SessionDelegate
-            initEmptySessionHandler(_session!.sessionDescription!)
+            initEmptySessionHandler(_session.sessionDescription!)
         }
     }
     
@@ -87,8 +85,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         let defaultPort: Int = baseURL.scheme == "ftps" ? 990 : 21
         urlComponents.port = urlComponents.port ?? defaultPort
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
+        urlComponents.path = urlComponents.path.hasSuffix("/") ? urlComponents.path : urlComponents.path + "/"
         
-        self.baseURL =  (urlComponents.url!.path.hasSuffix("/") ? urlComponents.url! : urlComponents.url!.appendingPathComponent("")).absoluteURL
+        self.baseURL =  urlComponents.url!.absoluteURL
         self.passiveMode = passive
         self.useCache = false
         self.validatingCache = true
@@ -162,8 +161,8 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      - Parameter path: path to target directory. If empty, root will be iterated.
      - Parameter rfc3659enabled: uses MLST command instead of old LIST to get files attributes, default is `true`.
      - Parameter completionHandler: a closure with result of directory entries or error.
-         `contents`: An array of `FileObject` identifying the the directory entries.
-         `error`: Error returned by system.
+     - Parameter contents: An array of `FileObject` identifying the the directory entries.
+     - Parameter error: Error returned by system.
      */
     open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let path = ftpPath(apath)
@@ -693,18 +692,12 @@ extension FTPFileProvider {
         
         let command: String
         switch operation {
-        case .create:
-            command = "MKD \(ftpPath(sourcePath))"
-        case .copy:
-            command = "SITE CPFR \(ftpPath(sourcePath))\r\nSITE CPTO \(ftpPath(destPath!))"
-        case .move:
-            command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
-        case .remove:
-            command = "DELE \(ftpPath(sourcePath))"
-        case .link:
-            command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
-        default: // modify, fetch
-            return nil
+        case .create: command = "MKD \(ftpPath(sourcePath))"
+        case .copy: command = "SITE CPFR \(ftpPath(sourcePath))\r\nSITE CPTO \(ftpPath(destPath!))"
+        case .move: command = "RNFR \(ftpPath(sourcePath))\r\nRNTO \(ftpPath(destPath!))"
+        case .remove: command = "DELE \(ftpPath(sourcePath))"
+        case .link: command = "SITE SYMLINK \(ftpPath(sourcePath)) \(ftpPath(destPath!))"
+        default: return nil // modify, fetch
         }
         let progress = Progress(totalUnitCount: 1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
@@ -714,27 +707,21 @@ extension FTPFileProvider {
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         self.ftpLogin(task) { (error) in
             if let error = error {
-                self.dispatch_queue.async {
-                    completionHandler?(error)
-                    self.delegateNotify(operation, error: error)
-                }
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
                 return
             }
             
             self.execute(command: command, on: task, completionHandler: { (response, error) in
                 if let error = error {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(operation, error: error)
-                    }
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
                     return
                 }
                 
                 guard let response = response else {
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                        self.delegateNotify(operation, error: self.urlError(sourcePath, code: .badServerResponse))
-                    }
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: self.urlError(sourcePath, code: .badServerResponse))
                     return
                 }
                 
@@ -747,36 +734,27 @@ extension FTPFileProvider {
                 if codes.filter({ (450..<560).contains($0) }).count > 0 {
                     let errorCode: URLError.Code
                     switch operation {
-                    case .create:
-                        errorCode = .cannotCreateFile
-                    case .modify:
-                        errorCode = .cannotWriteToFile
+                    case .create: errorCode = .cannotCreateFile
+                    case .modify: errorCode = .cannotWriteToFile
                     case .copy:
                         self.fallbackCopy(operation, progress: progress, completionHandler: completionHandler)
                         return
-                    case .move:
-                        errorCode = .cannotMoveFile
+                    case .move: errorCode = .cannotMoveFile
                     case .remove:
                         self.fallbackRemove(operation, progress: progress, on: task, completionHandler: completionHandler)
                         return
-                    case .link:
-                        errorCode = .cannotWriteToFile
-                    default:
-                        errorCode = .cannotOpenFile
+                    case .link: errorCode = .cannotWriteToFile
+                    default: errorCode = .cannotOpenFile
                     }
                     let error = self.urlError(sourcePath, code: errorCode)
                     progress.cancel()
-                    self.dispatch_queue.async {
-                        completionHandler?(error)
-                    }
+                    completionHandler?(error)
                     self.delegateNotify(operation, error: error)
                     return
                 }
                 
                 progress.completedUnitCount = progress.totalUnitCount
-                self.dispatch_queue.async {
-                    completionHandler?(nil)
-                }
+                completionHandler?(nil)
                 self.delegateNotify(operation)
             })
         }

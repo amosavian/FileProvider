@@ -22,11 +22,18 @@ import CoreGraphics
 open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "OneDrive" }
     
-    public enum SubAddress: RawRepresentable {
+    /// Route to access file container on OneDrive. For default logined user use `.me` otherwise you can acesss
+    /// container based on drive id, group id, site id or user id for another user's default container
+    public enum Route: RawRepresentable {
+        /// Access to default container for current user
         case me
+        /// Access to a specific drive by id
         case drive(uuid: UUID)
+        /// Access to a default drive of a group by their id
         case group(uuid: UUID)
+        /// Access to a default drive of a site by their id
         case site(uuid: UUID)
+        /// Access to a default drive of a user by their id
         case user(uuid: UUID)
         
         public init?(rawValue: String) {
@@ -69,6 +76,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             }
         }
         
+        /// Return path component in URL for selected drive
         var drivePath: String {
             switch self {
                 case .me:
@@ -84,8 +92,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             }
         }
     }
-    /// Sub Address for container, default is `.me`. Changing its value will effect on new operations.
-    open var subAddress: SubAddress
+    /// Route for container, default is `.me`.
+    open let route: Route
     
     /**
      Initializer for Onedrive provider with given client ID and Token.
@@ -96,15 +104,15 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameters:
        - credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
        - serverURL: server url, Set it if you are trying to connect OneDrive Business server, otherwise leave it
-         `nil` to connect to OneDrive Personal uses.
+         `nil` to connect to OneDrive Personal user.
        - drive: drive name for user on server, default value is `root`.
        - cache: A URLCache to cache downloaded files and contents.
      */
-    @available(*, deprecated, message: "use init(credential:, serverURL:, subAddress:, cache:) instead.")
+    @available(*, deprecated, message: "use init(credential:, serverURL:, route:, cache:) instead.")
     public init(credential: URLCredential?, serverURL: URL? = nil, drive: String?, cache: URLCache? = nil) {
         let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
-        self.subAddress = drive.flatMap({ UUID(uuidString: $0) }).flatMap({ SubAddress.drive(uuid: $0) }) ?? .me
+        self.route = drive.flatMap({ UUID(uuidString: $0) }).flatMap({ Route.drive(uuid: $0) }) ?? .me
         super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
     }
     
@@ -119,37 +127,37 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - credential: a `URLCredential` object with Client ID set as `user` and Token set as `password`.
        - serverURL: server url, Set it if you are trying to connect OneDrive Business server, otherwise leave it
          `nil` to connect to OneDrive Personal uses.
-       - subAddress: drive name for user on server, default value is `.me`.
+       - route: drive name for user on server, default value is `.me`.
        - cache: A URLCache to cache downloaded files and contents.
      */
-    public init(credential: URLCredential?, serverURL: URL? = nil, subAddress: SubAddress = .me, cache: URLCache? = nil) {
+    public init(credential: URLCredential?, serverURL: URL? = nil, route: Route = .me, cache: URLCache? = nil) {
         let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
-        self.subAddress = subAddress
+        self.route = route
         super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        let subAddress: SubAddress
+        let route: Route
         if let driveId = aDecoder.decodeObject(forKey: "drive") as? String, let uuid = UUID(uuidString: driveId) {
-            subAddress = .drive(uuid: uuid)
+            route = .drive(uuid: uuid)
         } else {
-            subAddress = (aDecoder.decodeObject(forKey: "subAddress") as? String).flatMap({ SubAddress(rawValue: $0) }) ?? .me
+            route = (aDecoder.decodeObject(forKey: "route") as? String).flatMap({ Route(rawValue: $0) }) ?? .me
         }
         self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential,
                   serverURL: aDecoder.decodeObject(forKey: "baseURL") as? URL,
-                  subAddress: subAddress)
+                  route: route)
         self.useCache = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
     open override func encode(with aCoder: NSCoder) {
         super.encode(with: aCoder)
-        aCoder.encode(self.subAddress.rawValue, forKey: "subAddress")
+        aCoder.encode(self.route.rawValue, forKey: "route")
     }
     
     open override func copy(with zone: NSZone? = nil) -> Any {
-        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, subAddress: self.subAddress, cache: self.cache)
+        let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, route: self.route, cache: self.cache)
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
@@ -175,7 +183,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             
             var files = [FileObject]()
             for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry) {
+                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry) {
                     files.append(file)
                 }
             }
@@ -193,7 +201,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             if let response = response as? HTTPURLResponse {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
-                if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: json) {
+                if let json = data?.deserializeJSON(), let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: json) {
                     fileObject = file
                 }
             }
@@ -233,7 +241,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             if let next = token.flatMap(URL.init(string:)) {
                 url = next
             } else {
-                let bURL = self.baseURL!.appendingPathComponent(self.subAddress.drivePath).appendingPathComponent("root/search")
+                let bURL = self.baseURL!.appendingPathComponent(self.route.drivePath).appendingPathComponent("root/search")
                 var components = URLComponents(url: bURL, resolvingAgainstBaseURL: false)!
                 let qItem = URLQueryItem(name: "q", value: (queryStr ?? "*"))
                 components.queryItems = [qItem]
@@ -255,7 +263,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             
             var foundFiles = [FileObject]()
             for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, subAddress: self.subAddress, json: entry), query.evaluate(with: file.mapPredicate()) {
+                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry), query.evaluate(with: file.mapPredicate()) {
                     foundFiles.append(file)
                     foundItemHandler?(file)
                 }
@@ -270,7 +278,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var rpath: String = path
         let isId = path.hasPrefix("id:")
         
-        url.appendPathComponent(subAddress.drivePath)
+        url.appendPathComponent(route.drivePath)
         
         if isId {
             url.appendPathComponent("root:")
@@ -366,7 +374,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             var parentRefrence: [String: AnyObject] = [:]
             if cdest.hasPrefix("id:") {
                 parentRefrence["id"] = cdest.components(separatedBy: "/").first as NSString?
-                switch self.subAddress {
+                switch self.route {
                 case .drive(uuid: let uuid):
                     parentRefrence["driveId"] = uuid.uuidString as NSString
                 default:
@@ -387,19 +395,17 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        return FileProviderOneDriveError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }))
+        let errorDesc: String?
+        if let response = data?.deserializeJSON() {
+            errorDesc = response["error"]?["message"] as? String
+        } else {
+            errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
+        }
+        return FileProviderOneDriveError(code: code, path: path ?? "", errorDescription: errorDesc)
     }
     
-    override func upload_simple(_ targetPath: String, request: URLRequest, data: Data?, localFile: URL?, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let size = data?.count ?? Int((try? localFile?.resourceValues(forKeys: [.fileSizeKey]))??.fileSize ?? -1)
-        if size > 100 * 1024 * 1024 {
-            let error = FileProviderOneDriveError(code: .payloadTooLarge, path: targetPath, errorDescription: nil)
-            completionHandler?(error)
-            self.delegateNotify(operation, error: error)
-            return nil
-        }
-        
-        return super.upload_simple(targetPath, request: request, data: data, localFile: localFile, operation: operation, completionHandler: completionHandler)
+    override var maxUploadSimpleSupported: Int64 {
+        return 104_857_600 // 100MB
     }
 
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {

@@ -27,7 +27,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
         set {
             assert(newValue, "CloudFileProvider.isCoorinating can't be set to false")
-            return
         }
     }
     
@@ -51,7 +50,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
          If you specify nil for this parameter, this method uses the first container listed in the `com.apple.developer.ubiquity-container-identifiers` entitlement array.
      - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a Documents subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
     */
-    public init? (containerId: String?, scope: UbiquitousScope = .documents) {
+    public convenience init? (containerId: String?, scope: UbiquitousScope = .documents) {
         assert(!(CloudFileProvider.asserting && Thread.isMainThread), "CloudFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
         guard FileManager.default.ubiquityIdentityToken != nil else {
             return nil
@@ -59,8 +58,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         guard let ubiquityURL = FileManager.default.url(forUbiquityContainerIdentifier: containerId) else {
             return nil
         }
-        self.containerId = containerId
-        self.scope = scope
+
         let baseURL: URL
         if scope == .documents {
             baseURL = ubiquityURL.appendingPathComponent("Documents/")
@@ -68,39 +66,50 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             baseURL = ubiquityURL
         }
         
-        super.init(baseURL: baseURL)
-        self.isCoorinating = true
+        self.init(baseURL: baseURL)
+        self.containerId = containerId
+        self.scope = scope
         
-        #if swift(>=3.1)
-        let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-        let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
-        dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
-        operation_queue = OperationQueue()
-        operation_queue.name = "\(queueLabel).Operation"
-        
+        // To prepare FileManager objects?!
         fileManager.url(forUbiquityContainerIdentifier: containerId)
         opFileManager.url(forUbiquityContainerIdentifier: containerId)
         
         try? fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
     
+    public override init(baseURL: URL) {
+        self.scope = .data
+        super.init(baseURL: baseURL)
+        self.isCoorinating = true
+        
+        #if swift(>=3.1)
+            let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
+        #else
+            let queueLabel = "FileProvider.\(type(of: self).type)"
+        #endif
+        dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
+        operation_queue = OperationQueue()
+        operation_queue.name = "\(queueLabel).Operation"
+    }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        guard let containerId = aDecoder.decodeObject(forKey: "containerId") as? String,
+        if let containerId = aDecoder.decodeObject(forKey: "containerId") as? String,
             let scopeString = aDecoder.decodeObject(forKey: "scope") as? String,
-            let scope = UbiquitousScope(rawValue: scopeString) else {
+            let scope = UbiquitousScope(rawValue: scopeString) {
+            self.init(containerId: containerId, scope: scope)
+        } else if let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL {
+            self.init(baseURL: baseURL)
+        } else {
             return nil
         }
-        self.init(containerId: containerId, scope: scope)
+        
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     
     open override func encode(with aCoder: NSCoder) {
+        super.encode(with: aCoder)
         aCoder.encode(self.containerId, forKey: "containerId")
         aCoder.encode(self.scope.rawValue, forKey: "scope")
-        aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
     }
     
     open override func copy(with zone: NSZone? = nil) -> Any {
@@ -115,62 +124,16 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty array.
      
-     - Parameter path: path to target directory. If empty, root will be iterated.
-     - Parameter completionHandler: a closure with result of directory entries or error.
-         `contents`: An array of `FileObject` identifying the the directory entries.
-         `error`: Error returned by system.
+     - Parameters:
+       - path: path to target directory. If empty, root will be iterated.
+       - completionHandler: a closure with result of directory entries or error.
+       - contents: An array of `FileObject` identifying the the directory entries.
+       - error: Error returned by system.
      */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         // FIXME: create runloop for dispatch_queue, start query on it
-        dispatch_queue.async {
-            let pathURL = self.url(of: path)
-            
-            let query = NSMetadataQuery()
-            query.predicate = NSPredicate(format: "%K BEGINSWITH[CD] %@", NSMetadataItemPathKey, pathURL.path)
-            query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
-            query.searchScopes = [self.scope.rawValue]
-            var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
-                defer {
-                    query.stop()
-                    NotificationCenter.default.removeObserver(finishObserver!)
-                }
-                
-                guard let results = query.results as? [NSMetadataItem] else {
-                    return
-                }
-                
-                query.disableUpdates()
-                
-                var contents = [FileObject]()
-                for result in results {
-                    guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                        continue
-                    }
-                    
-                    guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
-                        continue
-                    }
-                    
-                    if let file = self.mapFileObject(attributes: attribs) {
-                        contents.append(file)
-                    }
-                }
-                
-                query.stop()
-                self.dispatch_queue.async {
-                    completionHandler(contents, nil)
-                }
-                
-            })
-            DispatchQueue.main.async {
-                if !query.start() {
-                    self.dispatch_queue.async {
-                        completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
-                    }
-                }
-            }
-        }
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
     /// Please don't rely this function to get iCloud drive total and remaining capacity
@@ -184,10 +147,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
-     - Parameter path: path to target directory. If empty, attributes of root will be returned.
-     - Parameter completionHandler: a closure with result of directory entries or error.
-         `attributes`: A `FileObject` containing the attributes of the item.
-         `error`: Error returned by system.
+     - Parameters:
+       - path: path to target directory. If empty, attributes of root will be returned.
+       - completionHandler: a closure with result of directory entries or error.
+       - attributes: A `FileObject` containing the attributes of the item.
+       - error: Error returned by system.
      */
     open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         dispatch_queue.async {
@@ -237,109 +201,51 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     /**
      Search files inside directory using query asynchronously.
      
-     - Note: For now only it's limited to file names. `query` parameter may take `NSPredicate` format in near future.
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
      
      - Parameters:
-         - path: location of directory to start search
-         - recursive: Searching subdirectories of path
-         - query: Simple string of file name to be search (for now).
-         - foundItemHandler: Closure which is called when a file is found
-         - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - files: all files meat the `query` criteria.
+       - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        
-        let mapDict: [String: String] = ["url": NSMetadataItemURLKey, "name": NSMetadataItemFSNameKey, "path": NSMetadataItemPathKey, "filesize": NSMetadataItemFSSizeKey, "modifiedDate": NSMetadataItemFSContentChangeDateKey, "creationDate": NSMetadataItemFSCreationDateKey, "contentType": NSMetadataItemContentTypeKey]
-        
-        func updateQueryKeys(_ queryComponent: NSPredicate) -> NSPredicate {
-            if let cQuery = queryComponent as? NSCompoundPredicate {
-                let newSub = cQuery.subpredicates.map { updateQueryKeys($0 as! NSPredicate) }
-                switch cQuery.compoundPredicateType {
-                case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
-                case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub.first!)
-                case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
-                }
-            } else if let cQuery = queryComponent as? NSComparisonPredicate {
-                var newLeft = cQuery.leftExpression
-                var newRight = cQuery.rightExpression
-                if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
-                    newLeft = NSExpression(forKeyPath: newKey)
-                }
-                if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
-                    newRight = NSExpression(forKeyPath: newKey)
-                }
-                if newLeft.expressionType == .keyPath, newLeft.keyPath == "type" {
-                    newRight = NSExpression(forConstantValue: newRight.constantValue as? String == "directory" ? "public.directory": "public.data")
-                }
-                if newRight.expressionType == .keyPath, newRight.keyPath == "type" {
-                    newLeft = NSExpression(forConstantValue: newLeft.constantValue as? String == "directory" ? "public.directory": "public.data")
-                }
-                return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
-            } else {
-                return queryComponent
-            }
-        }
-        
         let progress = Progress(totalUnitCount: -1)
         
-        dispatch_queue.async {
-            let pathURL = self.url(of: path)
-            progress.setUserInfoObject(pathURL, forKey: .fileURLKey)
-            let mdquery = NSMetadataQuery()
-            mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH %@) && (\(updateQueryKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
-            mdquery.searchScopes = [self.scope.rawValue]
-            
-            var lastReportedCount = 0
-            
-            progress.cancellationHandler = { [weak mdquery] in
-                mdquery?.stop()
-            }
-            
-            if let foundItemHandler = foundItemHandler {
-                var updateObserver: NSObjectProtocol?
-                
-                // FIXME: Remove this section as it won't work as expected on iCloud
-                updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: mdquery, queue: nil, using: { (notification) in
-                    
-                    guard mdquery.resultCount > lastReportedCount else { return }
-                    
-                    mdquery.disableUpdates()
-                    
-                    for index in lastReportedCount..<mdquery.resultCount {
-                        guard let attribs = (mdquery.result(at: index) as? NSMetadataItem)?.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
-                            continue
-                        }
-                        
-                        guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
-                            continue
-                        }
-                        
-                        if let file = self.mapFileObject(attributes: attribs) {
-                            foundItemHandler(file)
-                        }
-                    }
-                    lastReportedCount = mdquery.resultCount
-                    progress.totalUnitCount = Int64(lastReportedCount)
-                    
-                    mdquery.enableUpdates()
-                })
-            }
-            
-            var finishObserver: NSObjectProtocol?
-            finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: mdquery, queue: nil, using: { (notification) in
-                defer {
-                    mdquery.stop()
-                    NotificationCenter.default.removeObserver(finishObserver!)
-                }
-                
-                guard let results = mdquery.results as? [NSMetadataItem] else {
-                    return
-                }
-                
+        let pathURL = self.url(of: path)
+        progress.setUserInfoObject(pathURL, forKey: .fileURLKey)
+        let mdquery = NSMetadataQuery()
+        mdquery.predicate = NSPredicate(format: "(%K BEGINSWITH[CD] %@) && (\(updateQueryTypeKeys(query).predicateFormat))", NSMetadataItemPathKey, pathURL.path)
+        mdquery.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]
+        mdquery.searchScopes = [self.scope.rawValue]
+        
+        var lastReportedCount = 0
+        
+        progress.cancellationHandler = { [weak mdquery] in
+            mdquery?.stop()
+        }
+        
+        var updateObserver: NSObjectProtocol?
+        if let foundItemHandler = foundItemHandler {
+            // FIXME: Remove this section as it won't work as expected on iCloud
+            updateObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryGatheringProgress, object: mdquery, queue: nil, using: { (notification) in
                 mdquery.disableUpdates()
                 
-                var contents = [FileObject]()
-                for result in results {
-                    guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
+                for index in lastReportedCount..<mdquery.resultCount {
+                    guard let attribs = (mdquery.result(at: index) as? NSMetadataItem)?.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
                         continue
                     }
                     
@@ -347,22 +253,58 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                         continue
                     }
                     
-                    if let file = self.mapFileObject(attributes: attribs) {
-                        contents.append(file)
+                    if let file = self.mapFileObject(attributes: attribs), query.evaluate(with: file.mapPredicate()) {
+                        foundItemHandler(file)
                     }
                 }
-                progress.completedUnitCount = Int64(contents.count)
-                self.dispatch_queue.async {
-                    completionHandler(contents, nil)
-                }
+                lastReportedCount = mdquery.resultCount
+                progress.totalUnitCount = Int64(lastReportedCount)
+                
+                mdquery.enableUpdates()
             })
+        }
+        
+        var finishObserver: NSObjectProtocol?
+        finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: mdquery, queue: nil, using: { (notification) in
+            defer {
+                mdquery.stop()
+                finishObserver.flatMap(NotificationCenter.default.removeObserver)
+                finishObserver = nil
+                updateObserver.flatMap(NotificationCenter.default.removeObserver)
+                updateObserver = nil
+            }
             
-            DispatchQueue.main.async {
-                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-                if !mdquery.start() {
-                    self.dispatch_queue.async {
-                        completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
-                    }
+            guard let results = mdquery.results as? [NSMetadataItem] else {
+                return
+            }
+            
+            mdquery.disableUpdates()
+            
+            var contents = [FileObject]()
+            for result in results {
+                guard let attribs = result.values(forAttributes: [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataItemFSSizeKey, NSMetadataItemContentTypeTreeKey, NSMetadataItemFSCreationDateKey, NSMetadataItemFSContentChangeDateKey]) else {
+                    continue
+                }
+                
+                guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardized, recursive || url.deletingLastPathComponent().path.trimmingCharacters(in: pathTrimSet) == pathURL.path.trimmingCharacters(in: pathTrimSet) else {
+                    continue
+                }
+                
+                if let file = self.mapFileObject(attributes: attribs), query.evaluate(with: file.mapPredicate()) {
+                    contents.append(file)
+                }
+            }
+            progress.completedUnitCount = Int64(contents.count)
+            self.dispatch_queue.async {
+                completionHandler(contents, nil)
+            }
+        })
+        
+        DispatchQueue.main.async {
+            progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+            if !mdquery.start() {
+                self.dispatch_queue.async {
+                    completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
                 }
             }
         }
@@ -593,6 +535,38 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func isRegisteredForNotification(path: String) -> Bool {
         return monitors[path] != nil
     }
+    
+    fileprivate func updateQueryTypeKeys(_ queryComponent: NSPredicate) -> NSPredicate {
+        let mapDict: [String: String] = ["url": NSMetadataItemURLKey, "name": NSMetadataItemFSNameKey, "path": NSMetadataItemPathKey, "filesize": NSMetadataItemFSSizeKey, "modifiedDate": NSMetadataItemFSContentChangeDateKey, "creationDate": NSMetadataItemFSCreationDateKey, "contentType": NSMetadataItemContentTypeKey]
+        
+        if let cQuery = queryComponent as? NSCompoundPredicate {
+            let newSub = cQuery.subpredicates.map { updateQueryTypeKeys($0 as! NSPredicate) }
+            switch cQuery.compoundPredicateType {
+            case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
+            case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub.first!)
+            case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+            }
+        } else if let cQuery = queryComponent as? NSComparisonPredicate {
+            var newLeft = cQuery.leftExpression
+            var newRight = cQuery.rightExpression
+            if newLeft.expressionType == .keyPath, let newKey = mapDict[newLeft.keyPath] {
+                newLeft = NSExpression(forKeyPath: newKey)
+            }
+            if newRight.expressionType == .keyPath, let newKey = mapDict[newRight.keyPath] {
+                newRight = NSExpression(forKeyPath: newKey)
+            }
+            if newLeft.expressionType == .keyPath, newLeft.keyPath == "type" {
+                newRight = NSExpression(forConstantValue: newRight.constantValue as? String == "directory" ? "public.directory": "public.data")
+            }
+            if newRight.expressionType == .keyPath, newRight.keyPath == "type" {
+                newLeft = NSExpression(forConstantValue: newLeft.constantValue as? String == "directory" ? "public.directory": "public.data")
+            }
+            return NSComparisonPredicate(leftExpression: newLeft, rightExpression: newRight, modifier: cQuery.comparisonPredicateModifier, type: cQuery.predicateOperatorType, options: cQuery.options)
+        } else {
+            return queryComponent
+        }
+    }
+
     
     fileprivate func mapFileObject(attributes attribs: [String: Any]) -> FileObject? {
         guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardizedFileURL, let name = attribs[NSMetadataItemFSNameKey] as? String else {

@@ -77,6 +77,16 @@ public final class LocalFileObject: FileObject {
             return data?.map { String(format: "%02hhx", $0) }.joined()
         }
     }
+    
+    /// Count of children items of a driectory. It costs disk access for local directories.
+    open public(set) override var childrensCount: Int? {
+        get {
+            return try? FileManager.default.contentsOfDirectory(atPath: self.url.path).count
+        }
+        set {
+            //
+        }
+    }
 }
 
 internal final class LocalFolderMonitor {

@@ -14,17 +14,17 @@ import AVFoundation
 extension LocalFileProvider: ExtendedFileProvider {
     open func thumbnailOfFileSupported(path: String) -> Bool {
         switch (path as NSString).pathExtension.lowercased() {
-        case LocalFileInformationGenerator.imageThumbnailExtensions:
+        case LocalFileInformationGenerator.imageThumbnailExtensions.contains:
             return true
-        case LocalFileInformationGenerator.audioThumbnailExtensions:
+        case LocalFileInformationGenerator.audioThumbnailExtensions.contains:
             return true
-        case LocalFileInformationGenerator.videoThumbnailExtensions:
+        case LocalFileInformationGenerator.videoThumbnailExtensions.contains:
             return true
-        case LocalFileInformationGenerator.pdfThumbnailExtensions:
+        case LocalFileInformationGenerator.pdfThumbnailExtensions.contains:
             return true
-        case LocalFileInformationGenerator.officeThumbnailExtensions:
+        case LocalFileInformationGenerator.officeThumbnailExtensions.contains:
             return true
-        case LocalFileInformationGenerator.customThumbnailExtensions:
+        case LocalFileInformationGenerator.customThumbnailExtensions.contains:
             return true
         default:
             return false
@@ -34,19 +34,19 @@ extension LocalFileProvider: ExtendedFileProvider {
     open func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
-        case LocalFileInformationGenerator.imagePropertiesExtensions:
+        case LocalFileInformationGenerator.imagePropertiesExtensions.contains:
             return LocalFileInformationGenerator.imageProperties != nil
-        case LocalFileInformationGenerator.audioPropertiesExtensions:
+        case LocalFileInformationGenerator.audioPropertiesExtensions.contains:
             return LocalFileInformationGenerator.audioProperties != nil
-        case LocalFileInformationGenerator.videoPropertiesExtensions:
+        case LocalFileInformationGenerator.videoPropertiesExtensions.contains:
             return LocalFileInformationGenerator.videoProperties != nil
-        case LocalFileInformationGenerator.pdfPropertiesExtensions:
+        case LocalFileInformationGenerator.pdfPropertiesExtensions.contains:
             return LocalFileInformationGenerator.pdfProperties != nil
-        case LocalFileInformationGenerator.archivePropertiesExtensions:
+        case LocalFileInformationGenerator.archivePropertiesExtensions.contains:
             return LocalFileInformationGenerator.archiveProperties != nil
-        case LocalFileInformationGenerator.officePropertiesExtensions:
+        case LocalFileInformationGenerator.officePropertiesExtensions.contains:
             return LocalFileInformationGenerator.officeProperties != nil
-        case LocalFileInformationGenerator.customPropertiesExtensions:
+        case LocalFileInformationGenerator.customPropertiesExtensions.contains:
             return LocalFileInformationGenerator.customProperties != nil
 
         default:
@@ -62,17 +62,17 @@ extension LocalFileProvider: ExtendedFileProvider {
             let fileURL = self.url(of: path)
             // Create Thumbnail and cache
             switch fileURL.pathExtension.lowercased() {
-            case LocalFileInformationGenerator.videoThumbnailExtensions:
+            case LocalFileInformationGenerator.videoThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.videoThumbnail(fileURL)
-            case LocalFileInformationGenerator.audioThumbnailExtensions:
+            case LocalFileInformationGenerator.audioThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.audioThumbnail(fileURL)
-            case LocalFileInformationGenerator.imageThumbnailExtensions:
+            case LocalFileInformationGenerator.imageThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.imageThumbnail(fileURL)
-            case LocalFileInformationGenerator.pdfThumbnailExtensions:
+            case LocalFileInformationGenerator.pdfThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.pdfThumbnail(fileURL)
-            case LocalFileInformationGenerator.officeThumbnailExtensions:
+            case LocalFileInformationGenerator.officeThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.officeThumbnail(fileURL)
-            case LocalFileInformationGenerator.customThumbnailExtensions:
+            case LocalFileInformationGenerator.customThumbnailExtensions.contains:
                 thumbnailImage = LocalFileInformationGenerator.customThumbnail(fileURL)
             default:
                 completionHandler(nil, nil)
@@ -91,19 +91,19 @@ extension LocalFileProvider: ExtendedFileProvider {
             let fileExt = (path as NSString).pathExtension.lowercased()
             var getter: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))?
             switch fileExt {
-            case LocalFileInformationGenerator.imagePropertiesExtensions:
+            case LocalFileInformationGenerator.imagePropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.imageProperties
-             case LocalFileInformationGenerator.audioPropertiesExtensions:
+             case LocalFileInformationGenerator.audioPropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.audioProperties
-            case LocalFileInformationGenerator.videoPropertiesExtensions:
+            case LocalFileInformationGenerator.videoPropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.videoProperties
-            case LocalFileInformationGenerator.pdfPropertiesExtensions:
+            case LocalFileInformationGenerator.pdfPropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.pdfProperties
-            case LocalFileInformationGenerator.archivePropertiesExtensions:
+            case LocalFileInformationGenerator.archivePropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.archiveProperties
-            case LocalFileInformationGenerator.officePropertiesExtensions:
+            case LocalFileInformationGenerator.officePropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.officeProperties
-            case LocalFileInformationGenerator.customPropertiesExtensions:
+            case LocalFileInformationGenerator.customPropertiesExtensions.contains:
                 getter = LocalFileInformationGenerator.customProperties
             default:
                 break
@@ -503,8 +503,4 @@ public struct LocalFileInformationGenerator {
     /// Properties generator closure for custom type of files.
     /// - Note: No default implementation is avaiable
     static public var customProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
-}
-
-fileprivate func ~=<T : Equatable>(array: [T], value: T) -> Bool {
-    return array.contains(value)
 }

@@ -24,19 +24,20 @@ public final class OneDriveFileObject: FileObject {
         super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
     }
     
-    internal convenience init? (baseURL: URL?, subAddress: OneDriveFileProvider.SubAddress, jsonStr: String) {
+    internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, jsonStr: String) {
         guard let json = jsonStr.deserializeJSON() else { return nil }
-        self.init(baseURL: baseURL, subAddress: subAddress, json: json)
+        self.init(baseURL: baseURL, route: route, json: json)
     }
     
-    internal convenience init? (baseURL: URL?, subAddress: OneDriveFileProvider.SubAddress, json: [String: AnyObject]) {
+    internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let path = json["parentReference"]?["path"] as? String else { return nil }
-        var lPath = path.replacingOccurrences(of: subAddress.drivePath, with: "", options: .anchored, range: nil)
+        var lPath = path.replacingOccurrences(of: route.drivePath, with: "", options: .anchored, range: nil)
         lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
         lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
         self.init(baseURL: baseURL, name: name, path: lPath)
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
+        self.childrensCount = json["folder"]?["childCount"] as? Int
         self.modifiedDate = (json["lastModifiedDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.type = json["folder"] != nil ? .directory : .regular
