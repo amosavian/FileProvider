@@ -18,7 +18,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
     /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
-    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
+    @available(*, obsoleted: 0.21, message: "This property is redundant with almost no use internally.")
     open var currentPath: String = ""
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue
@@ -296,6 +296,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         progress.kind = .file
         progress.isCancellable = false
         progress.setUserInfoObject(Progress.FileOperationKind.receiving, forKey: .fileOperationKindKey)
+        
         func urlofpath(path: String) -> URL {
             if path.hasPrefix("file://") {
                 let removedSchemePath = path.replacingOccurrences(of: "file://", with: "", options: .anchored)

@@ -395,7 +395,7 @@ internal extension FTPFileProvider {
     }
     
     func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: -1)
         let queue = DispatchQueue(label: "\(self.type).recursiveList")
         queue.async {
             let group = DispatchGroup()

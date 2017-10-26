@@ -365,6 +365,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.set(httpAuthentication: credential, with: .oAuth2)
+        // Remove gzip to fix availability of progress per (Oleg Marchik)[https://github.com/evilutioner] PR (#61)
+        request.set(httpAcceptEncodings: [.deflate, .identity])
         
         switch operation {
         case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
