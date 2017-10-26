@@ -54,15 +54,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     weak var fileProvider: (FileProviderBasicRemote & FileProviderOperations)?
     var credential: URLCredential?
     
-    /// Forwardng URLSessionDownloadTaskDelegate call
-    public var finishDownloadHandler: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ didFinishDownloadingToURL: URL) -> Void)?
-    /// Forwardng URLSessionTaskDelegate call
-    public var didSendDataHandler: ((_ session: URLSession, _ task: URLSessionTask, _ bytesSent: Int64, _ totalBytesSent: Int64, _ totalBytesExpectedToSend: Int64) -> Void)?
-    /// Forwardng URLSessionDownloadTaskDelegate call
-    public var didReceivedData: ((_ session: URLSession, _ downloadTask: URLSessionDownloadTask, _ bytesWritten: Int64, _ totalBytesWritten: Int64, _ totalBytesExpectedToWrite: Int64) -> Void)?
-    /// Forwardng URLSessionStreamTaskDelegate call
-    public var didBecomeStream :((_ session: URLSession, _ taskId: Int, _ didBecome: InputStream, _ outputStream: OutputStream) -> Void)?
-    
     public init(fileProvider: FileProviderBasicRemote & FileProviderOperations) {
         self.fileProvider = fileProvider
         self.credential = fileProvider.credential
@@ -148,8 +139,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        self.finishDownloadHandler?(session, downloadTask, location)
-        
         let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
         dcompletionHandler?(location)
         _ = downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
@@ -175,8 +164,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
-        self.didSendDataHandler?(session, task, bytesSent, totalBytesSent, totalBytesExpectedToSend)
-        
         guard let json = task.taskDescription?.deserializeJSON(),
               let op = FileOperationType(json: json), let fileProvider = fileProvider else {
             return
@@ -198,8 +185,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        self.didReceivedData?(session, downloadTask, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite)
-        
         if totalBytesExpectedToWrite == NSURLSessionTransferSizeUnknown { return }
         
         guard let json = downloadTask.taskDescription?.deserializeJSON(),
@@ -227,11 +212,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         default:
             completionHandler(.performDefaultHandling, nil)
         }
-    }
-    
-    @available(iOS 9.0, macOS 10.11, *)
-    public func urlSession(_ session: URLSession, streamTask: URLSessionStreamTask, didBecome inputStream: InputStream, outputStream: OutputStream) {
-        self.didBecomeStream?(session, streamTask.taskIdentifier, inputStream, outputStream)
     }
 }
 
