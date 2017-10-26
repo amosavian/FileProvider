@@ -125,7 +125,7 @@ public struct LocalFileInformationGenerator {
     /// Image extensions supportes for thumbnail.
     ///
     /// Default: `["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]`
-    static public var imageThumbnailExtensions: [String]  = ["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]
+    static public var imageThumbnailExtensions: [String]  = ["heic", "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff", "ico"]
     
     /// Audio and music extensions supportes for thumbnail.
     ///
@@ -156,7 +156,7 @@ public struct LocalFileInformationGenerator {
     /// Image extensions supportes for properties.
     ///
     /// Default: `["jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff"]`
-    static public var imagePropertiesExtensions: [String]   = ["jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff"]
+    static public var imagePropertiesExtensions: [String]   = ["heic", "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff"]
     
     /// Audio and music extensions supportes for properties.
     ///

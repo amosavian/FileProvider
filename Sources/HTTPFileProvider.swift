@@ -230,6 +230,29 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         })
     }
     
+    /**
+     Progressively fetch data of file and returns fetched data in `progressHandler`.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - progressHandler: a closure called every time a new `Data` is available.
+       - position: start position of data fetched.
+       - data: a portion of contents of file in a `Data` object.
+       - completionHandler: a closure with result of file contents or error.
+       - error: `Error` returned by system if occured.
+     - Returns: An `Progress` to get progress or cancel progress.
+     */
+    open func contents(path: String, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let operation = FileOperationType.fetch(path: path)
+        let request = self.request(for: operation)
+        var position: Int64 = 0
+        return download_progressive(path: path, request: request, operation: operation, progressHandler: { data in
+            progressHandler(position, data)
+            position += Int64(data.count)
+        }, completionHandler: (completionHandler ?? { _ in return }))
+    }
+    
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
@@ -446,6 +469,40 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             }
         }
         
+        return progress
+    }
+    
+    internal func download_progressive(path: String, request: URLRequest, operation: FileOperationType, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ data: Data) -> Void, completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
+        var progress = Progress(totalUnitCount: -1)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let task = session.dataTask(with: request)
+        responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
+            responseHandler?(response)
+        }
+        
+        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
+            progressHandler(data)
+        }
+        
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
+            completionHandler(error)
+            self.delegateNotify(operation, error: error)
+        }
+        
+        task.taskDescription = operation.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
         return progress
     }
     
