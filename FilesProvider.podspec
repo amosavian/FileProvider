@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FilesProvider"
-  s.version      = "0.20.1"
+  s.version      = "0.21.0"
   s.summary      = "FileManager replacement for Local and Remote (WebDAV/FTP/Dropbox/OneDrive/SMB2) files on iOS and macOS."
 
   # This description is used to generate tags and improve search results.
@@ -58,7 +58,7 @@ Pod::Spec.new do |s|
   s.author             = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
   # Or just: s.author    = "Amir Abbas Mousavian"
   # s.authors            = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
-  # s.social_media_url   = "https://twitter.com/amosavian"
+  s.social_media_url   = "https://twitter.com/amosavian"
 
   # ――― Platform Specifics ――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
   #
