@@ -1,6 +1,6 @@
 ![File Provider](fileprovider.png)
 
->This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
+> This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
 <center>
 
@@ -15,10 +15,6 @@
 [![Carthage compatible][carthage-image]](https://github.com/Carthage/Carthage)
 [![Cocoapods Downloads][cocoapods-downloads]][cocoapods]
 [![Cocoapods Apps][cocoapods-apps]][cocoapods]
-
-Old Cocoapods repo stats:
-[![Cocoapods Downloads][cocoapods-downloads-old]][cocoapods-old]
-[![Cocoapods Apps][cocoapods-apps-old]][cocoapods-old]
 
 </center>
 
@@ -500,7 +496,7 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [license-url]: LICENSE
 [codebeat-image]: https://codebeat.co/badges/7b359f48-78eb-4647-ab22-56262a827517
 [codebeat-url]: https://codebeat.co/projects/github-com-amosavian-fileprovider
-[travis-image]: https://travis-ci.org/amosavian/FileProvider.svg?branch=swift-4
+[travis-image]: https://travis-ci.org/amosavian/FileProvider.svg
 [travis-url]: https://travis-ci.org/amosavian/FileProvider
 [release-url]: https://github.com/amosavian/FileProvider/releases
 [release-image]: https://img.shields.io/github/release/amosavian/FileProvider.svg
