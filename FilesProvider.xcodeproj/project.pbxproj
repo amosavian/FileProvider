@@ -498,6 +498,7 @@
 		7993965C1D48B7BF00086753 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 0910;
 				LastUpgradeCheck = 0900;
 				TargetAttributes = {
 					799396661D48B7F600086753 = {
@@ -509,6 +510,10 @@
 					};
 					799396811D48B82700086753 = {
 						CreatedOnToolsVersion = 7.3.1;
+					};
+					79D903501FAB647400D61D31 = {
+						CreatedOnToolsVersion = 9.1;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -721,7 +726,7 @@
 		799396601D48B7BF00086753 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-                BUNDLE_VERSION_STRING = 0.21.0;
+				BUNDLE_VERSION_STRING = 0.21.0;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -752,14 +757,15 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = FilesProvider;
-				SWIFT_VERSION = 3.0;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 4.0;
 			};
 			name = Debug;
 		};
 		799396611D48B7BF00086753 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-                BUNDLE_VERSION_STRING = 0.21.0;
+				BUNDLE_VERSION_STRING = 0.21.0;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -787,7 +793,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PRODUCT_NAME = FilesProvider;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.0;
 			};
 			name = Release;
 		};
@@ -835,8 +841,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -882,7 +886,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -939,7 +942,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1040,7 +1042,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-tvOS";
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 10.0;
 				VERSIONING_SYSTEM = "apple-generic";
