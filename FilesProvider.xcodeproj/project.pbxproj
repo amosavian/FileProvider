@@ -128,12 +128,24 @@
 		79BD63C81E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63C91E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
 		79BD63CA1E2D17880035128C /* OneDriveHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79BD63C41E2D17880035128C /* OneDriveHelper.swift */; };
+		79D903541FAB647400D61D31 /* FilesProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D903531FAB647400D61D31 /* FilesProviderTests.swift */; };
+		79D903561FAB647400D61D31 /* FilesProvider.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 799396751D48B80D00086753 /* FilesProvider.framework */; };
 		79F4678B1E8B80F200C91A85 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
 		79F4678C1E8B80F200C91A85 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
 		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		79D903571FAB647400D61D31 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7993965C1D48B7BF00086753 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 799396741D48B80D00086753;
+			remoteInfo = "FilesProvider OSX";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		7902C0851D61B56D00564440 /* RemoteSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RemoteSession.swift; sourceTree = "<group>"; };
@@ -192,6 +204,9 @@
 		79BD63C11E2CC3D30035128C /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS10.1.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		79BD63C31E2D17880035128C /* OneDriveFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveFileProvider.swift; sourceTree = "<group>"; };
 		79BD63C41E2D17880035128C /* OneDriveHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OneDriveHelper.swift; sourceTree = "<group>"; };
+		79D903511FAB647400D61D31 /* FilesProviderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FilesProviderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		79D903531FAB647400D61D31 /* FilesProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesProviderTests.swift; sourceTree = "<group>"; };
+		79D903551FAB647400D61D31 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -226,6 +241,14 @@
 				79BD63C01E2CC3CD0035128C /* CoreGraphics.framework in Frameworks */,
 				79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */,
 				79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		79D9034E1FAB647400D61D31 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79D903561FAB647400D61D31 /* FilesProvider.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,6 +301,7 @@
 				79E34A101E2AC6C600E1293B /* Extra */,
 				799396911D48C02300086753 /* Sources */,
 				7993968A1D48B8C700086753 /* Pod */,
+				79D903521FAB647400D61D31 /* Tests */,
 				799396681D48B7F600086753 /* Products */,
 				791950F31DE58A5300B4426E /* Frameworks */,
 			);
@@ -289,6 +313,7 @@
 				799396671D48B7F600086753 /* FilesProvider.framework */,
 				799396751D48B80D00086753 /* FilesProvider.framework */,
 				799396821D48B82700086753 /* FilesProvider.framework */,
+				79D903511FAB647400D61D31 /* FilesProviderTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -350,6 +375,15 @@
 				799396A11D48C02300086753 /* SMB2SetInfo.swift */,
 			);
 			path = SMBTypes;
+			sourceTree = "<group>";
+		};
+		79D903521FAB647400D61D31 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				79D903531FAB647400D61D31 /* FilesProviderTests.swift */,
+				79D903551FAB647400D61D31 /* Info.plist */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		79E34A101E2AC6C600E1293B /* Extra */ = {
@@ -440,6 +474,24 @@
 			productReference = 799396821D48B82700086753 /* FilesProvider.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		79D903501FAB647400D61D31 /* FilesProviderTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 79D9035B1FAB647400D61D31 /* Build configuration list for PBXNativeTarget "FilesProviderTests" */;
+			buildPhases = (
+				79D9034D1FAB647400D61D31 /* Sources */,
+				79D9034E1FAB647400D61D31 /* Frameworks */,
+				79D9034F1FAB647400D61D31 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				79D903581FAB647400D61D31 /* PBXTargetDependency */,
+			);
+			name = FilesProviderTests;
+			productName = FilesProviderTests;
+			productReference = 79D903511FAB647400D61D31 /* FilesProviderTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -475,6 +527,7 @@
 				799396661D48B7F600086753 /* FilesProvider iOS */,
 				799396741D48B80D00086753 /* FilesProvider OSX */,
 				799396811D48B82700086753 /* FilesProvider tvOS */,
+				79D903501FAB647400D61D31 /* FilesProviderTests */,
 			);
 		};
 /* End PBXProject section */
@@ -495,6 +548,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		799396801D48B82700086753 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		79D9034F1FAB647400D61D31 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -639,7 +699,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		79D9034D1FAB647400D61D31 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79D903541FAB647400D61D31 /* FilesProviderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		79D903581FAB647400D61D31 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 799396741D48B80D00086753 /* FilesProvider OSX */;
+			targetProxy = 79D903571FAB647400D61D31 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		799396601D48B7BF00086753 /* Debug */ = {
@@ -1021,6 +1097,76 @@
 			};
 			name = Release;
 		};
+		79D903591FAB647400D61D31 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_BITCODE = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = FilesProviderTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mousavian.FilesProviderTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		79D9035A1FAB647400D61D31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_BITCODE = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = FilesProviderTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mousavian.FilesProviderTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1056,6 +1202,15 @@
 			buildConfigurations = (
 				799396881D48B82700086753 /* Debug */,
 				799396891D48B82700086753 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		79D9035B1FAB647400D61D31 /* Build configuration list for PBXNativeTarget "FilesProviderTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				79D903591FAB647400D61D31 /* Debug */,
+				79D9035A1FAB647400D61D31 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
