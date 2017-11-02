@@ -243,11 +243,14 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
        - error: `Error` returned by system if occured.
      - Returns: An `Progress` to get progress or cancel progress.
      */
-    open func contents(path: String, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func contents(path: String, offset: Int64 = 0, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
-        let request = self.request(for: operation)
-        var position: Int64 = 0
-        return download_progressive(path: path, request: request, operation: operation, progressHandler: { data in
+        var request = self.request(for: operation)
+        if offset > 0 {
+            request.addValue("bytes \(offset)-", forHTTPHeaderField: "Range")
+        }
+        var position: Int64 = offset
+        return download_progressive(path: path, request: request, operation: operation, responseHandler: responseHandler, progressHandler: { data in
             progressHandler(position, data)
             position += Int64(data.count)
         }, completionHandler: (completionHandler ?? { _ in return }))
@@ -479,8 +482,10 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.dataTask(with: request)
-        responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
-            responseHandler?(response)
+        if let responseHandler = responseHandler {
+            responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
+                responseHandler(response)
+            }
         }
         
         dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
