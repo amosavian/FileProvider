@@ -21,23 +21,40 @@ class FilesProviderTests: XCTestCase {
     }
     
     func testLocal() {
-        let localProvider = LocalFileProvider()
-        testBasic(localProvider)
-        testOperations(localProvider)
+        let provider = LocalFileProvider()
+        testBasic(provider)
+        testOperations(provider)
     }
     
     func testWebDav() {
-        let webdavURL = URL(string: "https://dav.box.com/dav")!
-        let webdavProvider = WebDAVFileProvider(baseURL: webdavURL, credential: nil)!
-        testOperations(webdavProvider)
+        guard let urlStr = ProcessInfo.processInfo.environment["webdav_url"] else { return }
+        let url = URL(string: urlStr)!
+        let cred: URLCredential?
+        if let user = ProcessInfo.processInfo.environment["webdav_user"], let pass = ProcessInfo.processInfo.environment["webdav_password"] {
+            cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        } else {
+            cred = nil
+        }
+        let provider = WebDAVFileProvider(baseURL: url, credential: cred)!
+        testOperations(provider)
     }
     
     func testDropbox() {
-        
+        guard let user = ProcessInfo.processInfo.environment["dropbox_user"], let pass = ProcessInfo.processInfo.environment["dropbox_token"] else {
+            return
+        }
+        let cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        let provider = DropboxFileProvider(credential: cred)
+        testOperations(provider)
     }
     
     func testOneDrive() {
-        
+        guard let user = ProcessInfo.processInfo.environment["onedrive_user"], let pass = ProcessInfo.processInfo.environment["onedrive_token"] else {
+            return
+        }
+        let cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        let provider = OneDriveFileProvider(credential: cred)
+        testOperations(provider)
     }
     
     /*
