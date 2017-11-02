@@ -27,9 +27,8 @@ class FilesProviderTests: XCTestCase {
     }
     
     func testWebDav() {
-        let webdavCred = URLCredential(user: "a.mosavian@gmail.com", password: "abbmormos", persistence: .forSession)
         let webdavURL = URL(string: "https://dav.box.com/dav")!
-        let webdavProvider = WebDAVFileProvider(baseURL: webdavURL, credential: webdavCred)!
+        let webdavProvider = WebDAVFileProvider(baseURL: webdavURL, credential: nil)!
         testOperations(webdavProvider)
     }
     
