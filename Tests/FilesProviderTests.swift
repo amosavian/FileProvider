@@ -22,6 +22,9 @@ class FilesProviderTests: XCTestCase {
     
     func testLocal() {
         let provider = LocalFileProvider()
+        addTeardownBlock {
+            self.testRemoveFile(provider, filePath: self.testFolderName)
+        }
         testBasic(provider)
         testOperations(provider)
     }
@@ -36,24 +39,33 @@ class FilesProviderTests: XCTestCase {
             cred = nil
         }
         let provider = WebDAVFileProvider(baseURL: url, credential: cred)!
+        addTeardownBlock {
+            self.testRemoveFile(provider, filePath: self.testFolderName)
+        }
         testOperations(provider)
     }
     
     func testDropbox() {
-        guard let user = ProcessInfo.processInfo.environment["dropbox_user"], let pass = ProcessInfo.processInfo.environment["dropbox_token"] else {
+        guard let pass = ProcessInfo.processInfo.environment["dropbox_token"] else {
             return
         }
-        let cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = DropboxFileProvider(credential: cred)
+        addTeardownBlock {
+            self.testRemoveFile(provider, filePath: self.testFolderName)
+        }
         testOperations(provider)
     }
     
     func testOneDrive() {
-        guard let user = ProcessInfo.processInfo.environment["onedrive_user"], let pass = ProcessInfo.processInfo.environment["onedrive_token"] else {
+        guard let pass = ProcessInfo.processInfo.environment["onedrive_token"] else {
             return
         }
-        let cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = OneDriveFileProvider(credential: cred)
+        addTeardownBlock {
+            self.testRemoveFile(provider, filePath: self.testFolderName)
+        }
         testOperations(provider)
     }
     
@@ -91,6 +103,7 @@ class FilesProviderTests: XCTestCase {
             XCTAssertGreaterThan(files.count, 0, "list is empty")
             let testFolder = files.filter({ $0.name == self.testFolderName }).first
             XCTAssertNotNil(testFolder, "Test folder didn't listed")
+            guard testFolder != nil else { return }
             XCTAssertTrue(testFolder!.isDirectory, "Test entry is not a folder")
             XCTAssertLessThanOrEqual(testFolder!.size, 0, "folder size is not -1")
             expectation.fulfill()
@@ -104,6 +117,7 @@ class FilesProviderTests: XCTestCase {
         provider.attributesOfItem(path: filePath) { (fileObject, error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             XCTAssertNotNil(fileObject, "file '\(filePath)' didn't exist")
+            guard fileObject != nil else { return }
             XCTAssertEqual(fileObject!.path, filePath, "file path is different from '\(filePath)'")
             XCTAssertEqual(fileObject!.type, URLFileResourceType.regular, "file '\(filePath)' is not a regular file")
             XCTAssertGreaterThan(fileObject!.size, 0, "file '\(filePath)' is empty")
@@ -130,7 +144,7 @@ class FilesProviderTests: XCTestCase {
         provider.contents(path: filePath) { (data, error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             XCTAssertNotNil(data, "no data for test file")
-            if hasSampleText {
+            if data != nil && hasSampleText {
                 let str = String(data: data!, encoding: .ascii)
                 XCTAssertNotNil(str, "test file data not readable")
                 XCTAssertEqual(str, self.sampleText, "test file data didn't matched")
@@ -228,6 +242,7 @@ class FilesProviderTests: XCTestCase {
         provider.storageProperties { (volume) in
             if !isExpected {
                 XCTAssertNotNil(volume, "volume information is nil")
+                guard volume != nil else { return }
                 XCTAssertGreaterThan(volume!.totalCapacity, 0, "capacity must be greater than 0")
                 XCTAssertGreaterThan(volume!.availableCapacity, 0, "available capacity must be greater than 0")
                 XCTAssertEqual(volume!.totalCapacity, volume!.availableCapacity + volume!.usage, "total capacity is not equal to usage + available")
@@ -283,8 +298,5 @@ class FilesProviderTests: XCTestCase {
         // Test upload/download
         testUploadFile(provider, filePath: uploadFilePath)
         testDownloadFile(provider, filePath: uploadFilePath)
-        
-        // Cleanup, Removing not emptied directory
-        testRemoveFile(provider, filePath: "/\(testFolderName)")
     }
 }
