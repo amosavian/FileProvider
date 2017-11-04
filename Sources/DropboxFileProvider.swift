@@ -94,12 +94,12 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderHTTPError?
             var fileObject: DropboxFileObject?
-            if let response = response as? HTTPURLResponse {
+            if let response = response as? HTTPURLResponse, response.statusCode >= 400 {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
-                if let json = data?.deserializeJSON(), let file = DropboxFileObject(json: json) {
-                    fileObject = file
-                }
+            }
+            if let json = data?.deserializeJSON(), let file = DropboxFileObject(json: json) {
+                fileObject = file
             }
             completionHandler(fileObject, serverError ?? error)
         }) 
@@ -194,7 +194,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
             let url: URL = URL(string: "files/upload", relativeTo: contentURL)!
             requestDictionary["path"] = correctPath(path) as NSString?
             requestDictionary["mode"] = (overwrite ? "overwrite" : "add") as NSString
-            requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
+            //requestDictionary["client_modified"] = (attributes[.contentModificationDateKey] as? Date)?.format(with: .rfc3339) as NSString?
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.set(httpAuthentication: credential, with: .oAuth2)
