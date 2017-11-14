@@ -267,7 +267,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
         let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
-        request.set(httpRangeWithOffset: offset, length: length)
+        request.setValue(rangeWithOffset: offset, length: length)
         return self.download_simple(path: path, request: request, operation: operation, completionHandler: { (tempURL, error) in
             do {
                 if let error = error {
