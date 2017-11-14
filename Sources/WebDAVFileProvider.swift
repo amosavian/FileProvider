@@ -103,8 +103,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp(including)
         runDataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderHTTPError?
@@ -132,8 +132,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp([.volumeTotalCapacityKey, .volumeAvailableCapacityKey, .creationDateKey])
         runDataTask(with: request, completionHandler: { (data, response, error) in
             guard let data = data, let attr = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL).first else {
@@ -176,8 +176,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = "PROPFIND"
         // Depth infinity is disabled on some servers. Implement workaround?!
         request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp([])
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
@@ -220,8 +220,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
         request.httpBody = WebDavFileObject.xmlProp([.volumeTotalCapacityKey, .volumeAvailableCapacityKey])
         runDataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
@@ -240,8 +240,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPPATCH"
-        request.set(httpAuthentication: credential, with: credentialType)
-        request.set(httpContentType: .xml, charset: .utf8)
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
         let body = "<propertyupdate xmlns=\"DAV:\">\n<set><prop>\n<public_url xmlns=\"urn:yandex:disk:meta\">true</public_url>\n</prop></set>\n</propertyupdate>"
         request.httpBody = body.data(using: .utf8)
         runDataTask(with: request, completionHandler: { (data, response, error) in
@@ -303,7 +303,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.set(httpAuthentication: credential, with: credentialType)
+        request.setValue(authentication: credential, with: credentialType)
         request.setValue(overwrite ? "T" : "F", forHTTPHeaderField: "Overwrite")
         if let dest = operation.destination, !dest.hasPrefix("file://") {
             request.setValue(self.url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
@@ -362,7 +362,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         let url = URL(string: self.url(of: path).absoluteString + "?preview&size=\(dimension.width)x\(dimension.height)")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.set(httpAuthentication: credential, with: credentialType)
+        request.setValue(authentication: credential, with: credentialType)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var responseError: FileProviderHTTPError?
             if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
@@ -458,9 +458,11 @@ struct DavResponse {
             break
         }
         for propItemNode in propStatNode[proptag].children {
-            propDic[propItemNode.name.components(separatedBy: ":").last!.lowercased()] = propItemNode.value
-            if propItemNode.name.hasSuffix("resourcetype") && propItemNode.xml.contains("collection") {
-                propDic["getcontenttype"] = "httpd/unix-directory"
+            let key = propItemNode.name.components(separatedBy: ":").last!.lowercased()
+            guard propDic.index(forKey: key) == nil else { continue }
+            propDic[key] = propItemNode.value
+            if key == "resourcetype" && propItemNode.xml.contains("collection") {
+                propDic["getcontenttype"] = ContentMIMEType.directory.rawValue
             }
         }
         self.href = href
@@ -501,19 +503,20 @@ public final class WebDavFileObject: FileObject {
         self.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
         self.creationDate = davResponse.prop["creationdate"].flatMap { Date(rfcString: $0) }
         self.modifiedDate = davResponse.prop["getlastmodified"].flatMap { Date(rfcString: $0) }
-        self.contentType = davResponse.prop["getcontenttype"] ?? "application/octet-stream"
+        self.contentType = davResponse.prop["getcontenttype"].flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         self.isHidden = (Int(davResponse.prop["ishidden"] ?? "0") ?? 0) > 0
-        self.type = self.contentType == "httpd/unix-directory" ? .directory : .regular
+        self.isReadOnly = (Int(davResponse.prop["isreadonly"] ?? "0") ?? 0) > 0
+        self.type = (self.contentType == .directory) ? .directory : .regular
         self.entryTag = davResponse.prop["getetag"]
     }
     
     /// MIME type of the file.
-    open internal(set) var contentType: String {
+    open internal(set) var contentType: ContentMIMEType {
         get {
-            return allValues[.mimeTypeKey] as? String ?? "application/octet-stream"
+            return (allValues[.mimeTypeKey] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         }
         set {
-            allValues[.mimeTypeKey] = newValue
+            allValues[.mimeTypeKey] = newValue.rawValue
         }
     }
     
@@ -560,6 +563,8 @@ public final class WebDavFileObject: FileObject {
         }
         if propKeys.isEmpty {
             propKeys = "<D:allprop/>"
+        } else {
+            propKeys += "<D:prop><D:resourcetype)></D:prop>"
         }
         return propKeys
     }

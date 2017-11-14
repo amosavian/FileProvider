@@ -41,7 +41,7 @@ public final class OneDriveFileObject: FileObject {
         self.modifiedDate = (json["lastModifiedDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.type = json["folder"] != nil ? .directory : .regular
-        self.contentType = json["file"]?["mimeType"] as? String ?? "application/octet-stream"
+        self.contentType = (json["file"]?["mimeType"] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         self.id = json["id"] as? String
         self.entryTag = json["eTag"] as? String
         let hashes = json["file"]?["hashes"] as? NSDictionary
@@ -61,12 +61,12 @@ public final class OneDriveFileObject: FileObject {
     }
     
     /// MIME type of file contents returned by OneDrive server.
-    open internal(set) var contentType: String {
+    open internal(set) var contentType: ContentMIMEType {
         get {
-            return allValues[.mimeTypeKey] as? String ?? "application/octet-stream"
+            return (allValues[.mimeTypeKey] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         }
         set {
-            allValues[.mimeTypeKey] = newValue
+            allValues[.mimeTypeKey] = newValue.rawValue
         }
     }
     

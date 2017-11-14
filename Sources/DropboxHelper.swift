@@ -92,8 +92,8 @@ internal extension DropboxFileProvider {
                 let url = URL(string: "files/search", relativeTo: self.apiURL)!
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
-                request.set(httpAuthentication: self.credential, with: .oAuth2)
-                request.set(httpContentType: .json)
+                request.setValue(authentication: self.credential, with: .oAuth2)
+                request.setValue(contentType: .json)
                 var requestDictionary: [String: AnyObject] = ["path": self.correctPath(path) as NSString!]
                 requestDictionary["query"] = queryStr as NSString
                 requestDictionary["start"] = NSNumber(value: (token.flatMap( { Int($0) } ) ?? 0))
@@ -115,8 +115,8 @@ internal extension DropboxFileProvider {
                 }
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
-                request.set(httpAuthentication: self.credential, with: .oAuth2)
-                request.set(httpContentType: .json)
+                request.setValue(authentication: self.credential, with: .oAuth2)
+                request.setValue(contentType: .json)
                 request.httpBody = Data(jsonDictionary: requestDictionary)
                 return request
             }

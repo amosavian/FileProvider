@@ -22,6 +22,7 @@ public extension Array where Element: FileObject {
 }
 
 public extension Sequence where Iterator.Element == UInt8 {
+    /// Converts a byte array into hexadecimal string representation
     func hexString() -> String {
         return self.map{String(format: "%02X", $0)}.joined()
     }
@@ -97,27 +98,128 @@ public extension URLRequest {
     }
 }
 
-struct Quality<T> {
-    let value: T
-    let quality: Float
+/// Holds file MIME, and introduces selected type MIME as constants
+public struct ContentMIMEType: RawRepresentable, Hashable, Equatable {
+    public var rawValue: String
+    public typealias RawValue = String
     
-    var stringifed: String {
-        var representaion: String = String(describing: value)
-        let quality: Float = min(1, max(self.quality, 0))
-        if let value = value as? Locale {
-            representaion = value.identifier.replacingOccurrences(of: "_", with: "-")
-        }
-        if let value = value as? String.Encoding {
-            let cfEncoding = CFStringConvertNSStringEncodingToEncoding(value.rawValue)
-            representaion = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? ?? "*"
-        }
-        let qualityDesc = String(format: "%.1f", quality)
-        return "\(representaion); q=\(qualityDesc)"
+    public init(rawValue: String) {
+        self.rawValue = rawValue
     }
+    
+    public var hashValue: Int { return rawValue.hashValue }
+    public static func == (lhs: ContentMIMEType, rhs: ContentMIMEType) -> Bool {
+        return lhs.rawValue == rhs.rawValue
+    }
+    
+    /// Directory
+    static public let directory = ContentMIMEType(rawValue: "httpd/unix-directory")
+    
+    // Archive and Binary
+    
+    /// Binary stream and unknown types
+    static public let stream = ContentMIMEType(rawValue: "application/octet-stream")
+    /// Protable document format
+    static public let pdf = ContentMIMEType(rawValue: "application/pdf")
+    /// Zip archive
+    static public let zip = ContentMIMEType(rawValue: "application/zip")
+    /// Rar archive
+    static public let rarArchive = ContentMIMEType(rawValue: "application/x-rar-compressed")
+    /// 7-zip archive
+    static public let lzma = ContentMIMEType(rawValue: "application/x-7z-compressed")
+    /// Adobe Flash
+    static public let flash = ContentMIMEType(rawValue: "application/x-shockwave-flash")
+    /// ePub book
+    static public let epub = ContentMIMEType(rawValue: "application/epub+zip")
+    /// Java archive (jar)
+    static public let javaArchive = ContentMIMEType(rawValue: "application/java-archive")
+    
+    // Texts
+    
+    /// Text file
+    static public let plainText = ContentMIMEType(rawValue: "text/plain")
+    /// Coma-separated values
+    static public let csv = ContentMIMEType(rawValue: "text/csv")
+    /// Hyper-text markup language
+    static public let html = ContentMIMEType(rawValue: "text/html")
+    /// Common style sheet
+    static public let css = ContentMIMEType(rawValue: "text/css")
+    /// eXtended Markup language
+    static public let xml = ContentMIMEType(rawValue: "text/xml")
+    /// Javascript code file
+    static public let javascript = ContentMIMEType(rawValue: "application/javascript")
+    /// Javascript notation
+    static public let json = ContentMIMEType(rawValue: "application/json")
+    
+    // Documents
+    
+    /// Rich text file (RTF)
+    static public let richText = ContentMIMEType(rawValue: "application/rtf")
+    /// Excel 2013 (OOXML) document
+    static public let excel = ContentMIMEType(rawValue: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    /// Powerpoint 2013 (OOXML) document
+    static public let powerpoint = ContentMIMEType(rawValue: "application/vnd.openxmlformats-officedocument.presentationml.slideshow")
+    /// Word 2013 (OOXML) document
+    static public let word = ContentMIMEType(rawValue: "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    
+    // Images
+    
+    /// Bitmap
+    static public let bmp = ContentMIMEType(rawValue: "image/bmp")
+    /// Graphics Interchange Format photo
+    static public let gif = ContentMIMEType(rawValue: "image/gif")
+    /// JPEG photo
+    static public let jpeg = ContentMIMEType(rawValue: "image/jpeg")
+    /// Portable network graphics
+    static public let png = ContentMIMEType(rawValue: "image/png")
+    
+    // Audio & Video
+    
+    /// MPEG Audio
+    static public let mpegAudio = ContentMIMEType(rawValue: "audio/mpeg")
+    /// MPEG Video
+    static public let mpeg = ContentMIMEType(rawValue: "video/mpeg")
+    /// MPEG4 Audio
+    static public let mpeg4Audio = ContentMIMEType(rawValue: "audio/mp4")
+    /// MPEG4 Video
+    static public let mpeg4 = ContentMIMEType(rawValue: "video/mp4")
+    /// OGG Audio
+    static public let ogg = ContentMIMEType(rawValue: "audio/ogg")
+    /// Advanced Audio Coding
+    static public let aac = ContentMIMEType(rawValue: "audio/x-aac")
+    /// Microsoft Audio Video Interleaved
+    static public let avi = ContentMIMEType(rawValue: "video/x-msvideo")
+    /// Microsoft Wave audio
+    static public let wav = ContentMIMEType(rawValue: "audio/x-wav")
+    /// Apple QuickTime format
+    static public let quicktime = ContentMIMEType(rawValue: "video/quicktime")
+    /// 3GPP
+    static public let threegp = ContentMIMEType(rawValue: "video/3gpp")
+    /// Adobe Flash video
+    static public let flashVideo = ContentMIMEType(rawValue: "video/x-flv")
+    /// Adobe Flash video
+    static public let flv = ContentMIMEType.flashVideo
+    
+    // Google Drive
+    
+    /// Google Drive: Folder
+    static public let googleFolder = ContentMIMEType(rawValue: "application/vnd.google-apps.folder")
+    /// Google Drive: Document (word processor)
+    static public let googleDocument = ContentMIMEType(rawValue: "application/vnd.google-apps.document")
+    /// Google Drive: Sheets (spreadsheet)
+    static public let googleSheets = ContentMIMEType(rawValue: "application/vnd.google-apps.spreadsheet")
+    /// Google Drive: Slides (presentation)
+    static public let googleSlides = ContentMIMEType(rawValue: "application/vnd.google-apps.presentation")
+    /// Google Drive: Drawing (vector draw)
+    static public let googleDrawing = ContentMIMEType(rawValue: "application/vnd.google-apps.drawing")
+    /// Google Drive: Audio
+    static public let googleAudio = ContentMIMEType(rawValue: "application/vnd.google-apps.audio")
+    /// Google Drive: Video
+    static public let googleVideo = ContentMIMEType(rawValue: "application/vnd.google-apps.video")
 }
 
 internal extension URLRequest {
-    mutating func set(httpAuthentication credential: URLCredential?, with type: AuthenticationType) {
+    mutating func setValue(authentication credential: URLCredential?, with type: AuthenticationType) {
         func base64(_ str: String) -> String {
             let plainData = str.data(using: .utf8)
             let base64String = plainData!.base64EncodedString(options: [])
@@ -147,31 +249,24 @@ internal extension URLRequest {
         }
     }
     
-    mutating func set(httpAcceptCharset acceptCharset: String.Encoding) {
+    mutating func setValue(acceptCharset: String.Encoding, quality: Double? = nil) {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
         if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
-            self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
-        }
-    }
-    
-    mutating func set(httpAcceptCharset acceptCharset: Quality<String.Encoding>) {
-        self.addValue(acceptCharset.stringifed, forHTTPHeaderField: "Accept-Charset")
-    }
-    
-    mutating func set(httpAcceptCharsets acceptCharsets: [String.Encoding]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
-        for charset in acceptCharsets {
-            let cfEncoding = CFStringConvertNSStringEncodingToEncoding(charset.rawValue)
-            if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
-                self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
+            if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+                self.setValue("\(charsetString); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
+            } else {
+                self.setValue(charsetString, forHTTPHeaderField: "Accept-Charset")
             }
         }
     }
-    
-    mutating func set(httpAcceptCharsets acceptCharsets: [Quality<String.Encoding>]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Charset")
-        for charset in acceptCharsets.sorted(by: { $0.quality > $1.quality }) {
-            self.addValue(charset.stringifed, forHTTPHeaderField: "Accept-Charset")
+    mutating func addValue(acceptCharset: String.Encoding, quality: Double? = nil) {
+        let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
+        if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
+            if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+                self.addValue("\(charsetString); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
+            } else {
+                self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
+            }
         }
     }
     
@@ -182,53 +277,41 @@ internal extension URLRequest {
         case deflate
     }
     
-    mutating func set(httpAcceptEncoding acceptEncoding: Encoding) {
-        self.addValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
-    }
-    
-    mutating func set(httpAcceptEncoding acceptEncoding: Quality<Encoding>) {
-        self.addValue(acceptEncoding.stringifed, forHTTPHeaderField: "Accept-Encoding")
-    }
-    
-    mutating func set(httpAcceptEncodings acceptEncodings: [Encoding]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Encoding")
-        for encoding in acceptEncodings {
-            self.addValue(encoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
+    mutating func setValue(acceptEncoding: Encoding, quality: Double? = nil) {
+        if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+            self.setValue("\(acceptEncoding.rawValue); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
+        } else {
+            self.setValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
         }
     }
     
-    mutating func set(httpAcceptEncodings acceptEncodings: [Quality<Encoding>]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Encoding")
-        for encoding in acceptEncodings.sorted(by: { $0.quality > $1.quality }) {
-            self.addValue(encoding.stringifed, forHTTPHeaderField: "Accept-Encoding")
+    mutating func addValue(acceptEncoding: Encoding, quality: Double? = nil) {
+        if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+            self.addValue("\(acceptEncoding.rawValue); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
+        } else {
+            self.addValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
         }
     }
     
-    mutating func set(httpAcceptLanguage acceptLanguage: Locale) {
+    mutating func setValue(acceptLanguage: Locale, quality: Double? = nil) {
         let langCode = acceptLanguage.identifier.replacingOccurrences(of: "_", with: "-")
-        self.addValue(langCode, forHTTPHeaderField: "Accept-Language")
+        if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+            self.setValue("\(langCode); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
+        } else {
+            self.setValue(langCode, forHTTPHeaderField: "Accept-Language")
+        }
     }
     
-    mutating func set(httpAcceptLanguage acceptLanguage: Quality<Locale>) {
-        self.addValue(acceptLanguage.stringifed, forHTTPHeaderField: "Accept-Language")
-    }
-    
-    mutating func set(httpAcceptLanguages acceptLanguages: [Locale]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Language")
-        for lang in acceptLanguages {
-            let langCode = lang.identifier.replacingOccurrences(of: "_", with: "-")
+    mutating func addValue(acceptLanguage: Locale, quality: Double? = nil) {
+        let langCode = acceptLanguage.identifier.replacingOccurrences(of: "_", with: "-")
+        if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
+            self.addValue("\(langCode); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
+        } else {
             self.addValue(langCode, forHTTPHeaderField: "Accept-Language")
         }
     }
     
-    mutating func set(httpAcceptLanguages acceptLanguages: [Quality<Locale>]) {
-        self.setValue(nil, forHTTPHeaderField: "Accept-Language")
-        for lang in acceptLanguages.sorted(by: { $0.quality > $1.quality} ) {
-            self.addValue(lang.stringifed, forHTTPHeaderField: "Accept-Language")
-        }
-    }
-    
-    mutating func set(httpRangeWithOffset offset: Int64, length: Int) {
+    mutating func setValue(rangeWithOffset offset: Int64, length: Int) {
         if length > 0 {
             self.setValue("bytes=\(offset)-\(offset + Int64(length) - 1)", forHTTPHeaderField: "Range")
         } else if offset > 0 && length < 0 {
@@ -236,7 +319,7 @@ internal extension URLRequest {
         }
     }
     
-    mutating func set(httpRange range: Range<Int>) {
+    mutating func setValue(range: Range<Int>) {
         let range = max(0, range.lowerBound)..<range.upperBound
         if range.upperBound < Int.max && range.count > 0 {
             self.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range")
@@ -245,33 +328,7 @@ internal extension URLRequest {
         }
     }
     
-    struct ContentMIMEType: RawRepresentable {
-        public var rawValue: String
-        public typealias RawValue = String
-        
-        public init(rawValue: String) {
-            self.rawValue = rawValue
-        }
-        
-        static let javascript = ContentMIMEType(rawValue: "application/javascript")
-        static let json = ContentMIMEType(rawValue: "application/json")
-        static let pdf = ContentMIMEType(rawValue: "application/pdf")
-        static let stream = ContentMIMEType(rawValue: "application/octet-stream")
-        static let zip = ContentMIMEType(rawValue: "application/zip")
-        
-        // Texts
-        static let css = ContentMIMEType(rawValue: "text/css")
-        static let html = ContentMIMEType(rawValue: "text/html")
-        static let plainText = ContentMIMEType(rawValue: "text/plain")
-        static let xml = ContentMIMEType(rawValue: "text/xml")
-        
-        // Images
-        static let gif = ContentMIMEType(rawValue: "image/gif")
-        static let jpeg = ContentMIMEType(rawValue: "image/jpeg")
-        static let png = ContentMIMEType(rawValue: "image/png")
-    }
-    
-    mutating func set(httpContentType contentType: ContentMIMEType, charset: String.Encoding? = nil) {
+    mutating func setValue(contentType: ContentMIMEType, charset: String.Encoding? = nil) {
         var parameter = ""
         if let charset = charset {
             let cfEncoding = CFStringConvertNSStringEncodingToEncoding(charset.rawValue)
@@ -283,7 +340,7 @@ internal extension URLRequest {
         self.setValue(contentType.rawValue + parameter, forHTTPHeaderField: "Content-Type")
     }
     
-    mutating func set(dropboxArgKey requestDictionary: [String: AnyObject]) {
+    mutating func setValue(dropboxArgKey requestDictionary: [String: AnyObject]) {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestDictionary, options: []) else {
             return
         }
