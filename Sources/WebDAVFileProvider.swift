@@ -564,7 +564,7 @@ public final class WebDavFileObject: FileObject {
         if propKeys.isEmpty {
             propKeys = "<D:allprop/>"
         } else {
-            propKeys += "<D:prop><D:resourcetype)></D:prop>"
+            propKeys += "<D:prop><D:resourcetype/></D:prop>"
         }
         return propKeys
     }
