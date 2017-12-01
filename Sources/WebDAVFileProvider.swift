@@ -395,6 +395,8 @@ struct DavResponse {
     let status: Int?
     let prop: [String: String]
     
+    static let urlAllowed = CharacterSet(charactersIn: " ").inverted
+    
     init? (_ node: AEXMLElement, baseURL: URL?) {
         
         func standardizePath(_ str: String) -> String {
@@ -424,8 +426,10 @@ struct DavResponse {
         
         guard let hrefString = node[hreftag].value else { return nil }
         
+        // Percent-encoding space, some servers return invalid urls which space is not encoded to %20
+        let hrefStrPercented = hrefString.addingPercentEncoding(withAllowedCharacters: DavResponse.urlAllowed) ?? hrefString
         // trying to figure out relative path out of href
-        let hrefAbsolute = URL(string: hrefString, relativeTo: baseURL)?.absoluteURL
+        let hrefAbsolute = URL(string: hrefStrPercented, relativeTo: baseURL)?.absoluteURL
         let relativePath: String
         if hrefAbsolute?.host?.replacingOccurrences(of: "www.", with: "", options: .anchored) == baseURL?.host?.replacingOccurrences(of: "www.", with: "", options: .anchored) {
             relativePath = hrefAbsolute?.path.replacingOccurrences(of: baseURL?.absoluteURL.path ?? "", with: "", options: .anchored, range: nil) ?? hrefString
