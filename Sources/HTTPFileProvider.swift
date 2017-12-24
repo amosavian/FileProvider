@@ -108,6 +108,18 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
+    deinit {
+        if let sessionuuid = _session?.sessionDescription {
+            removeSessionHandler(for: sessionuuid)
+        }
+        
+        if fileProviderCancelTasksOnInvalidating {
+            _session?.invalidateAndCancel()
+        } else {
+            _session?.finishTasksAndInvalidate()
+        }
+    }
+    
     public func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.credential, forKey: "credential")
@@ -121,18 +133,6 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     
     open func copy(with zone: NSZone? = nil) -> Any {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
-    }
-    
-    deinit {
-        if let sessionuuid = _session?.sessionDescription {
-            removeSessionHandler(for: sessionuuid)
-        }
-        
-        if fileProviderCancelTasksOnInvalidating {
-            _session?.invalidateAndCancel()
-        } else {
-            _session?.finishTasksAndInvalidate()
-        }
     }
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {

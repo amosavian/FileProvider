@@ -125,6 +125,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     
+    deinit {
+        let monitors = self.monitors
+        self.monitors = []
+        for monitor in monitors {
+            monitor.stop()
+        }
+    }
+    
     open func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "currentPath")
         aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
