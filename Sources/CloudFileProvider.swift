@@ -106,6 +106,14 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         self.isCoorinating = aDecoder.decodeBool(forKey: "isCoorinating")
     }
     
+    deinit {
+        let monitors = self.monitors
+        self.monitors = [:]
+        for monitor in monitors {
+            self.unregisterNotifcation(path: monitor.key)
+        }
+    }
+    
     open override func encode(with aCoder: NSCoder) {
         super.encode(with: aCoder)
         aCoder.encode(self.containerId, forKey: "containerId")
