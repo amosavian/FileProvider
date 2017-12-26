@@ -324,8 +324,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         self._state = .canceling
-        inputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
-        outputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
+        //inputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
+        //outputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
         
         self.inputStream?.close()
         self.outputStream?.close()
@@ -681,7 +681,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
 public extension URLSession {
     /// Creates a bidirectional stream task to a given host and port.
     func fpstreamTask(withHostName hostname: String, port: Int) -> FileProviderStreamTask {
-        return FileProviderStreamTask(session: self, host: hostname, port: port)
+        return FileProviderStreamTask(session: self, host: hostname, port: port, useURLSession: false)
     }
     
     /**
