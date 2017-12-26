@@ -204,7 +204,7 @@ internal extension FTPFileProvider {
                     throw error
                 }
                 
-                guard let response = response, let destString = response.components(separatedBy: " ").flatMap({ $0 }).last.flatMap(String.init) else {
+                guard let response = response, let destString = response.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: " ").last else {
                     throw self.urlError("", code: .badServerResponse)
                 }
                 
@@ -308,6 +308,7 @@ internal extension FTPFileProvider {
     
     func ftpList(_ task: FileProviderStreamTask, of path: String, useMLST: Bool, completionHandler: @escaping (_ contents: [String], _ error: Error?) -> Void) {
         self.ftpDataConnect(task) { (dataTask, error) in
+
             if let error = error {
                 completionHandler([], error)
                 return
@@ -321,10 +322,8 @@ internal extension FTPFileProvider {
             var success = false
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
             self.execute(command: command, on: task, minLength: 20, afterSend: { error in
-                // starting passive task
-                let timeout = self.session.configuration.timeoutIntervalForRequest
-                
                 DispatchQueue.global().async {
+                    let timeout = self.session.configuration.timeoutIntervalForRequest
                     var finalData = Data()
                     var eof = false
                     var error: Error?
