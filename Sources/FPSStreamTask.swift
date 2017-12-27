@@ -265,7 +265,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var host: (hostname: String, port: Int)?
     fileprivate var service: NetService?
     
-    internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = true) {
+    private static let defaultUseURLSession = false
+    
+    internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = defaultUseURLSession) {
         self._underlyingSession = session
         self.useURLSession = useURLSession
         if #available(iOS 9.0, macOS 10.11, *) {
@@ -285,7 +287,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         self.operation_queue.maxConcurrentOperationCount = 1
     }
     
-    internal init(session: URLSession, netService: NetService, useURLSession: Bool = true) {
+    internal init(session: URLSession, netService: NetService, useURLSession: Bool = defaultUseURLSession) {
         self._underlyingSession = session
         self.useURLSession = useURLSession
         if #available(iOS 9.0, macOS 10.11, *) {
@@ -463,10 +465,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 timedOut = expireDate < Date()
             }
             var dR: Data?
-            if self.dataReceived.count > maxBytes {
+            let allData = self.dataReceived
+            if allData.count > maxBytes {
                 let range: Range = 0..<maxBytes
                 dR = self.dataReceived.subdata(in: range)
-                self.dataReceived.replaceSubrange(range, with: Data())
+                self.dataReceived = allData.subdata(in: maxBytes..<allData.count)
             } else {
                 if self.dataReceived.count > 0 {
                     dR = self.dataReceived
@@ -681,7 +684,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
 public extension URLSession {
     /// Creates a bidirectional stream task to a given host and port.
     func fpstreamTask(withHostName hostname: String, port: Int) -> FileProviderStreamTask {
-        return FileProviderStreamTask(session: self, host: hostname, port: port, useURLSession: false)
+        return FileProviderStreamTask(session: self, host: hostname, port: port)
     }
     
     /**

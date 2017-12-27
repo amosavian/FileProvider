@@ -173,14 +173,6 @@ extension FileProviderBasic {
             operation_queue.maxConcurrentOperationCount = newValue
         }
     }
-    
-    /// Returns total and used capacity in provider container asynchronously.
-    @available(*, deprecated, message: "Use storageProperties which returns VolumeObject")
-    func storageProperties(completionHandler: @escaping (_ total: Int64, _ used: Int64) -> Void) {
-        self.storageProperties { (info) in
-            completionHandler(info?.totalCapacity ?? -1, info?.usage ?? 0)
-        }
-    }
 }
 
 /// Checking equality of two file provider, regardless of current path queues and delegates.
@@ -410,8 +402,8 @@ public protocol FileProviderOperations: FileProviderBasic {
 }
 
 public extension FileProviderOperations {
-    /// *DEPRECATED:* Use Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.
-    @available(*, deprecated, message: "Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.")
+    /// *OBSOLETED:* Use Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.
+    @available(*, obsoleted: 0.23, message: "Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.")
     @discardableResult
     public func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = (at as NSString).appendingPathComponent(file)

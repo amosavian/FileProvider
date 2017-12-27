@@ -39,9 +39,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     /// Determine either FTP session is in passive or active mode.
     public let passiveMode: Bool
     
-    /// Force to use URLSessionDownloadTask/URLSessionDataTask when possible
-    public var useAppleImplementation = true
-    
     fileprivate var _session: URLSession!
     internal var sessionDelegate: SessionDelegate?
     public var session: URLSession {
@@ -109,7 +106,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         self.init(baseURL: baseURL, passive: aDecoder.decodeBool(forKey: "passiveMode"), credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
-        self.useAppleImplementation = aDecoder.decodeBool(forKey: "useAppleImplementation")
     }
     
     public func encode(with aCoder: NSCoder) {
@@ -117,7 +113,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         aCoder.encode(self.credential, forKey: "credential")
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
-        aCoder.encode(self.useAppleImplementation, forKey: "useAppleImplementation")
         aCoder.encode(self.passiveMode, forKey: "passiveMode")
     }
     
@@ -131,7 +126,6 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
         copy.validatingCache = self.validatingCache
-        copy.useAppleImplementation = self.useAppleImplementation
         return copy
     }
     
@@ -147,10 +141,12 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
     }
     
-    internal var serverSupportsRFC3659: Bool = true
+    internal var supportsRFC3659: Bool = true
+    /// Uploads files in chunk if true.
+    public var supportsREST: Bool = true
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
-        self.contentsOfDirectory(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
+        self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
     }
     
     /**
@@ -205,7 +201,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func attributesOfItem(path: String, completionHandler: @escaping (FileObject?, Error?) -> Void) {
-        self.attributesOfItem(path: path, rfc3659enabled: serverSupportsRFC3659, completionHandler: completionHandler)
+        self.attributesOfItem(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
     }
     
     /**
@@ -246,7 +242,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     }
                     
                     if response.hasPrefix("500") {
-                        self.serverSupportsRFC3659 = false
+                        self.supportsRFC3659 = false
                         self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
                     }
                     
@@ -395,6 +391,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 }
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
             }, onProgress: { bytesSent, totalSent, expectedBytes in
+                progress.totalUnitCount = expectedBytes
                 progress.completedUnitCount = totalSent
                 self.delegateNotify(operation, progress: progress.fractionCompleted)
             }, completionHandler: { (error) in
@@ -417,22 +414,33 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
-        var progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: 0)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        if self.useAppleImplementation {
-            self.attributesOfItem(path: path, completionHandler: { (file, error) in
-                do {
-                    if let error = error {
-                        throw error
-                    }
-                    
-                    if file?.isDirectory ?? false {
-                        throw self.urlError(path, code: .fileIsDirectory)
-                    }
-                } catch {
+        let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        self.ftpLogin(task) { (error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                return
+            }
+            
+            self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: { task in
+                weak var weakTask = task
+                progress.cancellationHandler = {
+                    weakTask?.cancel()
+                }
+                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+            }, onProgress: { recevied, totalReceived, totalSize in
+                progress.totalUnitCount = totalSize
+                progress.completedUnitCount = totalReceived
+                self.delegateNotify(operation, progress: progress.fractionCompleted)
+            }) { (tmpurl, error) in
+                if let error = error {
+                    progress.cancel()
                     self.dispatch_queue.async {
                         completionHandler?(error)
                         self.delegateNotify(operation, error: error)
@@ -440,115 +448,16 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     return
                 }
                 
-                progress.totalUnitCount = file?.size ?? 0
-                
-                let task = self.session.downloadTask(with: self.url(of: path))
-                completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = completionHandler
-                downloadCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-                    var error: NSError?
-                    NSFileCoordinator().coordinate(writingItemAt: tempURL, options: .forMoving, writingItemAt: destURL, options: .forReplacing, error: &error, byAccessor: { (tempURL, destURL) in
-                        do {
-                            try FileManager.default.moveItem(at: tempURL, to: destURL)
-                            completionHandler?(nil)
-                        } catch {
-                            completionHandler?(error)
-                        }
-                    })
-                    if let error = error {
-                        completionHandler?(error)
-                    }
-                }
-                task.taskDescription = operation.json
-                task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
-                task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
-                progress.cancellationHandler = { [weak task] in
-                    task?.cancel()
-                }
-                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-                task.resume()
-            })
-        } else {
-            let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
-            self.ftpLogin(task) { (error) in
-                if let error = error {
+                if let tmpurl = tmpurl {
+                    try? FileManager.default.moveItem(at: tmpurl, to: destURL)
                     self.dispatch_queue.async {
-                        completionHandler?(error)
-                    }
-                    return
-                }
-                
-                self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: { task in
-                    weak var weakTask = task
-                    progress.cancellationHandler = {
-                        weakTask?.cancel()
-                    }
-                    progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-                }, onProgress: { recevied, totalReceived, totalSize in
-                    progress.totalUnitCount = totalSize
-                    progress.completedUnitCount = totalReceived
-                    self.delegateNotify(operation, progress: progress.fractionCompleted)
-                }) { (tmpurl, error) in
-                    if let error = error {
-                        progress.cancel()
-                        self.dispatch_queue.async {
-                            completionHandler?(error)
-                            self.delegateNotify(operation, error: error)
-                        }
-                        return
-                    }
-                    
-                    if let tmpurl = tmpurl {
-                        try? FileManager.default.moveItem(at: tmpurl, to: destURL)
-                        self.dispatch_queue.async {
-                            completionHandler?(nil)
-                            self.delegateNotify(operation)
-                        }
+                        completionHandler?(nil)
+                        self.delegateNotify(operation)
                     }
                 }
             }
         }
         return progress
-    }
-    
-    open func contents(path: String, completionHandler: @escaping ((Data?, Error?) -> Void)) -> Progress? {
-        let operation = FileOperationType.fetch(path: path)
-        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
-            return nil
-        }
-        
-        if self.useAppleImplementation {
-            var progress = Progress(totalUnitCount: 0)
-            progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
-            progress.kind = .file
-            progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-            
-            let task = session.downloadTask(with: url(of: path))
-            completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-                if error != nil {
-                    progress.cancel()
-                }
-                completionHandler(nil, error)
-            }
-            downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-                do {
-                    let data = try Data(contentsOf: tempURL)
-                    completionHandler(data, nil)
-                } catch {
-                    completionHandler(nil, error)
-                }
-            }
-            task.taskDescription = operation.json
-            task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
-            task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
-            progress.cancellationHandler = { [weak task] in
-                task?.cancel()
-            }
-            progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-            task.resume()
-            return progress
-        } else {
-            return self.contents(path: path, offset: 0, length: -1, completionHandler: completionHandler)
-        }
     }
     
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
