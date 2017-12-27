@@ -484,7 +484,7 @@ internal extension FTPFileProvider {
                                     totalReceived += Int64(data.count)
                                     onProgress(data, totalReceived, totalSize)
                                 }
-                                eof = seof || (length > 0 && totalReceived >= length)
+                                eof = seof || (length > 0 && totalReceived >= Int64(length))
                                 error = serror
                                 group.leave()
                             })
