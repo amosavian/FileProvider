@@ -514,7 +514,7 @@ internal extension FTPFileProvider {
                             throw self.urlError(filePath, code: .cannotParseResponse)
                         }
                         
-                        if !(response.hasPrefix("1") || !response.hasPrefix("2")) {
+                        if !(response.hasPrefix("1") || response.hasPrefix("2")) {
                             throw FileProviderFTPError(message: response)
                         }
                     } catch {
@@ -573,12 +573,16 @@ internal extension FTPFileProvider {
         }
         
         do {
-            try Data().write(to: tempURL, options: [.noFileProtection])
+            try Data().write(to: tempURL, options: [])
+            
             let fileHandle = try FileHandle(forWritingTo: tempURL)
             self.ftpRetrieve(task, filePath: filePath, from: position, length: length, onTask: onTask, onProgress: { (data, total, expected) in
                 fileHandle.write(data)
                 onProgress?(Int64(data.count), total, expected)
             }) { (error) in
+                defer {
+                    try? FileManager.default.removeItem(at: tempURL)
+                }
                 fileHandle.closeFile()
                 if let error = error {
                     completionHandler(nil, error)
@@ -777,7 +781,7 @@ internal extension FTPFileProvider {
         guard name != "." && name != ".." else { return nil }
         let path = (path as NSString).appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
         
-        let file = FileObject(url: url(of: path), name: name, path: path)
+        let file = FileObject(url: url(of: path), name: name, path: "/" + path)
         #if swift(>=4.0)
         let typeChar = posixPermission.first ?? Character(" ")
         #else
@@ -828,7 +832,7 @@ internal extension FTPFileProvider {
             attributes[keyValue[0].lowercased()] = keyValue.dropFirst().joined(separator: "=")
         }
         
-        let file = FileObject(url: url(of: correctedPath), name: name, path: correctedPath)
+        let file = FileObject(url: url(of: correctedPath), name: name, path: "/" + correctedPath)
         let dateFormatter = DateFormatter()
         dateFormatter.calendar = Calendar(identifier: .gregorian)
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
