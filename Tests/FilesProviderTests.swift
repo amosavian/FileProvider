@@ -18,6 +18,7 @@ class FilesProviderTests: XCTestCase {
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
+        try? FileManager.default.removeItem(at: dummyFile())
     }
     
     func testLocal() {
@@ -54,6 +55,23 @@ class FilesProviderTests: XCTestCase {
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
+        testBasic(provider)
+        testOperations(provider)
+    }
+    
+    func testFTPPassive() {
+        guard let urlStr = ProcessInfo.processInfo.environment["ftp_url"] else { return }
+        let url = URL(string: urlStr)!
+        let cred: URLCredential?
+        if let user = ProcessInfo.processInfo.environment["ftp_user"], let pass = ProcessInfo.processInfo.environment["ftp_password"] {
+            cred = URLCredential(user: user, password: pass, persistence: .forSession)
+        } else {
+            cred = nil
+        }
+        let provider = FTPFileProvider(baseURL: url, passive: true, credential: cred)!
+        addTeardownBlock {
+            self.testRemoveFile(provider, filePath: self.testFolderName)
+        }
         testOperations(provider)
     }
     
@@ -66,6 +84,7 @@ class FilesProviderTests: XCTestCase {
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
+        testBasic(provider)
         testOperations(provider)
     }
     
@@ -214,8 +233,6 @@ class FilesProviderTests: XCTestCase {
         let dummy = dummyFile()
         provider.copyItem(localFile: dummy, to: filePath) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
-            // TODO: check file existance of server
-            try? FileManager.default.removeItem(at: url)
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout * 3)
@@ -230,6 +247,7 @@ class FilesProviderTests: XCTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "downloaded file doesn't exist")
             let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[FileAttributeKey.size] as? Int64
             XCTAssertEqual(size, 262144, "downloaded file size is unexpected")
+            XCTAssert(FileManager.default.contentsEqual(atPath: self.dummyFile().path, andPath: url.path), "downloaded data is corrupted")
             try? FileManager.default.removeItem(at: url)
             expectation.fulfill()
         }
