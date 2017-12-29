@@ -9,32 +9,9 @@
 import Foundation
 
 internal extension FTPFileProvider {
-    func readDataUntilEOF(of task: FileProviderStreamTask, minLength: Int, receivedData: Data? = nil, timeout: TimeInterval, completionHandler: @escaping (_ data: Data?, _ errror:Error?) -> Void) {
-        task.readData(ofMinLength: minLength, maxLength: 65535, timeout: timeout) { (data, eof, error) in
-            if let error = error {
-                completionHandler(nil, error)
-                return
-            }
-            
-            var receivedData = receivedData
-            if let data = data {
-                if receivedData != nil {
-                    receivedData!.append(data)
-                } else {
-                    receivedData = data
-                }
-            }
-            
-            if eof {
-                completionHandler(receivedData, nil)
-            } else {
-                self.readDataUntilEOF(of: task, minLength: 0, receivedData: receivedData, timeout: timeout, completionHandler: completionHandler)
-            }
-            
-        }
-    }
-    
-    func execute(command: String, on task: FileProviderStreamTask, minLength: Int = 4, afterSend: ((_ error: Error?) -> Void)? = nil, completionHandler: @escaping (_ response: String?, _ error: Error?) -> Void) {
+    func execute(command: String, on task: FileProviderStreamTask, minLength: Int = 4,
+                 afterSend: ((_ error: Error?) -> Void)? = nil,
+                 completionHandler: @escaping (_ response: String?, _ error: Error?) -> Void) {
         let timeout = session.configuration.timeoutIntervalForRequest
         let terminalcommand = command + "\r\n"
         task.write(terminalcommand.data(using: .utf8)!, timeout: timeout) { (error) in
@@ -64,6 +41,41 @@ internal extension FTPFileProvider {
         }
     }
     
+    func ftpUserPass(_ task: FileProviderStreamTask, completionHandler: @escaping (_ error: Error?) -> Void) {
+        self.execute(command: "USER \(credential?.user ?? "anonymous")", on: task) { (response, error) in
+            if let error = error {
+                completionHandler(error)
+                return
+            }
+            
+            guard let response = response else {
+                completionHandler(self.urlError("", code: .badServerResponse))
+                return
+            }
+            
+            // successfully logged in
+            if response.hasPrefix("23") {
+                completionHandler(nil)
+                return
+            }
+            
+            // needs password
+            if FileProviderFTPError(message: response).code == 331 {
+                self.execute(command: "PASS \(self.credential?.password ?? "fileprovider@")", on: task) { (response, error) in
+                    if response?.hasPrefix("23") ?? false {
+                        completionHandler(nil)
+                    } else {
+                        completionHandler(self.urlError("", code: .userAuthenticationRequired))
+                    }
+                }
+                return
+            }
+            
+            let error = FileProviderFTPError(message: response)
+            completionHandler(error)
+        }
+    }
+    
     func ftpLogin(_ task: FileProviderStreamTask, completionHandler: @escaping (_ error: Error?) -> Void) {
         let timeout = session.configuration.timeoutIntervalForRequest
         
@@ -76,8 +88,6 @@ internal extension FTPFileProvider {
         if task.state == .suspended {
             task.resume()
         }
-
-        let credential = self.credential
         
         task.readData(ofMinLength: 4, maxLength: 2048, timeout: timeout) { (data, eof, error) in
             do {
@@ -89,47 +99,12 @@ internal extension FTPFileProvider {
                     throw self.urlError("", code: .cannotParseResponse)
                 }
                 
-                guard response.hasPrefix("22") else {
+                guard response.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("22") else {
                     throw FileProviderFTPError(message: response)
                 }
             } catch {
                 completionHandler(error)
                 return
-            }
-            
-            let loginHandle: () -> Void = {
-                self.execute(command: "USER \(credential?.user ?? "anonymous")", on: task) { (response, error) in
-                    if let error = error {
-                        completionHandler(error)
-                        return
-                    }
-                    
-                    guard let response = response else {
-                        completionHandler(self.urlError("", code: .badServerResponse))
-                        return
-                    }
-                    
-                    // successfully logged in
-                    if response.hasPrefix("23") {
-                        completionHandler(nil)
-                        return
-                    }
-                    
-                    // needs password
-                    if FileProviderFTPError(message: response).code == 331 {
-                        self.execute(command: "PASS \(credential?.password ?? "fileprovider@")", on: task) { (response, error) in
-                            if response?.hasPrefix("23") ?? false {
-                                completionHandler(nil)
-                            } else {
-                                completionHandler(self.urlError("", code: .userAuthenticationRequired))
-                            }
-                        }
-                        return
-                    }
-                    
-                    let error = FileProviderFTPError(message: response)
-                    completionHandler(error)
-                }
             }
             
             if !isSecure && self.baseURL?.scheme == "ftpes" {
@@ -149,7 +124,7 @@ internal extension FTPFileProvider {
                                 return
                             }
                             
-                            loginHandle()
+                            self.ftpUserPass(task, completionHandler: completionHandler)
                         })
                     }
                 })
@@ -160,35 +135,10 @@ internal extension FTPFileProvider {
                         return
                     }
                     
-                    loginHandle()
+                    self.ftpUserPass(task, completionHandler: completionHandler)
                 })
             } else {
-                loginHandle()
-            }
-        }
-    }
-    
-    func ftpCwd(_ task: FileProviderStreamTask, to path: String, completionHandler: @escaping (_ error: Error?) -> Void) {
-        self.execute(command: "CWD \(path)", on: task) { (response, error) in
-            do {
-                if let error = error {
-                    throw error
-                }
-                
-                guard let response = response else {
-                    throw self.urlError(path, code: .badServerResponse)
-                }
-                
-                // successfully logged in
-                if response.hasPrefix("25") {
-                    completionHandler(nil)
-                }
-                    // not logged in
-                else if response.hasPrefix("55") {
-                    throw FileProviderFTPError(message: response)
-                }
-            } catch {
-                completionHandler(error)
+                self.ftpUserPass(task, completionHandler: completionHandler)
             }
         }
     }
@@ -282,31 +232,8 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpRest(_ task: FileProviderStreamTask, startPosition: Int64, completionHandler: @escaping (_ error: Error?) -> Void) {
-        self.execute(command: "REST \(startPosition)", on: task) { (response, error) in
-            do {
-                if let error = error {
-                    throw error
-                }
-                
-                // Successful
-                guard let response = response else {
-                    throw self.urlError("", code: .badServerResponse)
-                }
-                
-                if response.hasPrefix("35") {
-                    completionHandler(nil)
-                } else {
-                    throw FileProviderFTPError(message: response, path: "")
-                }
-            } catch {
-                completionHandler(error)
-            }
-            
-        }
-    }
-    
-    func ftpList(_ task: FileProviderStreamTask, of path: String, useMLST: Bool, completionHandler: @escaping (_ contents: [String], _ error: Error?) -> Void) {
+    func ftpList(_ task: FileProviderStreamTask, of path: String, useMLST: Bool,
+                 completionHandler: @escaping (_ contents: [String], _ error: Error?) -> Void) {
         self.ftpDataConnect(task) { (dataTask, error) in
 
             if let error = error {
@@ -332,18 +259,19 @@ internal extension FTPFileProvider {
                         while !eof {
                             let group = DispatchGroup()
                             group.enter()
-                            dataTask.readData(ofMinLength: 1, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                            dataTask.readData(ofMinLength: 1, maxLength: Int.max, timeout: timeout) { (data, seof, serror) in
                                 if let data = data {
                                     finalData.append(data)
                                 }
                                 eof = seof
                                 error = serror
                                 group.leave()
-                            })
+                            }
                             let waitResult = group.wait(timeout: .now() + timeout)
                             
                             if let error = error {
-                                if !((error as NSError).domain == URLError.errorDomain && (error as NSError).code == URLError.cancelled.rawValue) {
+                                if !((error as NSError).domain == URLError.errorDomain
+                                    && (error as NSError).code == URLError.cancelled.rawValue) {
                                     throw error
                                 }
                                 return
@@ -358,7 +286,8 @@ internal extension FTPFileProvider {
                             throw self.urlError(path, code: .badServerResponse)
                         }
                         
-                        let contents: [String] = response.components(separatedBy: "\n").flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                        let contents: [String] = response.components(separatedBy: "\n")
+                            .flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
                         success = true
                         completionHandler(contents, nil)
                     } catch {
@@ -393,7 +322,8 @@ internal extension FTPFileProvider {
         }
     }
     
-    func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    func recursiveList(path: String, useMLST: Bool, foundItemsHandler: ((_ contents: [FileObject]) -> Void)? = nil,
+                       completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         let queue = DispatchQueue(label: "\(self.type).recursiveList")
         queue.async {
@@ -417,7 +347,8 @@ internal extension FTPFileProvider {
                 progress.becomeCurrent(withPendingUnitCount: Int64(directories.count))
                 for dir in directories {
                     group.enter()
-                    _=self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler, completionHandler: { (contents, error) in
+                    _=self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler) {
+                        (contents, error) in
                         success = success && (error == nil)
                         if let error = error {
                             completionHandler([], error)
@@ -429,7 +360,7 @@ internal extension FTPFileProvider {
                         result.append(contentsOf: contents)
                         
                         group.leave()
-                    })
+                    }
                 }
                 progress.resignCurrent()
                 group.leave()
@@ -445,7 +376,10 @@ internal extension FTPFileProvider {
         return progress
     }
     
-    func ftpRetrieve(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: @escaping (_ data: Data, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void, completionHandler: @escaping (_ error: Error?) -> Void) {
+    func ftpRetrieve(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1,
+                     onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                     onProgress: @escaping (_ data: Data, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void,
+                     completionHandler: @escaping (_ error: Error?) -> Void) {
         
         self.attributesOfItem(path: filePath) { (file, error) in
             let totalSize = file?.size ?? -1
@@ -475,7 +409,7 @@ internal extension FTPFileProvider {
                         while !eof {
                             let group = DispatchGroup()
                             group.enter()
-                            dataTask.readData(ofMinLength: 0, maxLength: 65535, timeout: timeout, completionHandler: { (data, seof, serror) in
+                            dataTask.readData(ofMinLength: 1, maxLength: Int.max, timeout: timeout) { (data, segeof, segerror) in
                                 if let data = data {
                                     var data = data
                                     if length > 0, Int64(data.count) + totalReceived > Int64(length) {
@@ -484,10 +418,10 @@ internal extension FTPFileProvider {
                                     totalReceived += Int64(data.count)
                                     onProgress(data, totalReceived, totalSize)
                                 }
-                                eof = seof || (length > 0 && totalReceived >= Int64(length))
-                                error = serror
+                                eof = segeof || (length > 0 && totalReceived >= Int64(length))
+                                error = segerror
                                 group.leave()
-                            })
+                            }
                             let waitResult = group.wait(timeout: .now() + timeout)
                             
                             if let error = error {
@@ -500,6 +434,9 @@ internal extension FTPFileProvider {
                                 return
                             }
                         }
+                        
+                        dataTask.closeRead()
+                        dataTask.closeWrite()
                         
                         completionHandler(nil)
                         return
@@ -527,7 +464,10 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpRetrieveData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
+    func ftpFileData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1,
+                     onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                     onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?,
+                     completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
         
         // Check cache
         if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
@@ -555,7 +495,10 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpRetrieveFile(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1, onTask: ((_ task: FileProviderStreamTask) -> Void)?, onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ file: URL?, _ error: Error?) -> Void) {
+    func ftpDownload(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1,
+                     onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                     onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?,
+                     completionHandler: @escaping (_ file: URL?, _ error: Error?) -> Void) {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
         
         // Check cache
@@ -595,24 +538,138 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, onTask: ((_ task: FileProviderStreamTask) -> Void)?,  onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
+    func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?,
+                  onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                  onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?,
+                  completionHandler: @escaping (_ error: Error?) -> Void) {
+        if self.uploadByREST {
+            ftpStoreParted(task, filePath: filePath, fromData: fromData, fromFile: fromFile, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
+        } else {
+            ftpStoreSerial(task, filePath: filePath, fromData: fromData, fromFile: fromFile, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
+        }
+    }
+    
+    func ftpStoreSerial(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?,
+                        onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                        onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
+        guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
         
+        ftpDataConnect(task) { (dataTask, error) in
+            if let error = error {
+                completionHandler(error)
+                return
+            }
+            
+            guard let dataTask = dataTask else {
+                completionHandler(self.urlError(filePath, code: .badServerResponse))
+                return
+            }
+            let len = 19 /* TYPE response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
+            var success = false
+            self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
+                onTask?(dataTask)
+                
+                let timeout = self.session.configuration.timeoutIntervalForResource
+                var error: Error?
+                
+                var fileHandle: FileHandle?
+                if let file = fromFile {
+                    fileHandle = FileHandle(forReadingAtPath: file.path)
+                }
+                defer {
+                    fileHandle?.closeFile()
+                    dataTask.closeRead()
+                    dataTask.closeWrite()
+                }
+                
+                let chunkSize = 4096
+                var eof = false
+                var sent: Int64 = 0
+                repeat {
+                    let subdata: Data
+                    if let data = fromData {
+                        let endIndex = min(data.count, Int(sent) + chunkSize)
+                        subdata = data.subdata(in: Int(sent)..<endIndex)
+                    } else if let fileHandle = fileHandle {
+                        fileHandle.seek(toFileOffset: UInt64(sent))
+                        subdata = fileHandle.readData(ofLength: chunkSize)
+                    } else {
+                        return
+                    }
+                    if subdata.count == 0 { return }
+                    
+                    let group = DispatchGroup()
+                    group.enter()
+                    dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
+                        error = serror
+                        sent += Int64(subdata.count)
+                        group.leave()
+                        onProgress?(Int64(subdata.count), sent, size)
+                        //print("ftp \(filePath): \(subdata.count), \(sent), \(size)")
+                    })
+                    let waitResult = group.wait(timeout: .now() + timeout)
+                    
+                    if waitResult == .timedOut {
+                        error = self.urlError(filePath, code: .timedOut)
+                    }
+                    
+                    if let error = error {
+                        completionHandler(error)
+                        return
+                    }
+                    
+                    if let data = fromData {
+                        let endIndex = min(data.count, Int(sent) + chunkSize)
+                        eof = endIndex == data.count
+                    } else if let fileHandle = fileHandle {
+                        eof = Int64(fileHandle.offsetInFile) == size
+                    }
+                } while !eof
+                success = true
+            }) { (response, error) in
+                guard success else { return }
+                
+                do {
+                    if let error = error {
+                        throw error
+                    }
+                    
+                    guard let response = response else {
+                        throw self.urlError(filePath, code: .cannotParseResponse)
+                    }
+                    
+                    if !(response.hasPrefix("1") || response.hasPrefix("2")) {
+                        throw FileProviderFTPError(message: response)
+                    }
+                    
+                    completionHandler(nil)
+                } catch {
+                    self.dispatch_queue.async {
+                        completionHandler(error)
+                    }
+                }
+            }
+        }
+    }
+    
+    func ftpStoreParted(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, from position: Int64 = 0,
+                        onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                        onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?,
+                        completionHandler: @escaping (_ error: Error?) -> Void) {
         operation_queue.addOperation {
             guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
             
             let timeout = self.session.configuration.timeoutIntervalForResource
             var error: Error?
             let chunkSize: Int
-            switch (self.supportsREST, size) {
-            case (false, _):
-                chunkSize = Int.max
-            case (_, 0..<262_144):
+            switch size {
+            case 0..<262_144:
                 chunkSize = 32_768 // 0KB To 256KB, chunk size is 32KB
-            case (_, 262_144..<1_048_576):
+            case 262_144..<1_048_576:
                 chunkSize = 65_536 // 256KB To 1MB, chunk size is 64KB
-            case (_, 1_048_576..<10_485_760):
+            case 1_048_576..<10_485_760:
                 chunkSize = 131_072 // 1MB To 10MB, chunk size is 128KB
-            case (_, 10_048_576..<33_554_432):
+            case 0_048_576..<33_554_432:
                 chunkSize = 262_144 // 10MB To 32MB, chunk size is 256KB
             default:
                 chunkSize = 524_288 // Larger than 32MB, chunk size is 512KB
@@ -627,21 +684,21 @@ internal extension FTPFileProvider {
             }
             
             var eof = false
-            var sent: Int64 = 0
+            var sent: Int64 = position
             var retried = 0
             
             repeat {
                 let subdata: Data
                 if let data = fromData {
-                    let endIndex = min(data.count, Int(sent) + chunkSize)
-                    subdata = data.subdata(in: Int(sent)..<endIndex)
+                    let endIndex = min(data.count, Int(sent - position) + chunkSize)
+                    subdata = data.subdata(in: Int(sent - position)..<endIndex)
                 } else if let fileHandle = fileHandle {
                     fileHandle.seek(toFileOffset: UInt64(sent))
                     subdata = fileHandle.readData(ofLength: chunkSize)
                 } else {
                     return
                 }
-                if subdata.count == 0 { continue }
+                if subdata.count == 0 { break }
                 
                 let group = DispatchGroup()
                 group.enter()
@@ -651,7 +708,6 @@ internal extension FTPFileProvider {
                     retried = 0
                     group.leave()
                     onProgress?(Int64(subdata.count), sent, size)
-                    //print("ftp \(filePath): \(subdata.count), \(sent), \(size)")
                 })
                 let waitResult = group.wait(timeout: .now() + timeout)
                 
@@ -679,7 +735,9 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpStore(_ task: FileProviderStreamTask, data: Data, to filePath: String, from position: Int64, onTask: ((_ task: FileProviderStreamTask) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
+    func ftpStore(_ task: FileProviderStreamTask, data: Data, to filePath: String, from position: Int64,
+                  onTask: ((_ task: FileProviderStreamTask) -> Void)?,
+                  completionHandler: @escaping (_ error: Error?) -> Void) {
         self.ftpDataConnect(task) { (dataTask, error) in
             if let error = error {
                 completionHandler(error)
