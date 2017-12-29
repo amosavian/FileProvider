@@ -90,6 +90,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         self.validatingCache = true
         self.cache = cache
         self.credential = credential
+        self.supportsRFC3659 = true
         
         #if swift(>=3.1)
         let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
@@ -106,6 +107,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         self.init(baseURL: baseURL, passive: aDecoder.decodeBool(forKey: "passiveMode"), credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
+        self.supportsRFC3659 = aDecoder.decodeBool(forKey: "supportsRFC3659")
     }
     
     public func encode(with aCoder: NSCoder) {
@@ -114,6 +116,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
         aCoder.encode(self.passiveMode, forKey: "passiveMode")
+        aCoder.encode(self.supportsRFC3659, forKey: "supportsRFC3659")
     }
     
     public static var supportsSecureCoding: Bool {
@@ -126,6 +129,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
         copy.validatingCache = self.validatingCache
+        copy.supportsRFC3659 = self.supportsRFC3659
         return copy
     }
     
@@ -141,9 +145,18 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
     }
     
-    internal var supportsRFC3659: Bool = true
-    /// Uploads files in chunk if true.
-    public var supportsREST: Bool = true
+    internal var supportsRFC3659: Bool
+    
+    /**
+     Uploads files in chunk if `true`, Otherwise It will uploads entire file/data as single stream.
+     
+     - Note: Due to an internal bug in `NSURLSessionStreamTask`, it must be true when using Apple's stream task,
+         otherwise it will occasionally throw `Assertion failed: (_writeBufferAlreadyWrittenForNextWrite == 0)`
+         fatal error. My implementation of `FileProviderStreamTask` doesn't have this bug.
+     
+     - Note: Disabling this option will increase upload speed.
+    */
+    public var uploadByREST: Bool = FileProviderStreamTask.defaultUseURLSession
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
@@ -428,7 +441,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 return
             }
             
-            self.ftpRetrieveFile(task, filePath: self.ftpPath(path), onTask: { task in
+            self.ftpDownload(task, filePath: self.ftpPath(path), onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()
@@ -483,7 +496,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 return
             }
             
-            self.ftpRetrieveData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
+            self.ftpFileData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()

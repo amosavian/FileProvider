@@ -265,7 +265,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var host: (hostname: String, port: Int)?
     fileprivate var service: NetService?
     
-    private static let defaultUseURLSession = false
+    internal static let defaultUseURLSession = false
     
     internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = defaultUseURLSession) {
         self._underlyingSession = session
@@ -465,15 +465,14 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 timedOut = expireDate < Date()
             }
             var dR: Data?
-            let allData = self.dataReceived
-            if allData.count > maxBytes {
+            if self.dataReceived.count > maxBytes {
                 let range: Range = 0..<maxBytes
                 dR = self.dataReceived.subdata(in: range)
-                self.dataReceived = allData.subdata(in: maxBytes..<allData.count)
+                self.dataReceived.removeFirst(maxBytes)
             } else {
                 if self.dataReceived.count > 0 {
                     dR = self.dataReceived
-                    self.dataReceived.count = 0
+                    self.dataReceived.removeAll(keepingCapacity: false)
                 }
             }
             let isEOF = inputStream.streamStatus == .atEnd && self.dataReceived.count == 0
