@@ -444,21 +444,12 @@ public struct LocalFileInformationGenerator {
             guard let date = date else { return nil }
             let dateStr = date.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "D:", with: "", options: .anchored)
             let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyyMMddHHmmssTZ"
-            if let result = dateFormatter.date(from: dateStr) {
-                return result
-            }
-            dateFormatter.dateFormat = "yyyyMMddHHmmssZZZZZ"
-            if let result = dateFormatter.date(from: dateStr) {
-                return result
-            }
-            dateFormatter.dateFormat = "yyyyMMddHHmmssZ"
-            if let result = dateFormatter.date(from: dateStr) {
-                return result
-            }
-            dateFormatter.dateFormat = "yyyyMMddHHmmss"
-            if let result = dateFormatter.date(from: dateStr) {
-                return result
+            let formats: [String] = ["yyyyMMddHHmmssTZ", "yyyyMMddHHmmssZZZZZ", "yyyyMMddHHmmssZ", "yyyyMMddHHmmss"]
+            for format in formats {
+                dateFormatter.dateFormat = format
+                if let result = dateFormatter.date(from: dateStr) {
+                    return result
+                }
             }
             return nil
         }

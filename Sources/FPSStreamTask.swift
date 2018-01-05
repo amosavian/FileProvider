@@ -307,6 +307,12 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         self.operation_queue.maxConcurrentOperationCount = 1
     }
     
+    deinit {
+        if !self.useURLSession {
+            self.cancel()
+        }
+    }
+    
     /**
      * Cancels the task.
      *
@@ -326,8 +332,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         self._state = .canceling
-        //inputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
-        //outputStream?.setValue(kCFBooleanTrue, forKey: kCFStreamPropertyShouldCloseNativeSocket as String)
         
         self.inputStream?.close()
         self.outputStream?.close()
