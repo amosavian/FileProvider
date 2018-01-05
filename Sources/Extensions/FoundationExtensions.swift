@@ -368,10 +368,7 @@ internal extension Data {
     }
     
     func deserializeJSON() -> [String: AnyObject]? {
-        if let dic = try? JSONSerialization.jsonObject(with: self, options: []) as? [String: AnyObject] {
-            return dic
-        }
-        return nil
+        return (try? JSONSerialization.jsonObject(with: self, options: [])) as? [String: AnyObject]
     }
     
     init<T>(value: T) {

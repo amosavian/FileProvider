@@ -307,12 +307,8 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
                 let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
                 serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
                 if let json = data?.deserializeJSON() {
-                    if let linkStr = json["link"] as? String {
-                        link = URL(string: linkStr)
-                    }
-                    if let attribDic = json["metadata"] as? [String: AnyObject] {
-                        fileObject = DropboxFileObject(json: attribDic)
-                    }
+                    link = (json["link"] as? String).flatMap(URL.init(string:))
+                    fileObject = (json["metadata"] as? [String: AnyObject]).flatMap(DropboxFileObject.init(json:))
                 }
             }
             
@@ -354,9 +350,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
                 serverError = code.flatMap { self.serverError(with: $0, path: toPath, data: data) }
                 if let json = data?.deserializeJSON() {
                     jobId = json["async_job_id"] as? String
-                    if let attribDic = json["metadata"] as? [String: AnyObject] {
-                        fileObject = DropboxFileObject(json: attribDic)
-                    }
+                    fileObject = (json["metadata"] as? [String: AnyObject]).flatMap(DropboxFileObject.init(json:))
                 }
             }
             completionHandler(jobId, fileObject, serverError ?? error)
@@ -468,12 +462,8 @@ extension DropboxFileProvider: ExtendedFileProvider {
                     image = pageImage
                 } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
                      // TODO: Implement converting html returned type of get_preview to image
-                } else if let fetchedimage = ImageClass(data: data){
-                    if let dimension = dimension {
-                        image = DropboxFileProvider.scaleDown(image: fetchedimage, toSize: dimension)
-                    } else {
-                        image = fetchedimage
-                    }
+                } else if let fetchedimage = ImageClass(data: data) {
+                    image = dimension.map({ DropboxFileProvider.scaleDown(image: fetchedimage, toSize: $0) }) ?? fetchedimage
                 }
             }
             completionHandler(image, error)

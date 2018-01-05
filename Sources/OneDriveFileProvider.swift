@@ -485,9 +485,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
                 completionHandler(nil, responseError)
                 return
             }
-            if let data = data {
-                image = ImageClass(data: data)
-            }
+            image = data.flatMap(ImageClass.init(data:))
             completionHandler(image, error)
         })
         task.resume()

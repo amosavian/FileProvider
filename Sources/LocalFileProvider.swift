@@ -228,37 +228,13 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.move(source: path, destination: toPath)
-        
-        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
-            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
-        if !overwrite && fileExists {
-            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
-            dispatch_queue.async {
-                completionHandler?(e)
-            }
-            self.delegateNotify(operation, error: e)
-            return nil
-        }
-        
-        return self.doOperation(operation, completionHandler: completionHandler)
+        return self.doOperation(operation, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: toPath)
-        
-        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
-            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
-        if !overwrite && fileExists {
-            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
-            dispatch_queue.async {
-                completionHandler?(e)
-            }
-            self.delegateNotify(operation, error: e)
-            return nil
-        }
-        
-        return self.doOperation(operation, completionHandler: completionHandler)
+        return self.doOperation(operation, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
@@ -270,18 +246,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
-        
-        let fileExists = ((try? self.url(of: toPath).checkResourceIsReachable()) ?? false) ||
-            ((try? self.url(of: toPath).checkPromisedItemIsReachable()) ?? false)
-        if !overwrite && fileExists {
-            let e = self.cocoaError(toPath, code: .fileWriteFileExists)
-            dispatch_queue.async {
-                completionHandler?(e)
-            }
-            self.delegateNotify(operation, error: e)
-            return nil
-        }
-        return self.doOperation(operation, forUploading: true, completionHandler: completionHandler)
+        return self.doOperation(operation, overwrite: overwrite, forUploading: true, completionHandler: completionHandler)
     }
     
     @discardableResult
@@ -298,7 +263,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     @discardableResult
-    fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
+    fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, overwrite: Bool = true, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
@@ -320,11 +285,16 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         let source: URL = urlofpath(path: sourcePath)
         progress.setUserInfoObject(source, forKey: .fileURLKey)
         
-        let dest: URL?
-        if let destPath = destPath {
-            dest = urlofpath(path: destPath)
-        } else {
-            dest = nil
+        let dest = destPath.map(urlofpath(path:))
+        
+        if !overwrite, let dest = dest, /* fileExists */ ((try? dest.checkResourceIsReachable()) ?? false) ||
+            ((try? dest.checkPromisedItemIsReachable()) ?? false) {
+            let e = self.cocoaError(destPath!, code: .fileWriteFileExists)
+            dispatch_queue.async {
+                completionHandler?(e)
+            }
+            self.delegateNotify(operation, error: e)
+            return nil
         }
         
         if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: operation) {
