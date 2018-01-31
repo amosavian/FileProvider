@@ -12,6 +12,8 @@ extension SMB2 {
     // MARK: SMB2 Change Notify
     
     struct ChangeNotifyRequest: SMBRequestBody {
+        static var command: SMB2.Command = .CHANGE_NOTIFY
+        
         let size: UInt16
         let flags: ChangeNotifyRequest.Flags
         let outputBufferLength: UInt32

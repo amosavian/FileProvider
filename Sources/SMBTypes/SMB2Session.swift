@@ -12,6 +12,8 @@ extension SMB2 {
     // MARK: SMB2 Negotiating
     
     struct NegotiateRequest: SMBRequestBody {
+        static var command: SMB2.Command = .NEGOTIATE
+        
         let header: NegotiateRequest.Header
         let dialects: [UInt16]
         let contexts: [(type: NegotiateContextType, data: Data)]
@@ -178,6 +180,8 @@ extension SMB2 {
     // MARK: SMB2 Session Setup
     
     struct SessionSetupRequest: SMBRequestBody {
+        static var command: SMB2.Command = .SESSION_SETUP
+        
         let header: SessionSetupRequest.Header
         let buffer: Data?
         
@@ -291,6 +295,8 @@ extension SMB2 {
     // MARK: SMB2 Log off
     
     struct LogOff: SMBRequestBody, SMBResponseBody {
+        static var command: SMB2.Command = .LOGOFF
+        
         let size: UInt16
         let reserved: UInt16
         
@@ -303,6 +309,8 @@ extension SMB2 {
     // MARK: SMB2 Echo
     
     struct Echo: SMBRequestBody, SMBResponseBody {
+        static var command: SMB2.Command = .ECHO
+        
         let size: UInt16
         let reserved: UInt16
         

@@ -162,6 +162,33 @@ extension FileProviderBasic {
         return self.searchFiles(path: path, recursive: recursive, query: predicate, foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
+     
+     - Parameters:
+     - path: location of directory to start search
+     - recursive: Searching subdirectories of path
+     - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+     - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+     - files: all files meat the `query` criteria.
+     - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
+     */
+    func searchFiles(path: String, recursive: Bool, query: NSPredicate, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+        return searchFiles(path: path, recursive: recursive, query: query, foundItemHandler: nil, completionHandler: completionHandler)
+    }
+    
     /// The maximum number of queued operations that can execute at the same time.
     ///
     /// The default value of this property is `OperationQueue.defaultMaxConcurrentOperationCount`.

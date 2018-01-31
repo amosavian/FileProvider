@@ -11,6 +11,8 @@ import Foundation
 extension SMB2 {
     // MARK: SMB2 Set Info
     struct SetInfoRequest: SMBRequestBody {
+        static var command: SMB2.Command = .SET_INFO
+        
         let header: Header
         let buffer: Data?
         

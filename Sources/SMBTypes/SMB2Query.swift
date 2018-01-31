@@ -12,6 +12,8 @@ extension SMB2 {
     // MARK: SMB2 Query Directory
     
     struct QueryDirectoryRequest: SMBRequestBody {
+        static let command: SMB2.Command = .QUERY_DIRECTORY
+        
         let header: QueryDirectoryRequest.Header
         let searchPattern: String?
         
@@ -108,6 +110,8 @@ extension SMB2 {
     // MARK: SMB2 Query Info
     
     struct QueryInfoRequest: SMBRequestBody {
+        static var command: SMB2.Command = .QUERY_INFO
+        
         let header: Header
         let buffer: Data?
         
