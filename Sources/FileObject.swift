@@ -164,7 +164,7 @@ open class FileObject: Equatable {
         #endif
         
         if let rurl = rhs.allValues[.fileURLKey] as? URL, let lurl = lhs.allValues[.fileURLKey] as? URL {
-            return rurl == lurl
+            return rurl == lurl && rhs.size == lhs.size
         }
         return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
     }

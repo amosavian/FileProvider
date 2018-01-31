@@ -16,6 +16,8 @@ extension SMB2 {
      */
     
     struct IOCtlRequest: SMBRequestBody {
+        static var command: SMB2.Command = .IOCTL
+        
         let header: Header
         let requestData:  IOCtlRequestProtocol?
         
@@ -135,6 +137,8 @@ extension SMB2 {
     
     struct IOCtlRequestData {
         struct CopyChunk: IOCtlRequestProtocol {
+            static var command: SMB2.Command = .IOCTL
+            
             let sourceKey: (UInt64, UInt64, UInt64)
             let chunkCount: UInt32
             let chunks: [Chunk]
@@ -156,6 +160,8 @@ extension SMB2 {
         }
         
         struct ReadHash: IOCtlRequestProtocol {
+            static var command: SMB2.Command = .IOCTL
+            
             let _hashType: UInt32
             var hashType: IOCtlHashType {
                 return IOCtlHashType(rawValue: _hashType) ?? .PEER_DIST
@@ -181,6 +187,8 @@ extension SMB2 {
         }
         
         struct ResilencyRequest: IOCtlRequestProtocol {
+            static var command: SMB2.Command = .IOCTL
+            
             let timeout: UInt32
             fileprivate let reserved: UInt32
             
@@ -192,6 +200,8 @@ extension SMB2 {
         }
         
         struct ValidateNegotiateInfo: IOCtlRequestProtocol {
+            static var command: SMB2.Command = .IOCTL
+            
             let header: ValidateNegotiateInfo.Header
             let dialects: [UInt16]
             

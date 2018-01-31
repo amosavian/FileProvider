@@ -217,7 +217,7 @@ public struct LocalFileInformationGenerator {
         let asset = AVAsset(url: fileURL)
         let assetImgGenerate = AVAssetImageGenerator(asset: asset)
         assetImgGenerate.appliesPreferredTrackTransform = true
-        let time = CMTimeMake(asset.duration.value / 3, asset.duration.timescale)
+        let time = CMTime(value: asset.duration.value / 3, timescale: asset.duration.timescale)
         if let cgImage = try? assetImgGenerate.copyCGImage(at: time, actualTime: nil) {
             #if os(macOS)
             return ImageClass(cgImage: cgImage, size: .zero)
@@ -331,7 +331,7 @@ public struct LocalFileInformationGenerator {
             return newKey.capitalized
         }
         
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        guard fileURL.fileExists else {
             return (dic, keys)
         }
         let playerItem = AVPlayerItem(url: fileURL)

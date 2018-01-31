@@ -80,7 +80,7 @@ internal extension URL {
     }
     
     var fileExists: Bool {
-        return self.isFileURL && FileManager.default.fileExists(atPath: self.path)
+        return (try? self.checkResourceIsReachable()) ?? false
     }
 }
 
