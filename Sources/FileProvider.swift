@@ -109,7 +109,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
      
      Sample predicates:
      ```
-     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (fileSize >= 10000)")
      NSPredicate(format: "(modifiedDate >= %@)", Date())
      NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
      ```
@@ -238,12 +238,6 @@ public protocol FileProviderBasicRemote: FileProviderBasic {
     
     /// Validating cached data using E-Tag or Revision identifier if possible.
     var validatingCache: Bool { get set }
-}
-
-internal protocol FileProviderBasicRemoteInternal: FileProviderBasic {
-    var completionHandlersForTasks: [Int: SimpleCompletionHandler] { get set }
-    var downloadCompletionHandlersForTasks: [Int: (URL) -> Void] { get set }
-    var dataCompletionHandlersForTasks: [Int: (Data) -> Void] { get set }
 }
 
 internal extension FileProviderBasicRemote {    
