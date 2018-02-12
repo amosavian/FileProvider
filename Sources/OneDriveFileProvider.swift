@@ -109,11 +109,9 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - cache: A URLCache to cache downloaded files and contents.
      */
     @available(*, deprecated, message: "use init(credential:, serverURL:, route:, cache:) instead.")
-    public init(credential: URLCredential?, serverURL: URL? = nil, drive: String?, cache: URLCache? = nil) {
-        let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
-        let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
-        self.route = drive.flatMap({ UUID(uuidString: $0) }).flatMap({ Route.drive(uuid: $0) }) ?? .me
-        super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
+    public convenience init(credential: URLCredential?, serverURL: URL? = nil, drive: String?, cache: URLCache? = nil) {
+        let route: Route = drive.flatMap({ UUID(uuidString: $0) }).flatMap({ Route.drive(uuid: $0) }) ?? .me
+        self.init(credential: credential, serverURL: serverURL, route: route, cache: cache)
     }
     
     /**
@@ -165,6 +163,17 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return copy
     }
     
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameters:
+       - path: path to target directory. If empty, root will be iterated.
+       - completionHandler: a closure with result of directory entries or error.
+       - contents: An array of `FileObject` identifying the the directory entries.
+       - error: Error returned by system.
+     */
     open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         _ = paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
             guard let `self` = self else { return nil }
@@ -191,6 +200,17 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         }, completionHandler: completionHandler)
     }
     
+    /**
+     Returns a `FileObject` containing the attributes of the item (file, directory, symlink, etc.) at the path in question via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
+     
+     - Parameters:
+       - path: path to target directory. If empty, attributes of root will be returned.
+       - completionHandler: a closure with result of directory entries or error.
+       - attributes: A `FileObject` containing the attributes of the item.
+       - error: Error returned by system.
+     */
     open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
@@ -210,6 +230,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
+    /// Returns volume/provider information asynchronously.
+    /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
     open override func storageProperties(completionHandler: @escaping  (_ volumeInfo: VolumeObject?) -> Void) {
         var request = URLRequest(url: url(of: ""))
         request.httpMethod = "GET"
@@ -231,6 +253,30 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (fileSize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - files: all files meat the `query` criteria.
+       - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
+     */
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         
@@ -273,6 +319,13 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         }, completionHandler: completionHandler)
     }
     
+    /**
+     Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
+     don't return an absolute url to be used to access file directly.
+     - Parameter path: Relative path of file or directory.
+     - Parameter modifier: Added to end of url to indicate what it can used for, e.g. `contents` to fetch data.
+     - Returns: An url, can be used to access to file directly.
+     */
     open func url(of path: String, modifier: String? = nil) -> URL {
         var url: URL = baseURL!
         var rpath: String = path
@@ -306,6 +359,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return url
     }
     
+    /// Checks the connection to server or permission on local
+    ///
+    /// - Note: To prevent race condition, use this method wisely and avoid it as far possible.
+    ///
+    /// - Parameter success: indicated server is reachable or not.
     open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
         var request = URLRequest(url: url(of: ""))
         request.httpMethod = "HEAD"
@@ -315,6 +373,54 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             completionHandler(status == 200)
         })
         task.resume()
+    }
+    
+    /**
+     Uploads a file from local file url to designated path asynchronously.
+     Method will fail if source is not a local url with `file://` scheme.
+     
+     - Note: It's safe to assume that this method only works on individual files and **won't** copy folders recursively.
+     
+     - Parameters:
+       - localFile: a file url to file.
+       - to: destination path of file, including file/directory name.
+       - overwrite: Destination file should be overwritten if file is already exists. **Default** is `false`.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `Progress` to get progress or cancel progress.
+     */
+    open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        // check file is not a folder
+        guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
+            dispatch_queue.async {
+                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
+            }
+            return nil
+        }
+        
+        let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+            return nil
+        }
+        return self.upload_multipart_file(toPath, file: localFile, operation: operation, overwrite: overwrite, completionHandler: completionHandler)
+    }
+    
+    /**
+     Write the contents of the `Data` to a location asynchronously.
+     It will return error if file is already exists.
+     Not attomically by default, unless the provider enforces it.
+     
+     - Parameters:
+       - path: Path of target file.
+       - contents: Data to be written into file, pass nil to create empty file.
+       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
+    open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let operation = FileOperationType.modify(path: path)
+        guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+            return nil
+        }
+        return upload_multipart_data(path, data: data ?? Data(), operation: operation, overwrite: overwrite, completionHandler: completionHandler)
     }
     
     override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
@@ -408,7 +514,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override var maxUploadSimpleSupported: Int64 {
-        return 104_857_600 // 100MB
+        return 4_194_304 // 4MB!
     }
 
     fileprivate func registerNotifcation(path: String, eventHandler: (() -> Void)) {

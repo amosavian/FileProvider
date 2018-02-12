@@ -328,6 +328,17 @@ internal extension URLRequest {
         }
     }
     
+    mutating func setValue(contentRange range: Range<Int64>, totalBytes: Int64) {
+        let range = max(0, range.lowerBound)..<range.upperBound
+        if range.upperBound < Int.max && range.count > 0 {
+            self.setValue("bytes \(range.lowerBound)-\(range.upperBound - 1)/\(totalBytes)", forHTTPHeaderField: "Content-Range")
+        } else if range.lowerBound > 0 {
+            self.setValue("bytes \(range.lowerBound)-/\(totalBytes)", forHTTPHeaderField: "Content-Range")
+        } else {
+            self.setValue("bytes 0-/\(totalBytes)", forHTTPHeaderField: "Content-Range")
+        }
+    }
+    
     mutating func setValue(contentType: ContentMIMEType, charset: String.Encoding? = nil) {
         var parameter = ""
         if let charset = charset {

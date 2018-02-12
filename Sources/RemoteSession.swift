@@ -77,16 +77,23 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
                     }
                 }
             case #keyPath(URLSessionTask.countOfBytesSent):
-                progress.completedUnitCount = newVal
                 if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
                     let elapsed = Date().timeIntervalSince(startTime)
                     let throughput = Double(newVal) / elapsed
                     progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
-                    if task.countOfBytesExpectedToSend > 0 {
-                        let remain = task.countOfBytesExpectedToSend - task.countOfBytesSent
+                    
+                    // wokaround for multipart uploading
+                    let json = task.taskDescription?.deserializeJSON()
+                    let uploadedBytes = ((json?["uploadedBytes"] as? Int64) ?? 0) + newVal
+                    let totalBytes = (json?["totalBytes"] as? Int64) ?? task.countOfBytesExpectedToSend
+                    progress.completedUnitCount = uploadedBytes
+                    if totalBytes > 0 {
+                        let remain = totalBytes - uploadedBytes
                         let estimatedTimeRemaining = Double(remain) / elapsed
                         progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
                     }
+                } else {
+                    progress.completedUnitCount = newVal
                 }
             case #keyPath(URLSessionTask.countOfBytesExpectedToReceive), #keyPath(URLSessionTask.countOfBytesExpectedToSend):
                 progress.totalUnitCount = newVal
@@ -183,7 +190,11 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
             return
         }
         
-        fileProvider.delegateNotify(op, progress: Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+        // wokaround for multipart uploading
+        let uploadedBytes = (json["uploadedBytes"] as? Int64) ?? 0
+        let totalBytes = (json["totalBytes"] as? Int64) ?? totalBytesExpectedToSend
+        
+        fileProvider.delegateNotify(op, progress: Double(uploadedBytes + totalBytesSent) / Double(totalBytes))
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
