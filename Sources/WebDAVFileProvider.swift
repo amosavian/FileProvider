@@ -62,6 +62,17 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return copy
     }
     
+    /**
+     Returns an Array of `FileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameters:
+       - path: path to target directory. If empty, root will be iterated.
+       - completionHandler: a closure with result of directory entries or error.
+       - contents: An array of `FileObject` identifying the the directory entries.
+       - error: Error returned by system.
+     */
     override open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
         let query = NSPredicate(format: "TRUEPREDICATE")
         _ = searchFiles(path: path, recursive: false, query: query, including: [], foundItemHandler: nil, completionHandler: completionHandler)
@@ -92,11 +103,11 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      
      If the directory contains no entries or an error is occured, this method will return the empty `FileObject`.
      
-     - Parameter path: path to target directory. If empty, attributes of root will be returned.
-     - Parameter including: An array which determines which file properties should be considered to fetch.
-     - Parameter completionHandler: a closure with result of directory entries or error.
-     - Parameter attributes: A `FileObject` containing the attributes of the item.
-     - Parameter error: Error returned by system.
+     - Parameters:
+       - path: path to target directory. If empty, attributes of root will be returned.
+       - completionHandler: a closure with result of directory entries or error.
+       - attributes: A `FileObject` containing the attributes of the item.
+       - error: Error returned by system.
      */
     open func attributesOfItem(path: String, including: [URLResourceKey], completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = self.url(of: path)
@@ -122,6 +133,8 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         })
     }
     
+    /// Returns volume/provider information asynchronously.
+    /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
     override open func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         // Not all WebDAV clients implements RFC2518 which allows geting storage quota.
         // In this case you won't get error. totalSize is NSURLSessionTransferSizeUnknown
@@ -151,6 +164,30 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         })
     }
     
+    /**
+     Search files inside directory using query asynchronously.
+     
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (fileSize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
+     
+     - Parameters:
+       - path: location of directory to start search
+       - recursive: Searching subdirectories of path
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
+       - foundItemHandler: Closure which is called when a file is found
+       - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
+       - files: all files meat the `query` criteria.
+       - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
+     */
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ([FileObject], Error?) -> Void) -> Progress? {
         return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
@@ -158,17 +195,27 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     /**
      Search files inside directory using query asynchronously.
      
-     - Note: Query string is limited to file name, to search based on other file attributes, use NSPredicate version.
+     Sample predicates:
+     ```
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (fileSize >= 10000)")
+     NSPredicate(format: "(modifiedDate >= %@)", Date())
+     NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
+     ```
+     
+     - Note: Don't pass Spotlight predicates to this method directly, use `FileProvider.convertSpotlightPredicateTo()` method to get usable predicate.
+     
+     - Important: A file name criteria should be provided for Dropbox.
      
      - Parameters:
        - path: location of directory to start search
        - recursive: Searching subdirectories of path
-       - query: Simple string that file name begins with to be search, case-insensitive.
+       - query: An `NSPredicate` object with keys like `FileObject` members, except `size` which becomes `filesize`.
        - including: An array which determines which file properties should be considered to fetch.
        - foundItemHandler: Closure which is called when a file is found
        - completionHandler: Closure which will be called after finishing search. Returns an arry of `FileObject` or error if occured.
        - files: all files meat the `query` criteria.
        - error: `Error` returned by server if occured.
+     - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let url = self.url(of: path)

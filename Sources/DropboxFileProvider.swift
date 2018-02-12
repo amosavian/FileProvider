@@ -132,7 +132,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      
      Sample predicates:
      ```
-     NSPredicate(format: "(name CONTAINS[c] 'hello') && (filesize >= 10000)")
+     NSPredicate(format: "(name CONTAINS[c] 'hello') && (fileSize >= 10000)")
      NSPredicate(format: "(modifiedDate >= %@)", Date())
      NSPredicate(format: "(path BEGINSWITH %@)", "folder/child folder")
      ```

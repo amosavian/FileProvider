@@ -92,6 +92,166 @@ public final class OneDriveFileObject: FileObject {
 }
 
 internal extension OneDriveFileProvider {
+    internal func upload_multipart_data(_ targetPath: String, data: Data, operation: FileOperationType,
+                                        overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        return self.upload_multipart(targetPath, operation: operation, size: Int64(data.count), overwrite: overwrite, dataProvider: {
+            let range = $0.clamped(to: 0..<Int64(data.count))
+            return data[range]
+        }, completionHandler: completionHandler)
+    }
+    
+    internal func upload_multipart_file(_ targetPath: String, file: URL, operation: FileOperationType,
+                                        overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        // upload task can't handle uploading file
+        
+        return self.upload_multipart(targetPath, operation: operation, size: file.fileSize, overwrite: overwrite, dataProvider: { range in
+            guard let handle = FileHandle(forReadingAtPath: file.path) else {
+                throw self.cocoaError(targetPath, code: .fileNoSuchFile)
+            }
+            
+            defer {
+                handle.closeFile()
+            }
+            
+            let offset = range.lowerBound
+            handle.seek(toFileOffset: UInt64(offset))
+            guard Int64(handle.offsetInFile) == offset else {
+                throw self.cocoaError(targetPath, code: .fileReadTooLarge)
+            }
+            
+            return handle.readData(ofLength: range.count)
+        }, completionHandler: completionHandler)
+    }
+    
+    private func upload_multipart(_ targetPath: String, operation: FileOperationType, size: Int64, overwrite: Bool,
+                                  dataProvider: @escaping (Range<Int64>) throws -> Data, completionHandler: SimpleCompletionHandler) -> Progress? {
+        guard size > 0 else { return nil }
+        
+        let progress = Progress(totalUnitCount: size)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let createURL = self.url(of: targetPath, modifier: "createUploadSession")
+        var createRequest = URLRequest(url: createURL)
+        createRequest.httpMethod = "POST"
+        if overwrite {
+            createRequest.httpBody = Data(jsonDictionary: ["item": ["@microsoft.graph.conflictBehavior": "replace"] as NSDictionary])
+        } else {
+            createRequest.httpBody = Data(jsonDictionary: ["item": ["@microsoft.graph.conflictBehavior": "fail"] as NSDictionary])
+        }
+        let createSessionTask = session.dataTask(with: createRequest) { (data, response, error) in
+            if let error = error {
+                completionHandler?(error)
+                return
+            }
+            
+            if let data = data, let json = data.deserializeJSON(),
+                let uploadURL = (json["uploadUrl"] as? String).flatMap(URL.init(string:)) {
+                self.upload_multipart(url: uploadURL, operation: operation, size: Int64(data.count), progress: progress, dataProvider: dataProvider, completionHandler: completionHandler)
+            }
+        }
+        createSessionTask.resume()
+        
+        return progress
+    }
+    
+    private func upload_multipart(url: URL, operation: FileOperationType, size: Int64, range: Range<Int64>? = nil, uploadedSoFar: Int64 = 0,
+                                  progress: Progress, dataProvider: @escaping (Range<Int64>) throws -> Data, completionHandler: SimpleCompletionHandler) {
+        guard !progress.isCancelled else { return }
+        var progress = progress
+        
+        let maximumSize: Int64 = 10_485_760 // Recommended by OneDrive documentations and divides evenly by 320 KiB, max 60MiB.
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        
+        let finalRange: Range<Int64>
+        if let range = range {
+            if range.count > maximumSize {
+                finalRange = range.lowerBound..<(range.upperBound + maximumSize)
+            } else {
+                finalRange = range
+            }
+        } else {
+            finalRange = 0..<min(maximumSize, size)
+        }
+        request.setValue(contentRange: finalRange, totalBytes: size)
+        
+        let data: Data
+        do {
+            data = try dataProvider(finalRange)
+        } catch {
+            dispatch_queue.async {
+                completionHandler?(error)
+            }
+            self.delegateNotify(operation, error: error)
+            return
+        }
+        let task = session.uploadTask(with: request, from: data)
+        
+        var dictionary: [String: AnyObject] = ["type": operation.description as NSString]
+        dictionary["source"] = operation.source as NSString?
+        dictionary["dest"] = operation.destination as NSString?
+        dictionary["uploadedBytes"] = uploadedSoFar as NSNumber
+        dictionary["totalBytes"] = data.count as NSNumber
+        task.taskDescription = String(jsonDictionary: dictionary)
+        task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task, weak self] in
+            task?.cancel()
+            var deleteRequest = URLRequest(url: url)
+            deleteRequest.httpMethod = "DELETE"
+            self?.session.dataTask(with: deleteRequest).resume()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        
+        var allData = Data()
+        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
+            allData.append(data)
+        }
+        // We retain self here intentionally to allow resuming upload, This behavior may change anytime!
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task] error in
+            if let error = error {
+                progress.cancel()
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
+                return
+            }
+            
+            guard let json = allData.deserializeJSON() else {
+                let error = URLError(.badServerResponse, userInfo: [NSURLErrorKey: url, NSURLErrorFailingURLErrorKey: url, NSURLErrorFailingURLStringErrorKey: url.absoluteString])
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
+                return
+            }
+            
+            if let _ = json["error"] {
+                let code = ((task?.response as? HTTPURLResponse)?.statusCode).flatMap(FileProviderHTTPErrorCode.init(rawValue:)) ?? .badRequest
+                let error = self.serverError(with: code, path: self.relativePathOf(url: url), data: allData)
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
+                return
+            }
+            
+            if let ranges = json["nextExpectedRanges"] as? [String], let firstRange = ranges.first {
+                let uploaded = uploadedSoFar + Int64(finalRange.count)
+                let comp = firstRange.components(separatedBy: "-")
+                let lower = comp.first.flatMap(Int64.init) ?? uploaded
+                let upper = comp.dropFirst().first.flatMap(Int64.init) ?? Int64.max
+                let range = Range<Int64>(uncheckedBounds: (lower: lower, upper: upper))
+                self.upload_multipart(url: url, operation: operation, size: size, range: range, uploadedSoFar: uploaded, progress: progress,
+                                      dataProvider: dataProvider, completionHandler: completionHandler)
+                return
+            }
+            
+            if let _ = json["id"] as? String {
+                completionHandler?(nil)
+                self.delegateNotify(operation)
+            }
+        }
+        
+        task.resume()
+    }
+    
     static let dateFormatter = DateFormatter()
     static let decimalFormatter = NumberFormatter()
     

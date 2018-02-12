@@ -36,7 +36,6 @@ All functions do async calls and it wont block your main thread.
 - [x] **DropboxFileProvider** A wrapper around Dropbox Web API.
     * For now it has limitation in uploading files up to 150MB.
 - [x] **OneDriveFileProvider** A wrapper around OneDrive REST API, works with `onedrive.com` and compatible (business) servers.
-    * For now it has limitation in uploading files up to 100MB.
 - [ ] **AmazonS3FileProvider** Amazon storage backend. Used by many sites.
 - [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
