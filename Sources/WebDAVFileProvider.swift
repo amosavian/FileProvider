@@ -178,7 +178,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
         request.setValue(authentication: credential, with: credentialType)
         request.setValue(contentType: .xml, charset: .utf8)
-        request.httpBody = WebDavFileObject.xmlProp([])
+        request.httpBody = WebDavFileObject.xmlProp(including)
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(url, forKey: .fileURLKey)
         
