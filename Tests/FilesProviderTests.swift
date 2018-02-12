@@ -97,7 +97,7 @@ class FilesProviderTests: XCTestCase {
     }
     */
     
-    let timeout: Double = 20.0
+    let timeout: Double = 60.0
     let testFolderName = "Test"
     let textFilePath = "/Test/file.txt"
     let renamedFilePath = "/Test/renamed.txt"

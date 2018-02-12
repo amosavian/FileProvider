@@ -171,7 +171,7 @@ open class FileObject: Equatable {
     
     internal func mapPredicate() -> [String: Any] {
         let mapDict: [URLResourceKey: String] = [.fileURLKey: "url", .nameKey: "name", .pathKey: "path",
-                                                 .fileSizeKey: "filesize", .creationDateKey: "creationDate",
+                                                 .fileSizeKey: "fileSize", .creationDateKey: "creationDate",
                                                  .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden",
                                                  .isWritableKey: "isWritable", .serverDateKey: "serverDate",
                                                  .entryTagKey: "entryTag", .mimeTypeKey: "mimeType"]
@@ -184,6 +184,7 @@ open class FileObject: Equatable {
             }
         }
         result["eTag"] = result["entryTag"]
+        result["filesize"] = result["fileSize"]
         result["isReadOnly"] = self.isReadOnly
         result["isDirectory"] = self.isDirectory
         result["isRegularFile"] = self.isRegularFile

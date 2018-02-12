@@ -368,6 +368,7 @@ internal extension Data {
     }
     
     func deserializeJSON() -> [String: AnyObject]? {
+        guard JSONSerialization.isValidJSONObject(self) else { return nil }
         return (try? JSONSerialization.jsonObject(with: self, options: [])) as? [String: AnyObject]
     }
     

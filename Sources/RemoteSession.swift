@@ -40,12 +40,14 @@ internal func initEmptySessionHandler(_ uuid: String) {
     completionHandlersForTasks[uuid] = [:]
     downloadCompletionHandlersForTasks[uuid] = [:]
     dataCompletionHandlersForTasks[uuid] = [:]
+    responseCompletionHandlersForTasks[uuid] = [:]
 }
 
 internal func removeSessionHandler(for uuid: String) {
     _ = completionHandlersForTasks.removeValue(forKey: uuid)
     _ = downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
     _ = dataCompletionHandlersForTasks.removeValue(forKey: uuid)
+    _ = responseCompletionHandlersForTasks.removeValue(forKey: uuid)
 }
 
 /// All objects set to `FileProviderRemote.session` must be an instance of this class
@@ -154,10 +156,10 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         if let completionHandler = dataCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] {
-            if let json = dataTask.taskDescription?.deserializeJSON(),
+            /*if let json = dataTask.taskDescription?.deserializeJSON(),
                let op = FileOperationType(json: json), let fileProvider = fileProvider {
                 fileProvider.delegateNotify(op, progress: Double(dataTask.countOfBytesReceived) / Double(dataTask.countOfBytesExpectedToReceive))
-            }
+            }*/
             completionHandler(data)
         }
         
