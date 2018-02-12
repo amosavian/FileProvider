@@ -48,7 +48,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Parameter containerId: The fully-qualified container identifier for an iCloud container directory. The string you specify must not contain wildcards and must be of the form `<TEAMID>.<CONTAINER>`, where `<TEAMID>` is your development team ID and `<CONTAINER>` is the bundle identifier of the container you want to access.\
          The container identifiers for your app must be declared in the `com.apple.developer.ubiquity-container-identifiers` array of the `.entitlements` property list file in your Xcode project.\
          If you specify nil for this parameter, this method uses the first container listed in the `com.apple.developer.ubiquity-container-identifiers` entitlement array.
-     - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a Documents subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
+     - Parameter scope: Use `.documents` (default) to put documents that the user is allowed to access inside a `Documents` subdirectory. Otherwise use `.data` to store user-related data files that your app needs to share but that are not files you want the user to manipulate directly.
     */
     public convenience init? (containerId: String?, scope: UbiquitousScope = .documents) {
         assert(!(CloudFileProvider.asserting && Thread.isMainThread), "CloudFileProvider.init(containerId:) is not recommended to be executed on Main Thread.")
@@ -326,8 +326,8 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.isCancellable = false
         progress.setUserInfoObject(localFile, forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: toPath, operation: operation, progress: progress)
-        operation_queue.addOperation {
+        
+        let moveblock: () -> Void = {
             let tempFolder: URL
             if #available(iOS 10.0, macOS 10.12, tvOS 10.0, *) {
                 tempFolder = FileManager.default.temporaryDirectory
@@ -352,6 +352,26 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 self.delegateNotify(operation, error: error)
             }
         }
+        
+        let dest = self.url(of: toPath)
+        if /* fileExists */ ((try? dest.checkResourceIsReachable()) ?? false) ||
+            ((try? dest.checkPromisedItemIsReachable()) ?? false) {
+            if overwrite {
+                self.removeItem(path: toPath, completionHandler: { _ in
+                    self.operation_queue.addOperation(moveblock)
+                })
+            } else {
+                let e = self.cocoaError(dest.path, code: .fileWriteFileExists)
+                dispatch_queue.async {
+                    completionHandler?(e)
+                }
+                self.delegateNotify(operation, error: e)
+                return nil
+            }
+        } else {
+            self.operation_queue.addOperation(moveblock)
+        }
+        
         return progress
     }
     
@@ -595,9 +615,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
     }
     
-    /// Removes local copy of file, but spares cloud copy.
-    /// - Parameter path: Path of file or directory to be removed from local
-    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    /**
+     Removes local copy of file, but spares cloud copy.
+     - Parameter path: Path of file or directory to be removed from local
+     - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    */
     open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
@@ -609,9 +631,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
     }
     
-    /// Returns current version of file on this device and all versions of files in user devices.
-    /// - Parameter path: Path of file or directory.
-    /// - Parameter completionHandler: Retrieve current version on this device and all versions available. `currentVersion` will be nil if file doesn't exist. If an error parameter was provided, a presentable `Error` will be returned.
+    /**
+     Returns current version of file on this device and all versions of files in user devices.
+     - Parameter path: Path of file or directory.
+     - Parameter completionHandler: Retrieve current version on this device and all versions available. `currentVersion` will be nil if file doesn't exist. If an error parameter was provided, a presentable `Error` will be returned.
+    */
     func versionsOfItem(path: String, completionHandler: @escaping ((_ currentVersion: NSFileVersion?, _ versions: [NSFileVersion], _ error: Error?) -> Void)) {
         NotImplemented()
     }
@@ -627,16 +651,21 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
 
 /// Scope of iCloud, wrapper for NSMetadataQueryUbiquitous...Scope constants
 public enum UbiquitousScope: RawRepresentable {
-    /// Search all files not in the Documents directories of the app’s iCloud container directories.
-    /// Use this scope to store user-related data files that your app needs to share 
-    /// but that are not files you want the user to manipulate directly.
-    ///
-    /// Raw value is equivalent to `NSMetadataQueryUbiquitousDataScope`
+    /**
+     Search all files not in the Documents directories of the app’s iCloud container directories.
+     Use this scope to store user-related data files that your app needs to share
+     but that are not files you want the user to manipulate directly.
+     
+     Raw value is equivalent to `NSMetadataQueryUbiquitousDataScope`
+    */
     case data
-    /// Search all files in the Documents directories of the app’s iCloud container directories.
-    /// Put documents that the user is allowed to access inside a Documents subdirectory.
-    ///
-    /// Raw value is equivalent to `NSMetadataQueryUbiquitousDocumentsScope`
+    
+    /**
+     Search all files in the Documents directories of the app’s iCloud container directories.
+     Put documents that the user is allowed to access inside a Documents subdirectory.
+     
+     Raw value is equivalent to `NSMetadataQueryUbiquitousDocumentsScope`
+    */
     case documents
     
     public typealias RawValue = String
