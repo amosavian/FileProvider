@@ -48,7 +48,7 @@ All functions do async calls and it wont block your main thread.
 - iOS 8.0 , OSX 10.10
 - XCode 9.0
 
-Legacy version is available in swift-2 branch.
+Legacy version is available in swift-3 branch.
 
 ## Installation
 
@@ -100,13 +100,17 @@ Then you can do either:
 
 * Drop `FilesProvider.xcodeproj` to you Xcode workspace and add the framework to your Embeded Binaries in target.
 
+## Design
+
+To find design concepts and how to implement a custom provider, read [Concepts and Design document](DESIGN.md).
+
 ## Usage
 
-Each provider has a specific class which conforms to FileProvider protocol and share same syntax
+Each provider has a specific class which conforms to FileProvider protocol and share same syntax.
 
 ### Initialization
 
-For LocalFileProvider if you want to deal with `Documents` folder
+For LocalFileProvider if you want to deal with `Documents` folder:
 
 ```	swift
 import FilesProvider
@@ -156,7 +160,7 @@ let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example
 	
 For interaction with UI, set delegate variable of `FileProvider` object
 
-You can use `url(of:)` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply wrapped in URL)
+You can use `url(of:)` method if provider to get direct access url (local or remote files) for some file systems which allows to do so (Dropbox doesn't support and returns path simply wrapped in URL).
 
 ### Delegates
 
