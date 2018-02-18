@@ -372,6 +372,7 @@ internal extension Data {
     }
     
     init? (jsonDictionary dictionary: [String: AnyObject]) {
+        guard JSONSerialization.isValidJSONObject(dictionary) else { return nil }
         guard let data = try? JSONSerialization.data(withJSONObject: dictionary, options: []) else {
             return nil
         }
@@ -379,7 +380,6 @@ internal extension Data {
     }
     
     func deserializeJSON() -> [String: AnyObject]? {
-        guard JSONSerialization.isValidJSONObject(self) else { return nil }
         return (try? JSONSerialization.jsonObject(with: self, options: [])) as? [String: AnyObject]
     }
     
