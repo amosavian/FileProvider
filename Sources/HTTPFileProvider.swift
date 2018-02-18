@@ -81,7 +81,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
      This is parent initializer for subclasses. Using this method on `HTTPFileProvider` will fail as `type` is not implemented.
      
      - Parameters:
-     - baseURL: Location of WebDAV server.
+     - baseURL: Location of server.
      - credential: An `URLCredential` object with `user` and `password`.
      - cache: A URLCache to cache downloaded files and contents.
      */
@@ -356,7 +356,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     ///    - path: path of directory which enqueued for listing, for informational use like errpr reporting.
     ///    - requestHandler: Get token of next page and returns appropriate `URLRequest` to be sent to server.
     ///        handler can return `nil` to cancel entire operation.
-    ///    - token: Token of the page which `URLRequest` is needed, token will be `nil` for initial page. .
+    ///    - token: Token of the page which `URLRequest` is needed, token will be `nil` for initial page.
     ///    - pageHandler: Handler which is called after fetching results of a page to parse data. will return parse result as
     ///        array of `FileObject` or error if data is nil or parsing is failed. Method will not continue to next page if
     ///        `error` is returned, otherwise `nextToken` will be used for next page. `nil` value for `newToken` will indicate
