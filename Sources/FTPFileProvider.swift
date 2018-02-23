@@ -76,7 +76,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
      */
     public init? (baseURL: URL, passive: Bool = true, credential: URLCredential? = nil, cache: URLCache? = nil) {
-        guard (baseURL.scheme ?? "ftp").lowercased().hasPrefix("ftp") else { return nil }
+        guard ["ftp", "ftps", "ftpes"].contains(baseURL.uw_scheme.lowercased()) else {
+            return nil
+        }
         guard baseURL.host != nil else { return nil }
         var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)!
         let defaultPort: Int = baseURL.scheme == "ftps" ? 990 : 21

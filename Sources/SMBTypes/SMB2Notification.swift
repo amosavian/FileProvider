@@ -89,9 +89,7 @@ extension SMB2 {
             while i < maxLoop {
                 let nextOffset: UInt32 = data.scanValue(start: offset) ?? 0
                 let actionValue: UInt32 = data.scanValue(start: offset + 4) ?? 0
-                guard let action = FileNotifyAction(rawValue: actionValue) else {
-                    continue
-                }
+                let action = FileNotifyAction(rawValue: actionValue)
                 
                 let fileNameLen = Int(data.scanValue(start: offset + 8) as UInt32? ?? 0)
                 let fileName = data.scanString(start: offset + 12, length: fileNameLen, using: .utf16) ?? ""
@@ -108,28 +106,38 @@ extension SMB2 {
         }
     }
     
-    enum FileNotifyAction: UInt32 {
+    struct FileNotifyAction: Option {
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        init(_ rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        let rawValue: UInt32
+        
         /// The file was added to the directory.
-        case ADDED = 0x00000001
+        public static let ADDED = FileNotifyAction(0x00000001)
         /// The file was removed from the directory.
-        case REMOVED = 0x00000002
+        public static let REMOVED = FileNotifyAction(0x00000002)
         /// The file was modified. This can be a change to the data or attributes of the file.
-        case MODIFIED = 0x00000003
+        public static let MODIFIED = FileNotifyAction(0x00000003)
         /// The file was renamed, and this is the old name. If the new name resides outside of the directory being monitored, the client will not receive the FILE_ACTION_RENAMED_NEW_NAME bit value.
-        case RENAMED_OLD_NAME = 0x00000004
+        public static let RENAMED_OLD_NAME = FileNotifyAction(0x00000004)
         /// The file was renamed, and this is the new name. If the old name resides outside of the directory being monitored, the client will not receive the FILE_ACTION_RENAME_OLD_NAME bit value.
-        case RENAMED_NEW_NAME = 0x00000005
+        public static let RENAMED_NEW_NAME = FileNotifyAction(0x00000005)
         /// The file was added to a named stream.
-        case ADDED_STREAM = 0x00000006
+        public static let ADDED_STREAM = FileNotifyAction(0x00000006)
         /// The file was removed from the named stream.
-        case REMOVED_STREAM = 0x00000007
+        public static let REMOVED_STREAM = FileNotifyAction(0x00000007)
         /// The file was modified. This can be a change to the data or attributes of the file.
-        case MODIFIED_STREAM = 0x00000008
+        public static let MODIFIED_STREAM = FileNotifyAction(0x00000008)
         /// An object ID was removed because the file the object ID referred to was deleted. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
-        case REMOVED_BY_DELETE = 0x00000009
+        public static let REMOVED_BY_DELETE = FileNotifyAction(0x00000009)
         /// An attempt to tunnel object ID information to a file being created or renamed failed because the object ID is in use by another file on the same volume. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
-        case NOT_TUNNELLED = 0x0000000A
+        public static let NOT_TUNNELLED = FileNotifyAction(0x0000000A)
         /// An attempt to tunnel object ID information to a file being renamed failed because the file already has an object ID. This notification is only sent when the directory being monitored is the special directory "\$Extend\$ObjId:$O:$INDEX_ALLOCATION".
-        case TUNNELLED_ID_COLLISION = 0x0000000B
+        public static let TUNNELLED_ID_COLLISION = FileNotifyAction(0x0000000B)
     }
 }

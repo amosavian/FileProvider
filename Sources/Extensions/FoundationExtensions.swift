@@ -253,7 +253,7 @@ internal extension URLRequest {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
         if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
             if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-                self.setValue("\(charsetString); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
+                self.setValue("\(charsetString);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
             } else {
                 self.setValue(charsetString, forHTTPHeaderField: "Accept-Charset")
             }
@@ -263,7 +263,7 @@ internal extension URLRequest {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(acceptCharset.rawValue)
         if let charsetString = CFStringConvertEncodingToIANACharSetName(cfEncoding) as String? {
             if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-                self.addValue("\(charsetString); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
+                self.addValue("\(charsetString);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Charset")
             } else {
                 self.addValue(charsetString, forHTTPHeaderField: "Accept-Charset")
             }
@@ -279,7 +279,7 @@ internal extension URLRequest {
     
     mutating func setValue(acceptEncoding: Encoding, quality: Double? = nil) {
         if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-            self.setValue("\(acceptEncoding.rawValue); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
+            self.setValue("\(acceptEncoding.rawValue);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
         } else {
             self.setValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
         }
@@ -287,7 +287,7 @@ internal extension URLRequest {
     
     mutating func addValue(acceptEncoding: Encoding, quality: Double? = nil) {
         if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-            self.addValue("\(acceptEncoding.rawValue); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
+            self.addValue("\(acceptEncoding.rawValue);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Encoding")
         } else {
             self.addValue(acceptEncoding.rawValue, forHTTPHeaderField: "Accept-Encoding")
         }
@@ -296,7 +296,7 @@ internal extension URLRequest {
     mutating func setValue(acceptLanguage: Locale, quality: Double? = nil) {
         let langCode = acceptLanguage.identifier.replacingOccurrences(of: "_", with: "-")
         if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-            self.setValue("\(langCode); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
+            self.setValue("\(langCode);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
         } else {
             self.setValue(langCode, forHTTPHeaderField: "Accept-Language")
         }
@@ -305,7 +305,7 @@ internal extension URLRequest {
     mutating func addValue(acceptLanguage: Locale, quality: Double? = nil) {
         let langCode = acceptLanguage.identifier.replacingOccurrences(of: "_", with: "-")
         if let qualityDesc = quality.flatMap({ String(format: "%.1f", min(0, max ($0, 1))) }) {
-            self.addValue("\(langCode); q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
+            self.addValue("\(langCode);q=\(qualityDesc)", forHTTPHeaderField: "Accept-Language")
         } else {
             self.addValue(langCode, forHTTPHeaderField: "Accept-Language")
         }

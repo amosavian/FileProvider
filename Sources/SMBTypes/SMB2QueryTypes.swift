@@ -15,88 +15,100 @@ protocol SMB2FilesInformationHeader: SMBResponseBody {
 }
 
 extension SMB2 {
-    enum FileInformationEnum: UInt8 {
-        case none = 0x00
-        case fileDirectoryInformation = 0x01
-        case fileFullDirectoryInformation = 0x02
-        case fileBothDirectoryInformation = 0x03
-        case fileBasicInformation = 0x04
-        case fileStandardInformation = 0x05
-        case fileInternalInformation = 0x06
-        case fileEaInformation = 0x07
-        case fileAccessInformation = 0x08
-        case fileNameInformation = 0x09
-        case fileRenameInformation = 0x0A
-        case fileLinkInformation = 0x0B
-        case fileNamesInformation = 0x0C
-        case fileDispositionInformation = 0x0D
-        case filePositionInformation = 0x0E
-        case fileFullEaInformation = 0x0F
-        case fileModeInformation = 0x10
-        case fileAlignmentInformation = 0x11
-        case fileAllInformation = 0x12
-        case fileAllocationInformation = 0x13
-        case fileEndOfFileInformation = 0x14
-        case fileAlternateNameInformation = 0x15
-        case fileStreamInformation = 0x16
-        case filePipeInformation = 0x17
-        case filePipeLocalInformation = 0x18
-        case filePipeRemoteInformation = 0x19
-        case fileMailslotQueryInformation = 0x1A
-        case fileMailslotSetInformation = 0x1B
-        case fileCompressionInformation = 0x1C
-        case fileObjectIdInformation = 0x1D
-        case fileCompletionInformation = 0x1E
-        case fileMoveClusterInformation = 0x1F
-        case fileQuotaInformation = 0x20
-        case fileReparsePointInformation = 0x21
-        case fileNetworkOpenInformation = 0x22
-        case fileAttributeTagInformation = 0x23
-        case fileTrackingInformation = 0x24
-        case fileIdBothDirectoryInformation = 0x25
-        case fileIdFullDirectoryInformation = 0x26
-        case fileValidDataLengthInformation = 0x27
-        case fileShortNameInformation = 0x28
-        case fileIoCompletionNotificationInformation = 0x29
-        case fileIoStatusBlockRangeInformation = 0x2A
-        case fileIoPriorityHintInformation = 0x2B
-        case fileSfioReserveInformation = 0x2C
-        case fileSfioVolumeInformation = 0x2D
-        case fileHardLinkInformation = 0x2E
-        case fileProcessIdsUsingFileInformation = 0x2F
-        case fileNormalizedNameInformation = 0x30
-        case fileNetworkPhysicalNameInformation = 0x31
-        case fileIdGlobalTxDirectoryInformation = 0x32
-        case fileIsRemoteDeviceInformation = 0x33
-        case fileUnusedInformation = 0x34
-        case fileNumaNodeInformation = 0x35
-        case fileStandardLinkInformation = 0x36
-        case fileRemoteProtocolInformation = 0x37
-        case fileRenameInformationBypassAccessCheck = 0x38
-        case fileLinkInformationBypassAccessCheck = 0x39
-        case fileVolumeNameInformation = 0x3A
-        case fileIdInformation = 0x3B
-        case fileIdExtdDirectoryInformation = 0x3C
-        case fileReplaceCompletionInformation = 0x3D
-        case fileHardLinkFullIdInformation = 0x3E
-        case fileIdExtdBothDirectoryInformation = 0x3F
-        case fileMaximumInformation = 0x40
+    struct FileInformationEnum: Option {
+        let rawValue: UInt8
+        
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        public static let none = 0x00
+        public static let fileDirectoryInformation = FileInformationEnum(rawValue: 0x01)
+        public static let fileFullDirectoryInformation = FileInformationEnum(rawValue: 0x02)
+        public static let fileBothDirectoryInformation = FileInformationEnum(rawValue: 0x03)
+        public static let fileBasicInformation = FileInformationEnum(rawValue: 0x04)
+        public static let fileStandardInformation = FileInformationEnum(rawValue: 0x05)
+        public static let fileInternalInformation = FileInformationEnum(rawValue: 0x06)
+        public static let fileEaInformation = FileInformationEnum(rawValue: 0x07)
+        public static let fileAccessInformation = FileInformationEnum(rawValue: 0x08)
+        public static let fileNameInformation = FileInformationEnum(rawValue: 0x09)
+        public static let fileRenameInformation = FileInformationEnum(rawValue: 0x0A)
+        public static let fileLinkInformation = FileInformationEnum(rawValue: 0x0B)
+        public static let fileNamesInformation = FileInformationEnum(rawValue: 0x0C)
+        public static let fileDispositionInformation = FileInformationEnum(rawValue: 0x0D)
+        public static let filePositionInformation = FileInformationEnum(rawValue: 0x0E)
+        public static let fileFullEaInformation = FileInformationEnum(rawValue: 0x0F)
+        public static let fileModeInformation = FileInformationEnum(rawValue: 0x10)
+        public static let fileAlignmentInformation = FileInformationEnum(rawValue: 0x11)
+        public static let fileAllInformation = FileInformationEnum(rawValue: 0x12)
+        public static let fileAllocationInformation = FileInformationEnum(rawValue: 0x13)
+        public static let fileEndOfFileInformation = FileInformationEnum(rawValue: 0x14)
+        public static let fileAlternateNameInformation = FileInformationEnum(rawValue: 0x15)
+        public static let fileStreamInformation = FileInformationEnum(rawValue: 0x16)
+        public static let filePipeInformation = FileInformationEnum(rawValue: 0x17)
+        public static let filePipeLocalInformation = FileInformationEnum(rawValue: 0x18)
+        public static let filePipeRemoteInformation = FileInformationEnum(rawValue: 0x19)
+        public static let fileMailslotQueryInformation = FileInformationEnum(rawValue: 0x1A)
+        public static let fileMailslotSetInformation = FileInformationEnum(rawValue: 0x1B)
+        public static let fileCompressionInformation = FileInformationEnum(rawValue: 0x1C)
+        public static let fileObjectIdInformation = FileInformationEnum(rawValue: 0x1D)
+        public static let fileCompletionInformation = FileInformationEnum(rawValue: 0x1E)
+        public static let fileMoveClusterInformation = FileInformationEnum(rawValue: 0x1F)
+        public static let fileQuotaInformation = FileInformationEnum(rawValue: 0x20)
+        public static let fileReparsePointInformation = FileInformationEnum(rawValue: 0x21)
+        public static let fileNetworkOpenInformation = FileInformationEnum(rawValue: 0x22)
+        public static let fileAttributeTagInformation = FileInformationEnum(rawValue: 0x23)
+        public static let fileTrackingInformation = FileInformationEnum(rawValue: 0x24)
+        public static let fileIdBothDirectoryInformation = FileInformationEnum(rawValue: 0x25)
+        public static let fileIdFullDirectoryInformation = FileInformationEnum(rawValue: 0x26)
+        public static let fileValidDataLengthInformation = FileInformationEnum(rawValue: 0x27)
+        public static let fileShortNameInformation = FileInformationEnum(rawValue: 0x28)
+        public static let fileIoCompletionNotificationInformation = FileInformationEnum(rawValue: 0x29)
+        public static let fileIoStatusBlockRangeInformation = FileInformationEnum(rawValue: 0x2A)
+        public static let fileIoPriorityHintInformation = FileInformationEnum(rawValue: 0x2B)
+        public static let fileSfioReserveInformation = FileInformationEnum(rawValue: 0x2C)
+        public static let fileSfioVolumeInformation = FileInformationEnum(rawValue: 0x2D)
+        public static let fileHardLinkInformation = FileInformationEnum(rawValue: 0x2E)
+        public static let fileProcessIdsUsingFileInformation = FileInformationEnum(rawValue: 0x2F)
+        public static let fileNormalizedNameInformation = FileInformationEnum(rawValue: 0x30)
+        public static let fileNetworkPhysicalNameInformation = FileInformationEnum(rawValue: 0x31)
+        public static let fileIdGlobalTxDirectoryInformation = FileInformationEnum(rawValue: 0x32)
+        public static let fileIsRemoteDeviceInformation = FileInformationEnum(rawValue: 0x33)
+        public static let fileUnusedInformation = FileInformationEnum(rawValue: 0x34)
+        public static let fileNumaNodeInformation = FileInformationEnum(rawValue: 0x35)
+        public static let fileStandardLinkInformation = FileInformationEnum(rawValue: 0x36)
+        public static let fileRemoteProtocolInformation = FileInformationEnum(rawValue: 0x37)
+        public static let fileRenameInformationBypassAccessCheck = FileInformationEnum(rawValue: 0x38)
+        public static let fileLinkInformationBypassAccessCheck = FileInformationEnum(rawValue: 0x39)
+        public static let fileVolumeNameInformation = FileInformationEnum(rawValue: 0x3A)
+        public static let fileIdInformation = FileInformationEnum(rawValue: 0x3B)
+        public static let fileIdExtdDirectoryInformation = FileInformationEnum(rawValue: 0x3C)
+        public static let fileReplaceCompletionInformation = FileInformationEnum(rawValue: 0x3D)
+        public static let fileHardLinkFullIdInformation = FileInformationEnum(rawValue: 0x3E)
+        public static let fileIdExtdBothDirectoryInformation = FileInformationEnum(rawValue: 0x3F)
+        public static let fileMaximumInformation = FileInformationEnum(rawValue: 0x40)
         
         static let  queryDirectory: [FileInformationEnum] = [.fileDirectoryInformation, .fileFullDirectoryInformation, .fileIdFullDirectoryInformation, .fileBothDirectoryInformation, .fileIdBothDirectoryInformation, .fileNamesInformation]
         
         static let queryInfoFile: [FileInformationEnum] = [.fileAccessInformation, .fileAlignmentInformation, .fileAllInformation, .fileAlternateNameInformation, .fileAttributeTagInformation, .fileBasicInformation, .fileCompressionInformation, fileEaInformation, .fileFullEaInformation, .fileInternalInformation, .fileModeInformation, .fileNetworkOpenInformation, .filePipeInformation, .filePipeLocalInformation, .filePipeRemoteInformation, .filePositionInformation, .fileStandardInformation, .fileStreamInformation]
     }
     
-    enum FileSystemInformationEnum: UInt8 {
-        case none = 0
-        case fileFsAttributeInformation
-        case fileFsControlInformation
-        case fileFsDeviceInformation
-        case fileFsFullSizeInformation
-        case fileFsObjectIdInformation
-        case fileFsSectorSizeInformation
-        case fileFsSizeInformation
-        case fileFsVolumeInformation
+    struct FileSystemInformationEnum: Option {
+        let rawValue: UInt8
+        
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        public static let none = FileSystemInformationEnum(rawValue: 0x00)
+        public static let fileFsAttributeInformation = FileSystemInformationEnum(rawValue: 0x01)
+        public static let fileFsControlInformation = FileSystemInformationEnum(rawValue: 0x02)
+        public static let fileFsDeviceInformation = FileSystemInformationEnum(rawValue: 0x03)
+        public static let fileFsFullSizeInformation = FileSystemInformationEnum(rawValue: 0x04)
+        public static let fileFsObjectIdInformation = FileSystemInformationEnum(rawValue: 0x05)
+        public static let fileFsSectorSizeInformation = FileSystemInformationEnum(rawValue: 0x06)
+        public static let fileFsSizeInformation = FileSystemInformationEnum(rawValue: 0x07)
+        public static let fileFsVolumeInformation = FileSystemInformationEnum(rawValue: 0x08)
     }
     
     struct FileSecurityInfo: OptionSet {
@@ -303,71 +315,89 @@ extension SMB2 {
     }
     
     struct FilePipeInformation {
-        fileprivate let _readMode: UInt32
-        var readMode: ReadMode {
-            return ReadMode(rawValue: _readMode) ?? .BYTE_STREAM_MODE
-        }
-        fileprivate let _completionMode: UInt32
-        var completionMode: CompletionMode {
-            return CompletionMode(rawValue: _completionMode) ?? .QUEUE_OPERATION
+        let readMode: ReadMode
+        fileprivate let completionMode: CompletionMode
+        
+        struct ReadMode: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let BYTE_STREAM_MODE   = ReadMode(rawValue: 0x00000000)
+            public static let MESSAGE_MODE       = ReadMode(rawValue: 0x00000001)
         }
         
-        enum ReadMode: UInt32 {
-            case BYTE_STREAM_MODE   = 0x00000000
-            case MESSAGE_MODE       = 0x00000001
-        }
-        
-        enum CompletionMode: UInt32 {
-            case QUEUE_OPERATION    = 0x00000000
-            case COMPLETE_OPERATION = 0x00000001
+        struct CompletionMode: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let QUEUE_OPERATION    = CompletionMode(rawValue: 0x00000000)
+            public static let COMPLETE_OPERATION = CompletionMode(rawValue: 0x00000001)
         }
     }
     
     struct FilePipeLocalInformation {
-        fileprivate let _namedPipeType: UInt32
-        var namedPipeType: Type {
-            return Type(rawValue: _namedPipeType) ?? .BYTE_STREAM_TYPE
-        }
-        fileprivate let _namedPipeConfiguration: UInt32
-        var namedPipeConfiguration: Configuration {
-            return Configuration(rawValue: _namedPipeConfiguration) ?? .INBOUND
-        }
+        let namedPipeType: Type
+        let namedPipeConfiguration: Configuration
         let maximumInstances: UInt32
         let currentInstances: UInt32
         let inboundQuota: UInt32
         let readDataAvailable: UInt32
         let outboundQuota: UInt32
         let writeQuotaAvailable: UInt32
-        fileprivate let _namedPipeState: UInt32
-        var namedPipeState: State {
-            return State(rawValue: _namedPipeState) ?? .DISCONNECTED_STATE
-        }
-        fileprivate let _namedPipeEnd: UInt32
-        var namedPipeEnd: End {
-            return End(rawValue: _namedPipeEnd) ?? .CLIENT_END
+        let namedPipeState: State
+        let namedPipeEnd: End
+        
+        struct `Type`: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let BYTE_STREAM_TYPE   = `Type`(rawValue: 0x00000000)
+            public static let MESSAGE_TYPE       = `Type`(rawValue: 0x00000001)
         }
         
-        enum `Type`: UInt32 {
-            case BYTE_STREAM_TYPE   = 0x00000000
-            case MESSAGE_TYPE       = 0x00000001
+        struct Configuration: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let INBOUND        = Configuration(rawValue: 0x00000000)
+            public static let OUTBOUND       = Configuration(rawValue: 0x00000001)
+            public static let FULL_DUPLEX    = Configuration(rawValue: 0x00000002)
         }
         
-        enum Configuration: UInt32 {
-            case INBOUND        = 0x00000000
-            case OUTBOUND       = 0x00000001
-            case FULL_DUPLEX    = 0x00000002
+        struct State: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let DISCONNECTED_STATE = State(rawValue: 0x00000001)
+            public static let LISTENING_STATE    = State(rawValue: 0x00000002)
+            public static let CONNECTED_STATE    = State(rawValue: 0x00000003)
+            public static let CLOSING_STATE      = State(rawValue: 0x00000004)
         }
         
-        enum State: UInt32 {
-            case DISCONNECTED_STATE = 0x00000001
-            case LISTENING_STATE    = 0x00000002
-            case CONNECTED_STATE    = 0x00000003
-            case CLOSING_STATE      = 0x00000004
-        }
-        
-        enum End: UInt32 {
-            case CLIENT_END = 0x00000000
-            case SERVER_END = 0x00000001
+        struct End: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let CLIENT_END = End(rawValue: 0x00000000)
+            public static let SERVER_END = End(rawValue: 0x00000001)
         }
     }
     
@@ -412,15 +442,18 @@ extension SMB2 {
     }
     
     struct FileFsDeviceInformation {
-        fileprivate let _deviceType: UInt32
-        var deviceType: DeviceType {
-            return DeviceType(rawValue: _deviceType) ?? .DISK
-        }
+        let deviceType: DeviceType
         let charactristics: Charactristics
         
-        enum DeviceType: UInt32 {
-            case CD_ROM = 0x00000002
-            case DISK = 0x00000007
+        struct DeviceType: Option {
+            let rawValue: UInt32
+            
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            public static let CD_ROM = DeviceType(rawValue: 0x00000002)
+            public static let DISK   = DeviceType(rawValue: 0x00000007)
         }
         
         struct Charactristics: OptionSet {
@@ -471,7 +504,7 @@ extension SMB2 {
             
             /// The file system supports case-sensitive file names when looking up (searching for) file names in a directory.
             static let CASE_SENSITIVE_SEARCH = Attributes(rawValue: 0x00000001)
-            /// The file system preserves the case of file names when it places a name on disk.
+            /// The file system preserves the public static let of file names when it places a name on disk.
             static let CASE_PRESERVED_NAMES = Attributes(rawValue: 0x00000002)
             /// The file system supports Unicode in file and directory names. This flag applies only to file and directory names; the file system neither restricts nor interprets the bytes of data within a file.
             static let UNICODE_ON_DISK = Attributes(rawValue: 0x00000004)
