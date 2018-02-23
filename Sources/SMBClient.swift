@@ -251,7 +251,7 @@ fileprivate extension SMBClient {
             return (header, SMB2.SetInfoResponse(data: messageData))
         case .OPLOCK_BREAK:
             return (header, nil) // FIXME:
-        case .INVALID:
+        default:
             throw SMBFileProviderError.invalidCommand
         }
     }

@@ -50,38 +50,14 @@ extension SMB2 {
         struct Header {
             let size: UInt16
             fileprivate let securityFlags: UInt8
-            fileprivate var _requestedOplockLevel: UInt8
-            var requestedOplockLevel: OplockLevel {
-                get {
-                    return OplockLevel(rawValue: _requestedOplockLevel)!
-                }
-                set {
-                    _requestedOplockLevel = newValue.rawValue
-                }
-            }
-            fileprivate var _impersonationLevel: UInt32
-            var impersonationLevel: ImpersonationLevel {
-                get {
-                    return ImpersonationLevel(rawValue: _impersonationLevel)!
-                }
-                set {
-                    _impersonationLevel = newValue.rawValue
-                }
-            }
+            var requestedOplockLevel: OplockLevel
+            var impersonationLevel: ImpersonationLevel
             fileprivate let flags: UInt64
             fileprivate let reserved: UInt64
             let access: FileAccessMask
             let fileAttributes: FileAttributes
             let shareAccess: ShareAccess
-            fileprivate var _desposition: UInt32
-            var desposition: CreateDisposition {
-                get {
-                    return CreateDisposition(rawValue: _desposition)!
-                }
-                set {
-                    _desposition = newValue.rawValue
-                }
-            }
+            var desposition: CreateDisposition
             let options: CreateOptions
             var nameOffset: UInt16
             var nameLength: UInt16
@@ -91,14 +67,14 @@ extension SMB2 {
             init(requestedOplockLevel: OplockLevel = .NONE, impersonationLevel: ImpersonationLevel = .anonymous, access: FileAccessMask = [.GENERIC_ALL], fileAttributes: FileAttributes = [], shareAccess: ShareAccess = [.READ], desposition: CreateDisposition = .OPEN_IF, options: CreateOptions = []) {
                 self.size = 57
                 self.securityFlags = 0
-                self._requestedOplockLevel = requestedOplockLevel.rawValue
-                self._impersonationLevel = impersonationLevel.rawValue
+                self.requestedOplockLevel = requestedOplockLevel
+                self.impersonationLevel = impersonationLevel
                 self.flags = 0
                 self.reserved = 0
                 self.access = access
                 self.fileAttributes = fileAttributes
                 self.shareAccess = shareAccess
-                self._desposition = desposition.rawValue
+                self.desposition = desposition
                 self.options = options
                 self.nameOffset = 0
                 self.nameLength = 0
@@ -137,36 +113,44 @@ extension SMB2 {
             fileprivate static let RESERVE_OPFILTER             = CreateOptions(rawValue: 0x00100000)
         }
         
-        enum CreateDisposition: UInt32 {
+        struct CreateDisposition: Option {
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            var rawValue: UInt32
             /// If the file already exists, supersede it. Otherwise, create the file.
-            case SUPERSEDE      = 0x00000000
+            public static let SUPERSEDE      = CreateDisposition(rawValue: 0x00000000)
             /// If the file already exists, return success; otherwise, fail the operation.
-            case OPEN           = 0x00000001
+            public static let OPEN           = CreateDisposition(rawValue: 0x00000001)
             /// If the file already exists, fail the operation; otherwise, create the file.
-            case CREATE         = 0x00000002
+            public static let CREATE         = CreateDisposition(rawValue: 0x00000002)
             /// Open the file if it already exists; otherwise, create the file.
-            case OPEN_IF        = 0x00000003
+            public static let OPEN_IF        = CreateDisposition(rawValue: 0x00000003)
             /// Overwrite the file if it already exists; otherwise, fail the operation.
-            case OVERWRITE      = 0x00000004
+            public static let OVERWRITE      = CreateDisposition(rawValue: 0x00000004)
             /// Overwrite the file if it already exists; otherwise, create the file.
-            case OVERWRITE_IF   = 0x00000005
+            public static let OVERWRITE_IF   = CreateDisposition(rawValue: 0x00000005)
         }
         
-        enum ImpersonationLevel: UInt32 {
-            case anonymous = 0x00000000
-            case identification = 0x00000001
-            case impersonation = 0x00000002
-            case delegate = 0x00000003
+        struct ImpersonationLevel {
+            init(rawValue: UInt32) {
+                self.rawValue = rawValue
+            }
+            
+            var rawValue: UInt32
+            
+            public static let anonymous      = ImpersonationLevel(rawValue: 0x00000000)
+            public static let identification = ImpersonationLevel(rawValue: 0x00000001)
+            public static let impersonation  = ImpersonationLevel(rawValue: 0x00000002)
+            public static let delegate       = ImpersonationLevel(rawValue: 0x00000003)
         }
     }
     
     struct CreateResponse: SMBResponseBody {
         struct Header {
             let size: UInt16
-            fileprivate let _oplockLevel: UInt8
-            var oplockLevel: OplockLevel {
-                return OplockLevel(rawValue: _oplockLevel)!
-            }
+            let oplockLevel: OplockLevel
             fileprivate let reserved: UInt32
             let creationTime: SMBTime
             let lastAccessTime: SMBTime
@@ -250,34 +234,47 @@ extension SMB2 {
             return result
         }
         
-        enum ContextNames: String {
+        struct ContextNames: Option {
+            init(rawValue: String) {
+                self.rawValue = rawValue
+            }
+            
+            let rawValue: String
+            
             /// Request Create Context: Extended attributes
-            case EA_BUFFER = "ExtA"
+            public static let EA_BUFFER = ContextNames(rawValue: "ExtA")
             /// Request Create Context: Security descriptor
-            case SD_BUFFER = "SecD"
+            public static let SD_BUFFER = ContextNames(rawValue: "SecD")
             /// Request & Response Create Context: Open to be durable
-            case DURABLE_HANDLE = "DHnQ"
-            case DURABLE_HANDLE_RESPONSE_V2 = "DH2Q"
+            public static let DURABLE_HANDLE = ContextNames(rawValue: "DHnQ")
+            /// Request & Response Create Context: Open to be durable
+            public static let DURABLE_HANDLE_RESPONSE_V2 = ContextNames(rawValue: "DH2Q")
             /// Request Create Context: Reconnect to a durable open after being disconnected
-            case DURABLE_HANDLE_RECONNECT = "DHnC"
+            public static let DURABLE_HANDLE_RECONNECT = ContextNames(rawValue: "DHnC")
             /// Request Create Context: Required allocation size of the newly created file
-            case ALLOCATION_SIZE = "AISi"
+            public static let ALLOCATION_SIZE = ContextNames(rawValue: "AISi")
             /// Request & Response Create Context: Maximal access information
-            case QUERY_MAXIMAL_ACCESS = "MxAc"
-            case TIMEWARP_TOKEN = "TWrp"
+            public static let QUERY_MAXIMAL_ACCESS = ContextNames(rawValue: "MxAc")
+            public static let TIMEWARP_TOKEN = ContextNames(rawValue: "TWrp")
             /// Response Create Context: DiskID of the open file in a volume.
-            case QUERY_ON_DISK_ID = "QFid"
+            public static let QUERY_ON_DISK_ID = ContextNames(rawValue: "QFid")
             /// Response Create Context: A lease. This value is only supported for the SMB 2.1 and 3.x dialect family.
-            case LEASE = "RqLs"
+            public static let LEASE = ContextNames(rawValue: "RqLs")
         }
     }
     
-    enum OplockLevel: UInt8 {
-        case NONE = 0x00
-        case LEVEL_II = 0x01
-        case EXCLUSIVE = 0x08
-        case BATCH = 0x09
-        case LEASE = 0xFF
+    struct OplockLevel {
+        let rawValue: UInt8
+        
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        public static let NONE      = OplockLevel(rawValue: 0x00)
+        public static let LEVEL_II  = OplockLevel(rawValue: 0x01)
+        public static let EXCLUSIVE = OplockLevel(rawValue: 0x08)
+        public static let BATCH     = OplockLevel(rawValue: 0x09)
+        public static let LEASE     = OplockLevel(rawValue: 0xFF)
     }
     
     struct ShareAccess: OptionSet {

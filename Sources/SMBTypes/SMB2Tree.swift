@@ -17,10 +17,10 @@ extension SMB2 {
         let header: TreeConnectRequest.Header
         let buffer: Data?
         var path: String {
-            return ""
+            return buffer.flatMap({ String.init(data: $0, encoding: .utf16) }) ?? ""
         }
         var share: String {
-            return ""
+            return path.split(separator: "/", omittingEmptySubsequences: true).first.map(String.init) ?? ""
         }
         
         init? (header: TreeConnectRequest.Header, host: String, share: String) {

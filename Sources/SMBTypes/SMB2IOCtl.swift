@@ -23,7 +23,7 @@ extension SMB2 {
         
         init(fileId: FileId ,ctlCode: IOCtlCode, requestData: IOCtlRequestProtocol?, flags: IOCtlRequest.Flags = []) {
             let offset = requestData != nil ? UInt32(MemoryLayout<SMB2.Header>.size + MemoryLayout<IOCtlRequest.Header>.size) : 0
-            self.header = Header(size: 57, reserved: 0, _ctlCode: ctlCode.rawValue, fileId: fileId, inputOffset: offset, inputCount: UInt32((requestData?.data().count ?? 0)), maxInputResponse: 0, outputOffset: offset, outputCount: 0, maxOutputResponse: UInt32(Int32.max), flags: flags, reserved2: 0)
+            self.header = Header(size: 57, reserved: 0, ctlCode: ctlCode, fileId: fileId, inputOffset: offset, inputCount: UInt32((requestData?.data().count ?? 0)), maxInputResponse: 0, outputOffset: offset, outputCount: 0, maxOutputResponse: UInt32(Int32.max), flags: flags, reserved2: 0)
             self.requestData = requestData
         }
         
@@ -38,10 +38,7 @@ extension SMB2 {
         struct Header {
             let size: UInt16
             fileprivate let reserved: UInt16
-            fileprivate let _ctlCode: UInt32
-            var ctlCode: IOCtlCode {
-                return IOCtlCode(rawValue: _ctlCode)!
-            }
+            let ctlCode: IOCtlCode
             let fileId: FileId
             let inputOffset: UInt32
             let inputCount: UInt32
@@ -94,10 +91,7 @@ extension SMB2 {
         struct Header {
             let size: UInt16
             fileprivate let reserved: UInt16
-            fileprivate let _ctlCode: UInt32
-            var ctlCode: IOCtlCode {
-                return IOCtlCode(rawValue: _ctlCode)!
-            }
+            let ctlCode: IOCtlCode
             let fileId: FileId
             let inputOffset: UInt32
             let inputCount: UInt32
@@ -108,31 +102,37 @@ extension SMB2 {
         }
     }
     
-    enum IOCtlCode: UInt32 {
-        case DFS_GET_REFERRALS              = 0x00060194
-        case DFS_GET_REFERRALS_EX           = 0x000601B0
-        case SET_REPARSE_POINT              = 0x000900A4
-        case FILE_LEVEL_TRIM                = 0x00098208
-        case PIPE_PEEK                      = 0x0011400C
-        case PIPE_WAIT                      = 0x00110018
+    struct IOCtlCode: Option {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        public static let DFS_GET_REFERRALS              = IOCtlCode(rawValue: 0x00060194)
+        public static let DFS_GET_REFERRALS_EX           = IOCtlCode(rawValue: 0x000601B0)
+        public static let SET_REPARSE_POINT              = IOCtlCode(rawValue: 0x000900A4)
+        public static let FILE_LEVEL_TRIM                = IOCtlCode(rawValue: 0x00098208)
+        public static let PIPE_PEEK                      = IOCtlCode(rawValue: 0x0011400C)
+        public static let PIPE_WAIT                      = IOCtlCode(rawValue: 0x00110018)
         /// PIPE_TRANSCEIVE is valid only on a named pipe with mode set to FILE_PIPE_MESSAGE_MODE.
-        case PIPE_TRANSCEIVE                = 0x0011C017
+        public static let PIPE_TRANSCEIVE                = IOCtlCode(rawValue: 0x0011C017)
         /// Get ResumeKey used by the client to uniquely identify the source file in an FSCTL_SRV_COPYCHUNK or FSCTL_SRV_COPYCHUNK_WRITE request.
-        case SRV_REQUEST_RESUME_KEY         = 0x00140078
+        public static let SRV_REQUEST_RESUME_KEY         = IOCtlCode(rawValue: 0x00140078)
         /// Get all the revision time-stamps that are associated with the Tree Connect share in which the open resides
-        case SRV_ENUMERATE_SNAPSHOTS        = 0x00144064
+        public static let SRV_ENUMERATE_SNAPSHOTS        = IOCtlCode(rawValue: 0x00144064)
         /// Reads a chunk of file for performing server side copy operations.
-        case SRV_COPYCHUNK                  = 0x001440F2
+        public static let SRV_COPYCHUNK                  = IOCtlCode(rawValue: 0x001440F2)
         /// Retrieve data from the Content Information File associated with a specified file, not valid for the SMB 2.0.2 dialect.
-        case SRV_READ_HASH                  = 0x001441BB
+        public static let SRV_READ_HASH                  = IOCtlCode(rawValue: 0x001441BB)
         /// Writes the chunk of file for performing server side copy operations.
-        case SRV_COPYCHUNK_WRITE            = 0x001480F2
+        public static let SRV_COPYCHUNK_WRITE            = IOCtlCode(rawValue: 0x001480F2)
         /// Request resiliency for a specified open file, not valid for the SMB 2.0.2 dialect.
-        case LMR_REQUEST_RESILIENCY         = 0x001401D4
+        public static let LMR_REQUEST_RESILIENCY         = IOCtlCode(rawValue: 0x001401D4)
         /// Get server network interface info e.g. link speed and socket address information
-        case QUERY_NETWORK_INTERFACE_INFO   = 0x001401FC
+        public static let QUERY_NETWORK_INTERFACE_INFO   = IOCtlCode(rawValue: 0x001401FC)
         /// Request validation of a previous SMB 2 NEGOTIATE, valid for SMB 3.0 and SMB 3.0.2 dialects.
-        case VALIDATE_NEGOTIATE_INFO        = 0x00140204
+        public static let VALIDATE_NEGOTIATE_INFO        = IOCtlCode(rawValue: 0x00140204)
     }
     
     struct IOCtlRequestData {
@@ -162,25 +162,16 @@ extension SMB2 {
         struct ReadHash: IOCtlRequestProtocol {
             static var command: SMB2.Command = .IOCTL
             
-            let _hashType: UInt32
-            var hashType: IOCtlHashType {
-                return IOCtlHashType(rawValue: _hashType) ?? .PEER_DIST
-            }
-            let _hashVersion: UInt32
-            var hashVersion: IOCtlHashVersion {
-                return IOCtlHashVersion(rawValue: _hashVersion) ?? .VER_1
-            }
-            let _hashRetrievalType: UInt32
-            var hashRetrievalType: IOCtlHashRetrievalType {
-                return IOCtlHashRetrievalType(rawValue: _hashRetrievalType) ?? .FILE_BASED
-            }
+            let _hashType: IOCtlHashType
+            let _hashVersion: IOCtlHashVersion
+            let _hashRetrievalType: IOCtlHashRetrievalType
             let length: UInt32
             let offset: UInt64
             
             init(offset: UInt64, length: UInt32, hashType: IOCtlHashType = .PEER_DIST, hashVersion: IOCtlHashVersion = .VER_1, hashRetrievalType: IOCtlHashRetrievalType = .FILE_BASED) {
-                self._hashType = hashType.rawValue
-                self._hashVersion = hashVersion.rawValue
-                self._hashRetrievalType = hashRetrievalType.rawValue
+                self._hashType = hashType
+                self._hashVersion = hashVersion
+                self._hashRetrievalType = hashRetrievalType
                 self.length = length
                 self.offset = offset
             }
@@ -350,17 +341,35 @@ extension SMB2 {
         static let RDMA_CAPABLE = IOCtlCapabilities(rawValue: 0x00000002)
     }
     
-    enum IOCtlHashType: UInt32 {
-        case PEER_DIST = 0x00000001
+    struct IOCtlHashType: Option {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        public static let PEER_DIST = IOCtlHashType(rawValue: 0x00000001)
     }
     
-    enum IOCtlHashVersion: UInt32 {
-        case VER_1 = 0x00000001
-        case VER_2 = 0x00000002
+    struct IOCtlHashVersion: Option {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        public static let VER_1 = IOCtlHashVersion(rawValue: 0x00000001)
+        public static let VER_2 = IOCtlHashVersion(rawValue: 0x00000002)
     }
     
-    enum IOCtlHashRetrievalType: UInt32 {
-        case HASH_BASED = 0x00000001
-        case FILE_BASED = 0x00000002
+    struct IOCtlHashRetrievalType: Option {
+        let rawValue: UInt32
+        
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        public static let HASH_BASED = IOCtlHashRetrievalType(rawValue: 0x00000001)
+        public static let FILE_BASED = IOCtlHashRetrievalType(rawValue: 0x00000002)
     }
 }

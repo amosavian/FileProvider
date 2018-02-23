@@ -21,10 +21,7 @@ extension SMB2 {
         let offset: UInt64
         let fileId: FileId
         let minimumLength: UInt32
-        fileprivate let _channel: UInt32
-        var channel: Channel {
-            return Channel(rawValue: _channel) ?? .NONE
-        }
+        let channel: Channel
         let remainingBytes: UInt32
         fileprivate let channelInfoOffset: UInt16
         fileprivate let channelInfoLength: UInt16
@@ -38,7 +35,7 @@ extension SMB2 {
             self.offset = offset
             self.fileId = fileId
             self.minimumLength = minimumLength
-            self._channel = channel.rawValue
+            self.channel = channel
             self.remainingBytes = remainingBytes
             self.channelInfoOffset = 0
             self.channelInfoLength = 0
@@ -79,10 +76,16 @@ extension SMB2 {
         }
     }
     
-    enum Channel: UInt32 {
-        case NONE                   = 0x00000000
-        case RDMA_V1                = 0x00000001
-        case RDMA_V1_INVALIDATE     =  0x00000002
+    struct Channel: Option {
+        init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+        
+        let rawValue: UInt32
+        
+        public static let NONE                   = Channel(rawValue: 0x00000000)
+        public static let RDMA_V1                = Channel(rawValue: 0x00000001)
+        public static let RDMA_V1_INVALIDATE     = Channel(rawValue: 0x00000002)
     }
     
     // MARK: SMB2 Write
@@ -100,10 +103,7 @@ extension SMB2 {
             let length: UInt32
             let offset: UInt64
             let fileId: FileId
-            fileprivate let _channel: UInt32
-            var channel: Channel {
-                return Channel(rawValue: _channel) ?? .NONE
-            }
+            let channel: Channel
             let remainingBytes: UInt32
             let channelInfoOffset: UInt16
             let channelInfoLength: UInt16
@@ -119,7 +119,7 @@ extension SMB2 {
                 channelInfoLength = UInt16(MemoryLayout<SMB2.ChannelInfo>.size)
             }
             let dataOffset = UInt16(MemoryLayout<SMB2.Header>.size + MemoryLayout<WriteRequest.Header>.size) + channelInfoLength
-            self.header = WriteRequest.Header(size: UInt16(49), dataOffset: dataOffset, length: UInt32(data.count), offset: offset, fileId: fileId, _channel: channel.rawValue, remainingBytes: remainingBytes, channelInfoOffset: channelInfoOffset, channelInfoLength: channelInfoLength, flags: flags)
+            self.header = WriteRequest.Header(size: UInt16(49), dataOffset: dataOffset, length: UInt32(data.count), offset: offset, fileId: fileId, channel: channel, remainingBytes: remainingBytes, channelInfoOffset: channelInfoOffset, channelInfoLength: channelInfoLength, flags: flags)
             self.channelInfo = channelInfo
             self.fileData = data
         }
