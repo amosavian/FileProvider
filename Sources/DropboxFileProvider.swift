@@ -268,7 +268,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         } else {
             errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
         }
-        return FileProviderDropboxError(code: code, path: path ?? "", errorDescription: errorDesc)
+        return FileProviderDropboxError(code: code, path: path ?? "", serverDescription: errorDesc)
     }
     
     override var maxUploadSimpleSupported: Int64 {
@@ -417,7 +417,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
         
     /// Default value for dimension is 64x64, according to Dropbox documentation
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let url: URL
         let thumbAPI: Bool
         switch (path as NSString).pathExtension.lowercased() {
@@ -432,7 +432,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
             url = URL(string: "files/get_preview", relativeTo: contentURL)!
             thumbAPI = false
         default:
-            return
+            return nil
         }
         var request = URLRequest(url: url)
         request.setValue(authentication: credential, with: .oAuth2)
@@ -469,9 +469,10 @@ extension DropboxFileProvider: ExtendedFileProvider {
             completionHandler(image, error)
         })
         task.resume()
+        return nil
     }
     
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -493,5 +494,6 @@ extension DropboxFileProvider: ExtendedFileProvider {
             completionHandler(dic, keys, serverError ?? error)
         })
         task.resume()
+        return nil
     }
 }
