@@ -10,7 +10,7 @@ import Foundation
 
 /// A protocol defines properties for errors returned by HTTP/S based providers.
 /// Including Dropbox, OneDrive and WebDAV.
-public protocol FileProviderHTTPError: Error, CustomStringConvertible {
+public protocol FileProviderHTTPError: LocalizedError, CustomStringConvertible {
     /// HTTP status codes as an enum.
     typealias Code = FileProviderHTTPErrorCode
     /// HTTP status code returned for error by server.
@@ -18,16 +18,16 @@ public protocol FileProviderHTTPError: Error, CustomStringConvertible {
     /// Path of file/folder casued that error
     var path: String { get }
     /// Contents returned by server as error description
-    var errorDescription: String? { get }
+    var serverDescription: String? { get }
 }
 
 extension FileProviderHTTPError {
     public var description: String {
-        return code.description
+        return "Status \(code.rawValue): \(code.description)"
     }
     
-    public var localizedDescription: String {
-        return description
+    public var errorDescription: String? {
+        return "Status \(code.rawValue): \(code.description)"
     }
 }
 

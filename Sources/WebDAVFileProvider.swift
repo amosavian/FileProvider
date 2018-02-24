@@ -360,7 +360,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
-        return FileProviderWebDavError(code: code, path: path ?? "", errorDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
+        return FileProviderWebDavError(code: code, path: path ?? "", serverDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
     }
     
     override func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) {
@@ -397,12 +397,12 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         return supportedExt.contains((path as NSString).pathExtension)
     }
     
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
                 completionHandler(nil, self.urlError(path, code: .resourceUnavailable))
             }
-            return
+            return nil
         }
         
         let dimension = dimension ?? CGSize(width: 64, height: 64)
@@ -421,16 +421,18 @@ extension WebDAVFileProvider: ExtendedFileProvider {
             completionHandler(data.flatMap({ ImageClass(data: $0) }), nil)
         })
         task.resume()
+        return nil
     }
     
     open func propertiesOfFileSupported(path: String) -> Bool {
         return false
     }
     
-    open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) -> Progress? {
         dispatch_queue.async {
             completionHandler([:], [], self.urlError(path, code: .resourceUnavailable))
         }
+        return nil
     }
 }
 
@@ -629,7 +631,7 @@ public final class WebDavFileObject: FileObject {
 public struct FileProviderWebDavError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
-    public let errorDescription: String?
+    public let serverDescription: String?
     /// URL of resource caused error.
     public let url: URL
 }

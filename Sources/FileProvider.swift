@@ -815,7 +815,8 @@ public protocol ExtendedFileProvider: FileProviderBasic {
        - image: `NSImage`/`UIImage` object contains preview.
        - error: `Error` returned by system.
     */
-    func thumbnailOfFile(path: String, completionHandler: @escaping (_ image: ImageClass?, _ error: Error?) -> Void)
+    @discardableResult
+    func thumbnailOfFile(path: String, completionHandler: @escaping (_ image: ImageClass?, _ error: Error?) -> Void) -> Progress?
     
     /**
      Generates and returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
@@ -831,7 +832,8 @@ public protocol ExtendedFileProvider: FileProviderBasic {
        - image: `NSImage`/`UIImage` object contains preview.
        - error: `Error` returned by system.
      */
-    func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping (_ image: ImageClass?, _ error: Error?) -> Void)
+    @discardableResult
+    func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping (_ image: ImageClass?, _ error: Error?) -> Void) -> Progress?
     
     /**
      Fetching properties of file like dimensions, duration, etc. It's variant depending on file type.
@@ -847,12 +849,14 @@ public protocol ExtendedFileProvider: FileProviderBasic {
        - keys: An `Array` contains ordering of keys.
        - error: Error returned by system.
      */
-    func propertiesOfFile(path: String, completionHandler: @escaping (_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void)
+    @discardableResult
+    func propertiesOfFile(path: String, completionHandler: @escaping (_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void) -> Progress?
 }
 
 extension ExtendedFileProvider {
-    public func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
-        self.thumbnailOfFile(path: path, dimension: nil, completionHandler: completionHandler)
+    @discardableResult
+    public func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
+        return self.thumbnailOfFile(path: path, dimension: nil, completionHandler: completionHandler)
     }
     
     internal static func convertToImage(pdfData: Data?, page: Int = 1) -> ImageClass? {

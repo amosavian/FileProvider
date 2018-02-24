@@ -510,7 +510,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         } else {
             errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
         }
-        return FileProviderOneDriveError(code: code, path: path ?? "", errorDescription: errorDesc)
+        return FileProviderOneDriveError(code: code, path: path ?? "", serverDescription: errorDesc)
     }
     
     override var maxUploadSimpleSupported: Int64 {
@@ -574,7 +574,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         }
     }
     
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) {
+    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let url: URL
         if let dimension = dimension {
             url = self.url(of: path, modifier: "thumbnails/0/=c\(dimension.width)x\(dimension.height)/content")
@@ -595,9 +595,10 @@ extension OneDriveFileProvider: ExtendedFileProvider {
             completionHandler(image, error)
         })
         task.resume()
+        return nil
     }
     
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) {
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.setValue(authentication: credential, with: .oAuth2)
@@ -615,5 +616,6 @@ extension OneDriveFileProvider: ExtendedFileProvider {
             completionHandler(dic, keys, serverError ?? error)
         })
         task.resume()
+        return nil
     }
 }

@@ -12,7 +12,7 @@ import Foundation
 public struct FileProviderOneDriveError: FileProviderHTTPError {
     public let code: FileProviderHTTPErrorCode
     public let path: String
-    public let errorDescription: String?
+    public let serverDescription: String?
 }
 
 /// Containts path, url and attributes of a OneDrive file or resource.

@@ -418,13 +418,19 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             return
         }
         
+        if isSecure {
+            inputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+            outputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+        } else {
+            inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+            outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+        }
+        
         inputStream.delegate = self
         outputStream.delegate = self
         
-        operation_queue.addOperation {
-            inputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
-            outputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
-        }
+        inputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
+        outputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
         
         inputStream.open()
         outputStream.open()
@@ -629,6 +635,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
+    fileprivate var isSecure = false
+    
+    public var securityLevel: StreamSocketSecurityLevel = .tlSv1
     /**
      * Completes any enqueued reads and writes, and establishes a secure connection.
      *
@@ -643,10 +652,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        operation_queue.addOperation {
-            self.inputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
-            self.outputStream!.setProperty(StreamSocketSecurityLevel.negotiatedSSL.rawValue, forKey: .socketSecurityLevelKey)
-        }
+        isSecure = true
     }
     
     /**
@@ -659,10 +665,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 return
             }
         }
-        operation_queue.addOperation {
-            self.inputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
-            self.outputStream!.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
-        }
+        
+        isSecure = false
     }
     
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {

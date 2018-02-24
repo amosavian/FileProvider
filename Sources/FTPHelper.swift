@@ -936,18 +936,18 @@ internal extension FTPFileProvider {
 }
 
 /// Contains error code and description returned by FTP/S provider.
-public struct FileProviderFTPError: Error {
+public struct FileProviderFTPError: LocalizedError {
     /// HTTP status code returned for error by server.
     public let code: Int
     /// Path of file/folder casued that error
     public let path: String
     /// Contents returned by server as error description
-    public let errorDescription: String?
+    public let serverDescription: String?
     
-    init(code: Int, path: String, errorDescription: String?) {
+    init(code: Int, path: String, serverDescription: String?) {
         self.code = code
         self.path = path
-        self.errorDescription = errorDescription
+        self.serverDescription = serverDescription
     }
     
     init(message response: String, path: String = "") {
@@ -962,12 +962,16 @@ public struct FileProviderFTPError: Error {
         self.path = path
         if code > 0 {
             #if swift(>=4.0)
-            self.errorDescription = message[startIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
+            self.serverDescription = message[startIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
             #else
-            self.errorDescription = message.substring(from: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+            self.serverDescription = message.substring(from: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)
             #endif
         } else {
-            self.errorDescription = message
+            self.serverDescription = message
         }
+    }
+    
+    public var errorDescription: String? {
+        return serverDescription
     }
 }
