@@ -307,12 +307,12 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         // WebDAV will override this function
     }
     
-    fileprivate func doOperation(_ operation: FileOperationType, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
+    internal func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil, completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
         
-        let progress = Progress(totalUnitCount: 1)
+        let progress = progress ?? Progress(totalUnitCount: 1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -321,12 +321,14 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderHTTPError?
-            if let response = response as? HTTPURLResponse, response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                serverError = self.serverError(with: code, path: operation.source, data: data)
-            }
-            
-            if let response = response as? HTTPURLResponse, FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data {
-                self.multiStatusHandler(source: operation.source, data: data, completionHandler: completionHandler)
+            if let response = response as? HTTPURLResponse {
+                if response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
+                    serverError = self.serverError(with: code, path: operation.source, data: data)
+                }
+                
+                if FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data {
+                    self.multiStatusHandler(source: operation.source, data: data, completionHandler: completionHandler)
+                }
             }
             
             if serverError == nil && error == nil {
@@ -334,6 +336,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
             } else {
                 progress.cancel()
             }
+            
             completionHandler?(serverError ?? error)
             self.delegateNotify(operation, error: serverError ?? error)
         })

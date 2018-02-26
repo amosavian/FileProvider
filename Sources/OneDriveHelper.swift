@@ -18,10 +18,9 @@ public struct FileProviderOneDriveError: FileProviderHTTPError {
 /// Containts path, url and attributes of a OneDrive file or resource.
 public final class OneDriveFileObject: FileObject {
     internal init(baseURL: URL?, name: String, path: String) {
-        let rpath = (URL(string:path)?.appendingPathComponent(name).absoluteString)!.replacingOccurrences(of: "/", with: "", options: .anchored)
-        let url = URL(string: rpath, relativeTo: baseURL) ?? URL(string: rpath)!
+        let url = URL(string: path, relativeTo: baseURL) ?? baseURL
         
-        super.init(url: url, name: name, path: rpath.removingPercentEncoding ?? path)
+        super.init(url: url, name: name, path: path)
     }
     
     internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, jsonStr: String) {
@@ -31,18 +30,31 @@ public final class OneDriveFileObject: FileObject {
     
     internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
-        guard let path = json["parentReference"]?["path"] as? String else { return nil }
-        var lPath = path.replacingOccurrences(of: route.drivePath, with: "", options: .anchored, range: nil)
-        lPath = lPath.replacingOccurrences(of: "/:", with: "", options: .anchored)
-        lPath = lPath.replacingOccurrences(of: "//", with: "", options: .anchored)
-        self.init(baseURL: baseURL, name: name, path: lPath)
+        guard let id = json["id"] as? String else { return nil }
+        let path: String
+        if let refpath = json["parentReference"]?["path"] as? String {
+            let parentPath: String
+            if let colonIndex = refpath.index(of: ":") {
+                #if swift(>=4.0)
+                parentPath = String(refpath[refpath.index(after: colonIndex)...])
+                #else
+                parentPath = refpath.substring(from: refpath.index(after: colonIndex))
+                #endif
+            } else {
+                parentPath = refpath
+            }
+             path = (parentPath as NSString).appendingPathComponent(name)
+        } else {
+            path = "id:\(id)"
+        }
+        self.init(baseURL: baseURL, name: name, path: path)
+        self.id = id
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         self.childrensCount = json["folder"]?["childCount"] as? Int
         self.modifiedDate = (json["lastModifiedDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.type = json["folder"] != nil ? .directory : .regular
         self.contentType = (json["file"]?["mimeType"] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
-        self.id = json["id"] as? String
         self.entryTag = json["eTag"] as? String
         let hashes = json["file"]?["hashes"] as? NSDictionary
         // checks for both sha1 or quickXor. First is available in personal drives, second in business one.
@@ -313,8 +325,17 @@ internal extension OneDriveFileProvider {
         
         if let audio = json["audio"] as? [String: Any] {
             for (key, value) in audio {
+                var value = value
                 if key == "bitrate" || key == "isVariableBitrate" { continue }
                 let casedKey = spaceCamelCase(key)
+                switch casedKey {
+                case "Duration":
+                    value = (value as? Int64).map { (TimeInterval($0) / 1000).formatshort } as Any
+                case "Bitrate":
+                    value = (value as? Int64).map { "\($0)kbps" } as Any
+                default:
+                    break
+                }
                 add(key: casedKey, value: value)
             }
         }

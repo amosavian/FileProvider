@@ -92,6 +92,13 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             }
         }
     }
+    
+    /// Microsoft Graph URL
+    public static var graphURL = URL(string: "https://graph.microsoft.com/")!
+    
+    /// Microsoft Graph URL
+    public static var graphVersion = "v1.0"
+    
     /// Route for container, default is `.me`.
     open let route: Route
     
@@ -129,7 +136,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - cache: A URLCache to cache downloaded files and contents.
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, route: Route = .me, cache: URLCache? = nil) {
-        let baseURL = serverURL?.absoluteURL ?? URL(string: "https://api.onedrive.com/")!
+        let baseURL = (serverURL?.absoluteURL ?? OneDriveFileProvider.graphURL)
+            .appendingPathComponent(OneDriveFileProvider.graphVersion, isDirectory: true)
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
         self.route = route
         super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
@@ -233,7 +241,8 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     /// Returns volume/provider information asynchronously.
     /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
     open override func storageProperties(completionHandler: @escaping  (_ volumeInfo: VolumeObject?) -> Void) {
-        var request = URLRequest(url: url(of: ""))
+        let url = URL(string: route.drivePath, relativeTo: baseURL)!
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(authentication: self.credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
@@ -244,6 +253,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             
             let volume = VolumeObject(allValues: [:])
             volume.url = request.url
+            volume.uuid = json["id"] as? String
             volume.name = json["name"] as? String
             volume.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
             volume.totalCapacity = (json["quota"]?["total"] as? NSNumber)?.int64Value ?? -1
@@ -328,15 +338,18 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     open func url(of path: String, modifier: String? = nil) -> URL {
         var url: URL = baseURL!
-        var rpath: String = path
         let isId = path.hasPrefix("id:")
-        
+        var rpath: String = path.replacingOccurrences(of: "id:", with: "", options: .anchored)
+
+        //url.appendPathComponent("v1.0")
         url.appendPathComponent(route.drivePath)
         
-        if isId {
-            url.appendPathComponent("root:")
-        } else {
+        if rpath.isEmpty {
+            url.appendPathComponent("root")
+        } else if isId {
             url.appendPathComponent("items")
+        } else {
+            url.appendPathComponent("root:")
         }
         
         rpath = rpath.trimmingCharacters(in: pathTrimSet)
@@ -442,23 +455,24 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         case .fetch(path: let path):
             method = "GET"
             url = self.url(of: path, modifier: "content")
+        case .create(path: let path) where path.hasSuffix("/"):
+            method = "POST"
+            let parent =  (path as NSString).deletingLastPathComponent
+            url = self.url(of: parent, modifier: "children")
         case .modify(path: let path):
             method = "PUT"
             let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-            url = self.url(of: path, modifier: "content\(queryStr)")
-        case .create(path: let path):
-            method = "CREATE"
-            url = self.url(of: path)
-        case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"):
-            method = "POST"
-            url = self.url(of: source)
-        case .copy(let source, let dest) where source.hasPrefix("file://"):
+            url = URL(string: self.url(of: path, modifier: "content").absoluteString + queryStr)!
+        case .copy(source: let source, destination: let dest) where source.hasPrefix("file://"):
             method = "PUT"
             let queryStr = overwrite ? "" : "?@name.conflictBehavior=fail"
-            url = self.url(of: dest, modifier: "content\(queryStr)")
-        case .copy(let source, let dest) where dest.hasPrefix("file://"):
+            url = URL(string: self.url(of: dest, modifier: "content").absoluteString + queryStr)!
+        case .copy(source: let source, destination: let dest) where dest.hasPrefix("file://"):
             method = "GET"
             url = self.url(of: source, modifier: "content")
+        case .copy(source: let source, destination: _):
+            method = "POST"
+            url = self.url(of: source, modifier: "copy")
         case .move(source: let source, destination: _):
             method = "PATCH"
             url = self.url(of: source)
@@ -471,29 +485,40 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue(authentication: self.credential, with: .oAuth2)
-        // Remove gzip to fix availability of progress per (Oleg Marchik)[https://github.com/evilutioner] PR (#61)
-        request.setValue(acceptEncoding: .deflate)
-        request.addValue(acceptEncoding: .identity)
+        // Remove gzip to fix availability of progress re. (Oleg Marchik)[https://github.com/evilutioner] PR (#61)
+        if method == "GET" {
+            request.setValue(acceptEncoding: .deflate)
+            request.addValue(acceptEncoding: .identity)
+        }
         
         switch operation {
+        case .create(path: let path) where path.hasSuffix("/"):
+            request.setValue(contentType: .json)
+            var requestDictionary = [String: AnyObject]()
+            let name = (path as NSString).lastPathComponent
+            requestDictionary["name"] = name as NSString
+            requestDictionary["folder"] = NSDictionary()
+            requestDictionary["@microsoft.graph.conflictBehavior"] = "fail" as NSString
+            request.httpBody = Data(jsonDictionary: requestDictionary)
         case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
              .move(source: let source, destination: let dest):
-            request.setValue(contentType: .json)
+            request.setValue(contentType: .json, charset: .utf8)
             let cdest = correctPath(dest) as NSString
-            var parentRefrence: [String: AnyObject] = [:]
+            var parentReference: [String: AnyObject] = [:]
             if cdest.hasPrefix("id:") {
-                parentRefrence["id"] = cdest.components(separatedBy: "/").first as NSString?
-                switch self.route {
-                case .drive(uuid: let uuid):
-                    parentRefrence["driveId"] = uuid.uuidString as NSString
-                default:
-                    break
-                }
+                parentReference["id"] = cdest.components(separatedBy: "/").first?.replacingOccurrences(of: "id:", with: "", options: .anchored) as NSString?
             } else {
-                parentRefrence["path"] = cdest.deletingLastPathComponent as NSString
+                parentReference["path"] = ("/drive/root:" as NSString).appendingPathComponent(cdest.deletingLastPathComponent) as NSString
+            }
+            switch self.route {
+            case .drive(uuid: let uuid):
+                parentReference["driveId"] = uuid.uuidString as NSString
+            default:
+                //parentReference["driveId"] = cachedDriveID as NSString? ?? ""
+                break
             }
             var requestDictionary = [String: AnyObject]()
-            requestDictionary["parentReference"] = parentRefrence as NSDictionary
+            requestDictionary["parentReference"] = parentReference as NSDictionary
             requestDictionary["name"] = (cdest as NSString).lastPathComponent as NSString
             request.httpBody = Data(jsonDictionary: requestDictionary)
         default:
@@ -531,7 +556,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
-        var request = URLRequest(url: self.url(of: path, modifier: "action.createLink"))
+        var request = URLRequest(url: self.url(of: path, modifier: "createLink"))
         request.httpMethod = "POST"
         let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
         request.httpBody = Data(jsonDictionary: requestDictionary)
@@ -557,10 +582,6 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
 
 extension OneDriveFileProvider: ExtendedFileProvider {
     open func thumbnailOfFileSupported(path: String) -> Bool {
-        return true
-    }
-    
-    open func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
@@ -569,24 +590,32 @@ extension OneDriveFileProvider: ExtendedFileProvider {
             return true
         case "mp4", "mpg", "3gp", "mov", "avi", "wmv":
             return true
+        case "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pdf":
+            return true
         default:
             return false
         }
     }
     
+    open func propertiesOfFileSupported(path: String) -> Bool {
+        return true
+    }
+    
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
-        let url: URL
-        if let dimension = dimension {
-            url = self.url(of: path, modifier: "thumbnails/0/=c\(dimension.width)x\(dimension.height)/content")
-        } else {
-            url =  self.url(of: path, modifier: "thumbnails/0/small/content")
+        let thumbQuery: String
+        switch dimension.map( {max($0.width, $0.height) } ) ?? 0 {
+        case 0...96:   thumbQuery = "small"
+        case 97...176: thumbQuery = "medium"
+        default:       thumbQuery = "large"
         }
-        
+        let url = self.url(of: path, modifier: "thumbnails")
+            .appendingPathComponent("0").appendingPathComponent(thumbQuery)
+            .appendingPathComponent("content")
         var request = URLRequest(url: url)
         request.setValue(authentication: credential, with: .oAuth2)
         let task = self.session.dataTask(with: request, completionHandler: { (data, response, error) in
             var image: ImageClass? = nil
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 400, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
                 let responseError = self.serverError(with: rCode, path: path, data: data)
                 completionHandler(nil, responseError)
                 return
