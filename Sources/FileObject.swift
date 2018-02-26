@@ -252,7 +252,16 @@ open class VolumeObject {
             allValues[.volumeNameKey] = newValue
         }
     }
-
+    
+    /// The root directory of the resource’s volume, returned as an `URL` object.
+    open internal(set) var uuid: String? {
+        get {
+            return allValues[.volumeUUIDStringKey] as? String
+        }
+        set {
+            allValues[.volumeUUIDStringKey] = newValue
+        }
+    }
     
     /// the volume’s capacity in bytes, return -1 if is undetermined.
     open internal(set) var totalCapacity: Int64 {
