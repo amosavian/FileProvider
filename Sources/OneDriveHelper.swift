@@ -147,6 +147,8 @@ internal extension OneDriveFileProvider {
         let createURL = self.url(of: targetPath, modifier: "createUploadSession")
         var createRequest = URLRequest(url: createURL)
         createRequest.httpMethod = "POST"
+        createRequest.setValue(authentication: self.credential, with: .oAuth2)
+        createRequest.setValue(contentType: .json)
         if overwrite {
             createRequest.httpBody = Data(jsonDictionary: ["item": ["@microsoft.graph.conflictBehavior": "replace"] as NSDictionary])
         } else {
@@ -160,7 +162,7 @@ internal extension OneDriveFileProvider {
             
             if let data = data, let json = data.deserializeJSON(),
                 let uploadURL = (json["uploadUrl"] as? String).flatMap(URL.init(string:)) {
-                self.upload_multipart(url: uploadURL, operation: operation, size: Int64(data.count), progress: progress, dataProvider: dataProvider, completionHandler: completionHandler)
+                self.upload_multipart(url: uploadURL, operation: operation, size: size, progress: progress, dataProvider: dataProvider, completionHandler: completionHandler)
             }
         }
         createSessionTask.resume()
@@ -176,6 +178,7 @@ internal extension OneDriveFileProvider {
         let maximumSize: Int64 = 10_485_760 // Recommended by OneDrive documentations and divides evenly by 320 KiB, max 60MiB.
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        request.setValue(authentication: self.credential, with: .oAuth2)
         
         let finalRange: Range<Int64>
         if let range = range {
