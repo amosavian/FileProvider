@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if os(macOS) || os(iOS) || os(tvOS)
 import CoreGraphics
+#endif
 
 /**
  Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
@@ -389,6 +391,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
 }
 
 extension WebDAVFileProvider: ExtendedFileProvider {
+    #if os(macOS) || os(iOS) || os(tvOS)
     open func thumbnailOfFileSupported(path: String) -> Bool {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             return false
@@ -423,6 +426,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         task.resume()
         return nil
     }
+    #endif
     
     open func propertiesOfFileSupported(path: String) -> Bool {
         return false

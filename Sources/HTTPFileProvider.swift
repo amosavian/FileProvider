@@ -118,6 +118,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         } else {
             _session?.finishTasksAndInvalidate()
         }
+        longpollSession.invalidateAndCancel()
     }
     
     public func encode(with aCoder: NSCoder) {
@@ -154,6 +155,37 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     open func isReachable(completionHandler: @escaping (Bool) -> Void) {
         self.storageProperties { volume in
             completionHandler(volume != nil)
+        }
+    }
+    
+    // Nothing special for these two funcs, just reimplemented to workaround a bug in swift to allow override in subclasses!
+    open func url(of path: String) -> URL {
+        var rpath: String = path
+        rpath = rpath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? rpath
+        if let baseURL = baseURL {
+            if rpath.hasPrefix("/") {
+                rpath.remove(at: rpath.startIndex)
+            }
+            return URL(string: rpath, relativeTo: baseURL) ?? baseURL
+        } else {
+            return URL(string: rpath) ?? URL(string: "/")!
+        }
+    }
+    
+    open func relativePathOf(url: URL) -> String {
+        // check if url derieved from current base url
+        let relativePath = url.relativePath
+        if !relativePath.isEmpty, url.baseURL == self.baseURL {
+            return (relativePath.removingPercentEncoding ?? relativePath).replacingOccurrences(of: "/", with: "", options: .anchored)
+        }
+        
+        // resolve url string against baseurl
+        guard let baseURL = self.baseURL else { return url.absoluteString }
+        let standardRelativePath = url.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+        if URLComponents(string: standardRelativePath)?.host?.isEmpty ?? true {
+            return standardRelativePath.removingPercentEncoding ?? standardRelativePath
+        } else {
+            return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
         }
     }
     
@@ -307,7 +339,16 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         // WebDAV will override this function
     }
     
-    internal func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil, completionHandler: SimpleCompletionHandler) -> Progress? {
+    /**
+     This is the main function to init urlsession task for specified file operation.
+     
+     You won't need to override this function unless another network request must be done before intended operation,
+     such as retrieving file id from file path. Then you must call `super.doOperation()`
+     
+     In case you have to call super method asyncronously, create a `Progress` object and pass ot to `progress` parameter.
+    */
+    internal func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil,
+                              completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
@@ -349,35 +390,43 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
-    /// This method should be used in subclasses to fetch directory content from servers which support paginated results.
-    /// Almost all HTTP based provider, except WebDAV, supports this method.
-    ///
-    /// - Important: Please use `[weak self]` when implementing handlers to prevent retain cycles. In these cases,
-    ///     return `nil` as the result of handler as the operation will be aborted.
-    ///
-    /// - Parameters:
-    ///    - path: path of directory which enqueued for listing, for informational use like errpr reporting.
-    ///    - requestHandler: Get token of next page and returns appropriate `URLRequest` to be sent to server.
-    ///        handler can return `nil` to cancel entire operation.
-    ///    - token: Token of the page which `URLRequest` is needed, token will be `nil` for initial page.
-    ///    - pageHandler: Handler which is called after fetching results of a page to parse data. will return parse result as
-    ///        array of `FileObject` or error if data is nil or parsing is failed. Method will not continue to next page if
-    ///        `error` is returned, otherwise `nextToken` will be used for next page. `nil` value for `newToken` will indicate
-    ///        last page of directory contents.
-    ///    - data: Raw data returned from server. Handler should parse them and return files.
-    ///    - progress: `Progress` object that `completedUnits` will be increased when a new `FileObject` is parsed in method.
-    ///    - completionHandler: All file objects returned by `pageHandler` will be passed to this handler, or error if occured.
-    ///        This handler will be called when `pageHandler` returns `nil for `newToken`.
-    ///    - contents: all files parsed via `pageHandler` will be return aggregated.
-    ///    - error: `Error` returned by server. `nil` means success. If exists, it means `contents` are incomplete.
-    internal func paginated(_ path: String, requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress {
+    // codebeat:disable[ARITY]
+    
+    /**
+     This method should be used in subclasses to fetch directory content from servers which support paginated results.
+     Almost all HTTP based provider, except WebDAV, supports this method.
+    
+     - Important: Please use `[weak self]` when implementing handlers to prevent retain cycles. In these cases,
+         return `nil` as the result of handler as the operation will be aborted.
+    
+     - Parameters:
+        - path: path of directory which enqueued for listing, for informational use like errpr reporting.
+        - requestHandler: Get token of next page and returns appropriate `URLRequest` to be sent to server.
+            handler can return `nil` to cancel entire operation.
+        - token: Token of the page which `URLRequest` is needed, token will be `nil` for initial page.
+        - pageHandler: Handler which is called after fetching results of a page to parse data. will return parse result as
+            array of `FileObject` or error if data is nil or parsing is failed. Method will not continue to next page if
+            `error` is returned, otherwise `nextToken` will be used for next page. `nil` value for `newToken` will indicate
+            last page of directory contents.
+        - data: Raw data returned from server. Handler should parse them and return files.
+        - progress: `Progress` object that `completedUnits` will be increased when a new `FileObject` is parsed in method.
+        - completionHandler: All file objects returned by `pageHandler` will be passed to this handler, or error if occured.
+            This handler will be called when `pageHandler` returns `nil for `newToken`.
+        - contents: all files parsed via `pageHandler` will be return aggregated.
+        - error: `Error` returned by server. `nil` means success. If exists, it means `contents` are incomplete.
+    */
+    internal func paginated(_ path: String, requestHandler: @escaping (_ token: String?) -> URLRequest?,
+                            pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?),
+                            completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress {
         let progress = Progress(totalUnitCount: -1)
         self.paginated(path, startToken: nil, currentProgress: progress, previousResult: [], requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
         return progress
     }
     
-    // codebeat:disable[ARITY]
-    private func paginated(_ path: String, startToken: String?, currentProgress progress: Progress, previousResult: [FileObject], requestHandler: @escaping (_ token: String?) -> URLRequest?, pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?), completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    private func paginated(_ path: String, startToken: String?, currentProgress progress: Progress,
+                           previousResult: [FileObject], requestHandler: @escaping (_ token: String?) -> URLRequest?,
+                           pageHandler: @escaping (_ data: Data?, _ progress: Progress) -> (files: [FileObject], error: Error?, newToken: String?),
+                           completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         guard !progress.isCancelled, let request = requestHandler(startToken) else {
             return
         }
@@ -416,7 +465,8 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
  
     internal var maxUploadSimpleSupported: Int64 { return Int64.max }
     
-    func upload_task(_ targetPath: String, progress: Progress, task: URLSessionTask, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Void {
+    func upload_task(_ targetPath: String, progress: Progress, task: URLSessionTask, operation: FileOperationType,
+                     completionHandler: SimpleCompletionHandler) -> Void {
         var progress = progress
         
         var allData = Data()
@@ -444,7 +494,8 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         task.resume()
     }
     
-    func upload_data(_ targetPath: String, request: URLRequest, data: Data, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+    func upload_data(_ targetPath: String, request: URLRequest, data: Data, operation: FileOperationType,
+                     completionHandler: SimpleCompletionHandler) -> Progress? {
         let size: Int64 = Int64(data.count)
         if size > maxUploadSimpleSupported {
             let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
@@ -464,7 +515,8 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
-    func upload_file(_ targetPath: String, request: URLRequest, localFile: URL, operation: FileOperationType, completionHandler: SimpleCompletionHandler) -> Progress? {
+    func upload_file(_ targetPath: String, request: URLRequest, localFile: URL, operation: FileOperationType,
+                     completionHandler: SimpleCompletionHandler) -> Progress? {
         let fSize = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
         let size = Int64(fSize ?? -1)
         if size > maxUploadSimpleSupported {
@@ -491,7 +543,10 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
-    internal func download_progressive(path: String, request: URLRequest, operation: FileOperationType, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ data: Data) -> Void, completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
+    internal func download_progressive(path: String, request: URLRequest, operation: FileOperationType,
+                                       responseHandler: ((_ response: URLResponse) -> Void)? = nil,
+                                       progressHandler: @escaping (_ data: Data) -> Void,
+                                       completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
         var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
@@ -528,7 +583,8 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return progress
     }
     
-    internal func download_simple(path: String, request: URLRequest, operation: FileOperationType, completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
+    internal func download_simple(path: String, request: URLRequest, operation: FileOperationType,
+                                  completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
         var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file

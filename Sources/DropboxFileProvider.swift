@@ -8,7 +8,9 @@
 //
 
 import Foundation
+#if os(macOS) || os(iOS) || os(tvOS)
 import CoreGraphics
+#endif
 
 /**
  Allows accessing to Dropbox stored files. This provider doesn't cache or save files internally, however you can
@@ -387,6 +389,46 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
 }
 
 extension DropboxFileProvider: ExtendedFileProvider {
+    open func propertiesOfFileSupported(path: String) -> Bool {
+        let fileExt = (path as NSString).pathExtension.lowercased()
+        switch fileExt {
+        case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
+            return true
+        /*case "mp3", "aac", "m4a":
+            return true*/
+        case "mp4", "mpg", "3gp", "mov", "avi":
+            return true
+        default:
+            return false
+        }
+    }
+    
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
+        let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(authentication: credential, with: .oAuth2)
+        request.setValue(contentType: .json)
+        let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
+        request.httpBody = Data(jsonDictionary: requestDictionary)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var serverError: FileProviderHTTPError?
+            var dic = [String: Any]()
+            var keys = [String]()
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
+                if let json = data?.deserializeJSON(), let properties = (json["media_info"] as? [String: Any])?["metadata"] as? [String: Any] {
+                    (dic, keys) = self.mapMediaInfo(properties)
+                }
+            }
+            completionHandler(dic, keys, serverError ?? error)
+        })
+        task.resume()
+        return nil
+    }
+    
+    #if os(macOS) || os(iOS) || os(tvOS)
     open func thumbnailOfFileSupported(path: String) -> Bool {
         switch (path as NSString).pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
@@ -402,20 +444,6 @@ extension DropboxFileProvider: ExtendedFileProvider {
         }
     }
     
-    open func propertiesOfFileSupported(path: String) -> Bool {
-        let fileExt = (path as NSString).pathExtension.lowercased()
-        switch fileExt {
-        case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
-            return true
-        /*case "mp3", "aac", "m4a":
-            return true*/
-        case "mp4", "mpg", "3gp", "mov", "avi":
-            return true
-        default:
-            return false
-        }
-    }
-        
     /// Default value for dimension is 64x64, according to Dropbox documentation
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let url: URL
@@ -471,29 +499,5 @@ extension DropboxFileProvider: ExtendedFileProvider {
         task.resume()
         return nil
     }
-    
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
-        let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(authentication: credential, with: .oAuth2)
-        request.setValue(contentType: .json)
-        let requestDictionary: [String: AnyObject] = ["path": correctPath(path)! as NSString, "include_media_info": NSNumber(value: true)]
-        request.httpBody = Data(jsonDictionary: requestDictionary)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderHTTPError?
-            var dic = [String: Any]()
-            var keys = [String]()
-            if let response = response as? HTTPURLResponse {
-                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
-                if let json = data?.deserializeJSON(), let properties = (json["media_info"] as? [String: Any])?["metadata"] as? [String: Any] {
-                    (dic, keys) = self.mapMediaInfo(properties)
-                }
-            }
-            completionHandler(dic, keys, serverError ?? error)
-        })
-        task.resume()
-        return nil
-    }
+    #endif
 }

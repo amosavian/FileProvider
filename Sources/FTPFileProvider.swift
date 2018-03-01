@@ -81,7 +81,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
         guard baseURL.host != nil else { return nil }
         var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)!
-        let defaultPort: Int = baseURL.scheme == "ftps" ? 990 : 21
+        let defaultPort: Int = baseURL.scheme?.lowercased() == "ftps" ? 990 : 21
         urlComponents.port = urlComponents.port ?? defaultPort
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
         urlComponents.path = urlComponents.path.hasSuffix("/") ? urlComponents.path : urlComponents.path + "/"

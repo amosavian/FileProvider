@@ -6,6 +6,7 @@
 //  Copyright © 2017 Mousavian. Distributed under MIT license.
 //
 
+#if os(macOS) || os(iOS) || os(tvOS)
 import Foundation
 import ImageIO
 import CoreGraphics
@@ -497,3 +498,4 @@ public struct LocalFileInformationGenerator {
     /// - Note: No default implementation is avaiable
     static public var customProperties: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))? = nil
 }
+#endif

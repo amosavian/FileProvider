@@ -8,8 +8,10 @@
 //
 
 import Foundation
+#if os(macOS) || os(iOS) || os(tvOS)
 import CoreGraphics
-
+#endif
+    
 /**
  Allows accessing to OneDrive stored files, either hosted on Microsoft servers or business coprporate one.
  This provider doesn't cache or save files internally, however you can set `useCache` and `cache` properties
@@ -337,39 +339,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An url, can be used to access to file directly.
      */
     open func url(of path: String, modifier: String? = nil) -> URL {
-        var url: URL = baseURL!
-        let isId = path.hasPrefix("id:")
-        var rpath: String = path.replacingOccurrences(of: "id:", with: "", options: .anchored)
-
-        //url.appendPathComponent("v1.0")
-        url.appendPathComponent(route.drivePath)
-        
-        if rpath.isEmpty {
-            url.appendPathComponent("root")
-        } else if isId {
-            url.appendPathComponent("items")
-        } else {
-            url.appendPathComponent("root:")
-        }
-        
-        rpath = rpath.trimmingCharacters(in: pathTrimSet)
-        
-        switch (modifier == nil, rpath.isEmpty, isId) {
-        case (true, false, _):
-            url.appendPathComponent(rpath)
-        case (true, true, _):
-            break
-        case (false, true, _):
-            url.appendPathComponent(modifier!)
-        case (false, false, true):
-            url.appendPathComponent(rpath)
-            url.appendPathComponent(modifier!)
-        case (false, false, false):
-            url.appendPathComponent(rpath + ":")
-            url.appendPathComponent(modifier!)
-        }
-        
-        return url
+        return OneDriveFileObject.url(of: path, modifier: modifier, baseURL: baseURL!, route: route)
+    }
+    
+    open override func relativePathOf(url: URL) -> String {
+        return OneDriveFileObject.relativePathOf(url: url, baseURL: baseURL, route: route)
     }
     
     /// Checks the connection to server or permission on local
@@ -581,6 +555,32 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
 
 
 extension OneDriveFileProvider: ExtendedFileProvider {
+    open func propertiesOfFileSupported(path: String) -> Bool {
+        return true
+    }
+    
+    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
+        var request = URLRequest(url: url(of: path))
+        request.httpMethod = "GET"
+        request.setValue(authentication: credential, with: .oAuth2)
+        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
+            var serverError: FileProviderHTTPError?
+            var dic = [String: Any]()
+            var keys = [String]()
+            if let response = response as? HTTPURLResponse {
+                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
+                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
+                if let json = data?.deserializeJSON() {
+                    (dic, keys) = self.mapMediaInfo(json)
+                }
+            }
+            completionHandler(dic, keys, serverError ?? error)
+        })
+        task.resume()
+        return nil
+    }
+    
+    #if os(macOS) || os(iOS) || os(tvOS)
     open func thumbnailOfFileSupported(path: String) -> Bool {
         let fileExt = (path as NSString).pathExtension.lowercased()
         switch fileExt {
@@ -595,10 +595,6 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         default:
             return false
         }
-    }
-    
-    open func propertiesOfFileSupported(path: String) -> Bool {
-        return true
     }
     
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
@@ -626,25 +622,5 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         task.resume()
         return nil
     }
-    
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
-        var request = URLRequest(url: url(of: path))
-        request.httpMethod = "GET"
-        request.setValue(authentication: credential, with: .oAuth2)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderHTTPError?
-            var dic = [String: Any]()
-            var keys = [String]()
-            if let response = response as? HTTPURLResponse {
-                let code = FileProviderHTTPErrorCode(rawValue: response.statusCode)
-                serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
-                if let json = data?.deserializeJSON() {
-                    (dic, keys) = self.mapMediaInfo(json)
-                }
-            }
-            completionHandler(dic, keys, serverError ?? error)
-        })
-        task.resume()
-        return nil
-    }
+    #endif
 }
