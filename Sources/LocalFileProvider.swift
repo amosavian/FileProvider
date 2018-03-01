@@ -217,6 +217,20 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
+    open func relativePathOf(url: URL) -> String {
+        // check if url derieved from current base url
+        let relativePath = url.relativePath
+        if !relativePath.isEmpty, url.baseURL == self.baseURL {
+            return (relativePath.removingPercentEncoding ?? relativePath).replacingOccurrences(of: "/", with: "", options: .anchored)
+        }
+        
+        guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
+        let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+        let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
+        let standardRelativePath = standardPath.replacingOccurrences(of: standardBase, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+        return standardRelativePath.removingPercentEncoding ?? standardRelativePath
+    }
+    
     open weak var fileOperationDelegate : FileOperationDelegate?
     
     @discardableResult

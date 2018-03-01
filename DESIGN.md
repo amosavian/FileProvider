@@ -38,7 +38,7 @@ Thus it's safe to check `error` first to ensure list is complete. Truncated resu
 When implementing `searchFiles()`, check `fileObject.mapPredicate()` using `query.evaluate(with:)`.
 You may use `query` parameter to create a search string if provider supports search functionality.
 
-Practically, `searchFiles(path: path, recursive: false, query: "TRUEPREDICATE")` should be equal with `contentsOfDirectory()` method.
+Practically, `searchFiles(path: path, recursive: false, query: NSPredicate(format: "TRUEPREDICATE"))` should be equal with `contentsOfDirectory()` method.
 Consequently, if provider enlisting and search backend are same (e.g. iCloud, OneDrive or Google)
 implement `contentsOfDirectory()` as a wrapper around `searchFiles()`,
 otherwise implement'em independently for optimization reason.

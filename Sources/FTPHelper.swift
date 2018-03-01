@@ -174,10 +174,10 @@ internal extension FTPFileProvider {
                 }
                 
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
-                passiveTask.resume()
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
                     passiveTask.startSecureConnection()
                 }
+                passiveTask.resume()
                 completionHandler(passiveTask, nil)
             } catch {
                 completionHandler(nil, error)
@@ -195,10 +195,10 @@ internal extension FTPFileProvider {
             usleep(100_000)
         }
         let activeTask = self.session.fpstreamTask(withNetService: service)
-        activeTask.resume()
         if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
             activeTask.startSecureConnection()
         }
+        activeTask.resume()
         
         self.execute(command: "PORT \(service.port)", on: task) { (response, error) in
             do {

@@ -140,7 +140,7 @@ public protocol FileProviderBasic: class, NSSecureCoding {
     func url(of path: String) -> URL
     
     
-    /// Returns the relative path of url, wothout percent encoding. Even if url is absolute or
+    /// Returns the relative path of url, without percent encoding. Even if url is absolute or
     /// retrieved from another provider, it will try to resolve the url against `baseURL` of
     /// current provider. It's highly recomended to use this method for displaying purposes.
     ///
@@ -688,7 +688,7 @@ public protocol FileProvider: FileProviderOperations, FileProviderReadWrite, NSC
 }
 
 internal let pathTrimSet = CharacterSet(charactersIn: " /")
-extension FileProviderBasic {
+public extension FileProviderBasic {
     public var type: String {
         #if swift(>=3.1)
         return Swift.type(of: self).type
@@ -718,20 +718,12 @@ extension FileProviderBasic {
         }
         
         // resolve url string against baseurl
-        if baseURL?.isFileURL ?? false {
-            guard let baseURL = self.baseURL?.standardizedFileURL else { return url.absoluteString }
-            let standardPath = url.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
-            let standardBase = baseURL.absoluteString.replacingOccurrences(of: "file:///private/var/", with: "file:///var/", options: .anchored)
-            let standardRelativePath = standardPath.replacingOccurrences(of: standardBase, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+        guard let baseURL = self.baseURL else { return url.absoluteString }
+        let standardRelativePath = url.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
+        if URLComponents(string: standardRelativePath)?.host?.isEmpty ?? true {
             return standardRelativePath.removingPercentEncoding ?? standardRelativePath
         } else {
-            guard let baseURL = self.baseURL else { return url.absoluteString }
-            let standardRelativePath = url.absoluteString.replacingOccurrences(of: baseURL.absoluteString, with: "/").replacingOccurrences(of: "/", with: "", options: .anchored)
-            if URLComponents(string: standardRelativePath)?.host?.isEmpty ?? true {
-                return standardRelativePath.removingPercentEncoding ?? standardRelativePath
-            } else {
-                return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
-            }
+            return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
         }
     }
     
@@ -777,7 +769,11 @@ extension FileProviderBasic {
     
     internal func urlError(_ path: String, code: URLError.Code) -> Error {
         let fileURL = self.url(of: path)
-        return URLError(code, userInfo: [NSURLErrorKey: fileURL, NSURLErrorFailingURLErrorKey: fileURL, NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString])
+        let userInfo: [String: Any] = [NSURLErrorKey: fileURL,
+                                       NSURLErrorFailingURLErrorKey: fileURL,
+                                       NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString,
+                                       ]
+        return URLError(code, userInfo: userInfo)
     }
     
     internal func cocoaError(_ path: String, code: CocoaError.Code) -> Error {
@@ -792,18 +788,37 @@ extension FileProviderBasic {
 
 /// Define methods to get preview and thumbnail for files or folders
 public protocol ExtendedFileProvider: FileProviderBasic {
-    /// Returuns true if thumbnail preview is supported by provider and file type accordingly.
-    ///
-    /// - Parameter path: path of file.
-    /// - Returns: A `Bool` idicates path can have thumbnail.
-    func thumbnailOfFileSupported(path: String) -> Bool
-    
     /// Returns true if provider supports fetching properties of file like dimensions, duration, etc.
     /// Usually media or document files support these meta-infotmations.
     ///
     /// - Parameter path: path of file.
     /// - Returns: A `Bool` idicates path can have properties.
+    
     func propertiesOfFileSupported(path: String) -> Bool
+    
+    /**
+     Fetching properties of file like dimensions, duration, etc. It's variant depending on file type.
+     Images, videos and audio files meta-information will be returned.
+     
+     - Note: `LocalFileInformationGenerator` variables can be set to change default behavior of
+     thumbnail and properties generator of `LocalFileProvider`.
+     
+     - Parameters:
+     - path: path of file.
+     - completionHandler: a closure with result of preview image or error.
+     - propertiesDictionary: A `Dictionary` of proprty keys and values.
+     - keys: An `Array` contains ordering of keys.
+     - error: Error returned by system.
+     */
+    @discardableResult
+    func propertiesOfFile(path: String, completionHandler: @escaping (_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void) -> Progress?
+    
+    #if os(macOS) || os(iOS) || os(tvOS)
+    /// Returuns true if thumbnail preview is supported by provider and file type accordingly.
+    ///
+    /// - Parameter path: path of file.
+    /// - Returns: A `Bool` idicates path can have thumbnail.
+    func thumbnailOfFileSupported(path: String) -> Bool
     
     /**
      Generates and returns a thumbnail preview of document asynchronously. The defualt dimension of returned image is different
@@ -834,25 +849,10 @@ public protocol ExtendedFileProvider: FileProviderBasic {
      */
     @discardableResult
     func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping (_ image: ImageClass?, _ error: Error?) -> Void) -> Progress?
-    
-    /**
-     Fetching properties of file like dimensions, duration, etc. It's variant depending on file type.
-     Images, videos and audio files meta-information will be returned.
-     
-     - Note: `LocalFileInformationGenerator` variables can be set to change default behavior of 
-             thumbnail and properties generator of `LocalFileProvider`.
-     
-     - Parameters:
-       - path: path of file.
-       - completionHandler: a closure with result of preview image or error.
-       - propertiesDictionary: A `Dictionary` of proprty keys and values.
-       - keys: An `Array` contains ordering of keys.
-       - error: Error returned by system.
-     */
-    @discardableResult
-    func propertiesOfFile(path: String, completionHandler: @escaping (_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void) -> Progress?
+    #endif
 }
 
+#if os(macOS) || os(iOS) || os(tvOS)
 extension ExtendedFileProvider {
     @discardableResult
     public func thumbnailOfFile(path: String, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
@@ -977,6 +977,7 @@ extension ExtendedFileProvider {
         #endif
     }
 }
+#endif
 
 /// Operation type description of file operation, included files path in associated values.
 public enum FileOperationType: CustomStringConvertible {

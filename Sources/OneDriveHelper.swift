@@ -17,18 +17,12 @@ public struct FileProviderOneDriveError: FileProviderHTTPError {
 
 /// Containts path, url and attributes of a OneDrive file or resource.
 public final class OneDriveFileObject: FileObject {
-    internal init(baseURL: URL?, name: String, path: String) {
-        let url = URL(string: path, relativeTo: baseURL) ?? baseURL
-        
-        super.init(url: url, name: name, path: path)
-    }
-    
     internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, jsonStr: String) {
         guard let json = jsonStr.deserializeJSON() else { return nil }
         self.init(baseURL: baseURL, route: route, json: json)
     }
     
-    internal convenience init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: AnyObject]) {
+    internal init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: AnyObject]) {
         guard let name = json["name"] as? String else { return nil }
         guard let id = json["id"] as? String else { return nil }
         let path: String
@@ -47,7 +41,8 @@ public final class OneDriveFileObject: FileObject {
         } else {
             path = "id:\(id)"
         }
-        self.init(baseURL: baseURL, name: name, path: path)
+        let url = baseURL.map { OneDriveFileObject.url(of: path, modifier: nil, baseURL: $0, route: route) }
+        super.init(url: url, name: name, path: path)
         self.id = id
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
         self.childrensCount = json["folder"]?["childCount"] as? Int
@@ -99,6 +94,59 @@ public final class OneDriveFileObject: FileObject {
         }
         set {
             allValues[.documentIdentifierKey] = newValue
+        }
+    }
+    
+    static func url(of path: String, modifier: String?, baseURL: URL, route: OneDriveFileProvider.Route) -> URL {
+        var url: URL = baseURL
+        let isId = path.hasPrefix("id:")
+        var rpath: String = path.replacingOccurrences(of: "id:", with: "", options: .anchored)
+        
+        //url.appendPathComponent("v1.0")
+        url.appendPathComponent(route.drivePath)
+        
+        if rpath.isEmpty {
+            url.appendPathComponent("root")
+        } else if isId {
+            url.appendPathComponent("items")
+        } else {
+            url.appendPathComponent("root:")
+        }
+        
+        rpath = rpath.trimmingCharacters(in: pathTrimSet)
+        
+        switch (modifier == nil, rpath.isEmpty, isId) {
+        case (true, false, _):
+            url.appendPathComponent(rpath)
+        case (true, true, _):
+            break
+        case (false, true, _):
+            url.appendPathComponent(modifier!)
+        case (false, false, true):
+            url.appendPathComponent(rpath)
+            url.appendPathComponent(modifier!)
+        case (false, false, false):
+            url.appendPathComponent(rpath + ":")
+            url.appendPathComponent(modifier!)
+        }
+        
+        return url
+    }
+    
+    static func relativePathOf(url: URL, baseURL: URL?, route: OneDriveFileProvider.Route) -> String {
+        let base = baseURL?.appendingPathComponent(route.drivePath)
+        
+        let crudePath = url.absoluteString.replacingOccurrences(of: base?.absoluteString ?? "", with: "", options: .anchored)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        
+        switch crudePath {
+        case hasPrefix("items/"):
+            let components = (crudePath as NSString).pathComponents
+            return components.dropFirst().first.map { "id:\($0)" } ?? ""
+        case hasPrefix("root:"):
+            return crudePath.components(separatedBy: ":").dropFirst().first ?? ""
+        default:
+            return ""
         }
     }
 }

@@ -637,7 +637,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     
     fileprivate var isSecure = false
     
-    public var securityLevel: StreamSocketSecurityLevel = .tlSv1
+    public var securityLevel: StreamSocketSecurityLevel = .negotiatedSSL
     /**
      * Completes any enqueued reads and writes, and establishes a secure connection.
      *
@@ -653,6 +653,13 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         isSecure = true
+        operation_queue.addOperation {
+            if let inputStream = self.inputStream, let outputStream = self.outputStream,
+                inputStream.property(forKey: .socketSecurityLevelKey) as? String == StreamSocketSecurityLevel.none.rawValue {
+                inputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+                outputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+            }
+        }
     }
     
     /**
@@ -667,6 +674,14 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         isSecure = false
+        operation_queue.addOperation {
+            if let inputStream = self.inputStream, let outputStream = self.outputStream,
+                inputStream.property(forKey: .socketSecurityLevelKey) as? String != StreamSocketSecurityLevel.none.rawValue {
+                
+                inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+                outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+            }
+        }
     }
     
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
