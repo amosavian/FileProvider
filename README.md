@@ -1,4 +1,4 @@
-![File Provider](fileprovider.png)
+![File Provider](Docs/fileprovider.png)
 
 > This Swift library provide a swifty way to deal with local and remote files and directories in a unified way.
 
@@ -102,11 +102,13 @@ Then you can do either:
 
 ## Design
 
-To find design concepts and how to implement a custom provider, read [Concepts and Design document](DESIGN.md).
+To find design concepts and how to implement a custom provider, read [Concepts and Design document](Docs/DESIGN.md).
 
 ## Usage
 
 Each provider has a specific class which conforms to FileProvider protocol and share same syntax.
+
+Find a [sample code for iOS here](Docs/Sample-iOS.swift).
 
 ### Initialization
 
@@ -156,7 +158,7 @@ let webdavProvider = WebDAVFileProvider(baseURL: URL(string: "http://www.example
 
 * In case you want to connect non-secure servers for WebDAV (http) or FTP in iOS 9+ / macOS 10.11+ you should disable App Transport Security (ATS) according to [this guide.](https://gist.github.com/mlynch/284699d676fe9ed0abfa)
 
-* For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via [OAuth2 API of Dropbox](https://www.dropbox.com/developers/reference/oauth-guide). There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered. Please see [Authentication.md](Authentication.md) for detailed instruction.
+* For Dropbox & OneDrive, user is clientID and password is Token which both must be retrieved via OAuth2 API o. There are libraries like [p2/OAuth2](https://github.com/p2/OAuth2) or [OAuthSwift](https://github.com/OAuthSwift/OAuthSwift) which can facilate the procedure to retrieve token. The latter is easier to use and prefered. Please see [OAuth example for Dropbox and OneDrive](Docs/OAuth.md) for detailed instruction.
 	
 For interaction with UI, set delegate property of `FileProvider` object.
 
