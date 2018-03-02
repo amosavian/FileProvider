@@ -190,6 +190,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
        - error: `Error` returned by server if occured.
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
+    @discardableResult
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ([FileObject], Error?) -> Void) -> Progress? {
         return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
@@ -219,6 +220,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
        - error: `Error` returned by server if occured.
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
+    @discardableResult
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
@@ -400,6 +402,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         return supportedExt.contains((path as NSString).pathExtension)
     }
     
+    @discardableResult
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
@@ -432,6 +435,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
         return false
     }
     
+    @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) -> Progress? {
         dispatch_queue.async {
             completionHandler([:], [], self.urlError(path, code: .resourceUnavailable))

@@ -288,6 +288,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - error: `Error` returned by server if occured.
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
+    @discardableResult
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
         
@@ -374,6 +375,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      - Returns: An `Progress` to get progress or cancel progress.
      */
+    @discardableResult
     open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
@@ -401,6 +403,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
+    @discardableResult
     open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
@@ -558,6 +561,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         return true
     }
     
+    @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
@@ -596,6 +600,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         }
     }
     
+    @discardableResult
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let thumbQuery: String
         switch dimension.map( {max($0.width, $0.height) } ) ?? 0 {

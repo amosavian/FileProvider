@@ -153,6 +153,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
        - error: `Error` returned by server if occured.
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
+    @discardableResult
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr: String?
         if query.predicateFormat == "TRUEPREDICATE" {
@@ -292,7 +293,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     */
     // TODO: Implement /get_account & /get_current_account
-    
+
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
         var request = URLRequest(url: url)
@@ -403,6 +404,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
         }
     }
     
+    @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
@@ -445,6 +447,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
     
     /// Default value for dimension is 64x64, according to Dropbox documentation
+    @discardableResult
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let url: URL
         let thumbAPI: Bool

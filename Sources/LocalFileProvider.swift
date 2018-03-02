@@ -17,9 +17,6 @@ import Foundation
 open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
-    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
-    @available(*, obsoleted: 0.21, message: "This property is redundant with almost no use internally.")
-    open var currentPath: String = ""
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue
     open weak var delegate: FileProviderDelegate?
@@ -134,7 +131,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
     
     open func encode(with aCoder: NSCoder) {
-        aCoder.encode(self.baseURL, forKey: "currentPath")
+        aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.isCoorinating, forKey: "isCoorinating")
     }
     
@@ -183,6 +180,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
     }
     
+    @discardableResult
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)

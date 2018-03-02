@@ -15,9 +15,6 @@ import Foundation
 open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { return "FTP" }
     open let baseURL: URL?
-    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
-    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
-    open var currentPath: String = ""
     
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {
@@ -284,6 +281,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         }
     }
     
+    @discardableResult
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         if recursive {
@@ -353,23 +351,28 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     
     open weak var fileOperationDelegate: FileOperationDelegate?
     
+    @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
@@ -424,6 +427,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         return progress
     }
     
+    @discardableResult
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
@@ -475,6 +479,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         return progress
     }
     
+    @discardableResult
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         if length == 0 || offset < 0 {
@@ -530,6 +535,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         return progress
     }
     
+    @discardableResult
     open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {

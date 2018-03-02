@@ -148,6 +148,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
+    @discardableResult
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
@@ -191,23 +192,28 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
     
     open weak var fileOperationDelegate: FileOperationDelegate?
     
+    @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.move(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.copy(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
@@ -225,6 +231,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         return upload_file(toPath, request: request, localFile: localFile, operation: operation, completionHandler: completionHandler)
     }
     
+    @discardableResult
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
@@ -275,6 +282,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
        - error: `Error` returned by system if occured.
      - Returns: An `Progress` to get progress or cancel progress.
      */
+    @discardableResult
     open func contents(path: String, offset: Int64 = 0, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
@@ -288,6 +296,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         }, completionHandler: (completionHandler ?? { _ in return }))
     }
     
+    @discardableResult
     open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
@@ -318,6 +327,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         })
     }
     
+    @discardableResult
     open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
@@ -347,6 +357,7 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
      
      In case you have to call super method asyncronously, create a `Progress` object and pass ot to `progress` parameter.
     */
+    @discardableResult
     internal func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil,
                               completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
