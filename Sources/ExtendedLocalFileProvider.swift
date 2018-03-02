@@ -55,6 +55,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         }
     }
     
+    @discardableResult
     open func thumbnailOfFile(path: String, dimension: CGSize? = nil, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let dimension = dimension ?? CGSize(width: 64, height: 64)
         (dispatch_queue).async {
@@ -88,6 +89,7 @@ extension LocalFileProvider: ExtendedFileProvider {
         return nil
     }
     
+    @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         (dispatch_queue).async {
             let fileExt = (path as NSString).pathExtension.lowercased()
