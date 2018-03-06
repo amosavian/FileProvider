@@ -276,8 +276,8 @@ class FilesProviderTests: XCTestCase {
         // Test file operations
         let desc = "Reachability of \(provider.type)"
         let expectation = XCTestExpectation(description: desc)
-        provider.isReachable { (status) in
-            XCTAssertTrue(status, "\(provider.type) not reachable")
+        provider.isReachable { (status, error) in
+            XCTAssertTrue(status, "\(provider.type) not reachable: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
