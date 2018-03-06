@@ -335,6 +335,16 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
      don't return an absolute url to be used to access file directly.
      - Parameter path: Relative path of file or directory.
+     - Returns: An url, can be used to access to file directly.
+     */
+    open override func url(of path: String) -> URL {
+        return OneDriveFileObject.url(of: path, modifier: nil, baseURL: baseURL!, route: route)
+    }
+    
+    /**
+     Returns an independent url to access the file. Some providers like `Dropbox` due to their nature.
+     don't return an absolute url to be used to access file directly.
+     - Parameter path: Relative path of file or directory.
      - Parameter modifier: Added to end of url to indicate what it can used for, e.g. `contents` to fetch data.
      - Returns: An url, can be used to access to file directly.
      */
