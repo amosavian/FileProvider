@@ -608,6 +608,7 @@ public protocol FileProviderMonitor: FileProviderBasic {
     func isRegisteredForNotification(path: String) -> Bool
 }
 
+#if os(macOS) || os(iOS) || os(tvOS)
 /// Allows undo file operations done by provider
 public protocol FileProvideUndoable: FileProviderOperations {
     /// To initialize undo manager either call `setupUndoManager()` or set it manually.
@@ -663,6 +664,7 @@ public extension FileProvideUndoable {
         self.undoManager?.levelsOfUndo = 10
     }
 }
+#endif
 
 /// This protocol defines method to share a public link with other users
 public protocol FileProviderSharing {
@@ -793,7 +795,6 @@ public protocol ExtendedFileProvider: FileProviderBasic {
     ///
     /// - Parameter path: path of file.
     /// - Returns: A `Bool` idicates path can have properties.
-    
     func propertiesOfFileSupported(path: String) -> Bool
     
     /**

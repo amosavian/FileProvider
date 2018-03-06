@@ -70,7 +70,7 @@ if let refreshToken = {SAVED_REFRESH_TOKEN} {
 } else {
     _ = oauth.authorize(
         withCallbackURL: URL(string: "\(appScheme)://oauth-callback/onedrive")!,
-        scope: "offline_access User.Read Files.ReadWrite Files.ReadWrite.All Files.ReadWrite.AppFolder", state: "ONEDRIVE",
+        scope: "offline_access User.Read Files.ReadWrite.All", state: "ONEDRIVE",
         success: { credential, response, parameters in
             let credential = URLCredential(user: user ?? "anonymous", password: credential.oauthToken, persistence: .permanent)
             // TODO: Save refreshToken in keychain

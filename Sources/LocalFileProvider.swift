@@ -14,7 +14,7 @@ import Foundation
  
  it uses `FileManager` foundation class with some additions like searching and reading a portion of file.
  */
-open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndoable {
+open class LocalFileProvider: FileProvider, FileProviderMonitor {
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
     open var dispatch_queue: DispatchQueue
@@ -28,8 +28,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     open private(set) var opFileManager = FileManager()
     fileprivate var fileProviderManagerDelegate: LocalFileProviderManagerDelegate? = nil
     
+    #if os(macOS) || os(iOS) || os(tvOS)
     open var undoManager: UndoManager? = nil
-    
+
     /**
      Forces file operations to use `NSFileCoordinating`, should be set `true` if:
      - Files are on ubiquity (iCloud) container.
@@ -40,6 +41,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
      otherwise it's `false` to accelerate operations.
     */
     open var isCoorinating: Bool
+    #endif
     
     /**
      Initializes provider for the specified common directory in the requested domains.
@@ -53,6 +55,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         self.init(baseURL: FileManager.default.urls(for: directory, in: domainMask).first!)
     }
     
+    #if os(macOS) || os(iOS) || os(tvOS)
     /**
      Failable initializer for the specified shared container directory, allows data and files to be shared among app
      and extensions regarding sandbox requirements. Container ID is same with app group specified in project `Capabilities`
@@ -89,6 +92,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         
         try? fileManager.createDirectory(at: finalBaseURL, withIntermediateDirectories: true)
     }
+    #endif
     
     /// Initializes provider for the specified local URL.
     ///
@@ -142,7 +146,9 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     public func copy(with zone: NSZone? = nil) -> Any {
         let copy = LocalFileProvider(baseURL: self.baseURL!)
         copy.undoManager = self.undoManager
+        #if os(macOS) || os(iOS) || os(tvOS)
         copy.isCoorinating = self.isCoorinating
+        #endif
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         return copy
@@ -267,12 +273,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         return self.doOperation(operation, completionHandler: completionHandler)
     }
     
+    #if os(macOS) || os(iOS) || os(tvOS)
     @objc dynamic func doSimpleOperation(_ box: UndoBox) {
         guard let _ = self.undoManager else { return }
         _ = self.doOperation(box.undoOperation) { (_) in
             return
         }
     }
+    #endif
     
     @discardableResult
     fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, overwrite: Bool = true, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
@@ -309,6 +317,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             return nil
         }
         
+        #if os(macOS) || os(iOS) || os(tvOS)
         if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: operation) {
             let undoBox = UndoBox(provider: self, operation: operation, undoOperation: undoOp)
             undoManager.beginUndoGrouping()
@@ -318,6 +327,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
         }
         
         var successfulSecurityScopedResourceAccess = false
+        #endif
         
         let operationHandler: (URL, URL?) -> Void = { source, dest in
             do {
@@ -350,9 +360,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 default:
                     return
                 }
+                #if os(macOS) || os(iOS) || os(tvOS)
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
                 }
+                #endif
 
                 progress.completedUnitCount = progress.totalUnitCount
                 self.dispatch_queue.async {
@@ -360,9 +372,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 }
                 self.delegateNotify(operation)
             } catch {
+                #if os(macOS) || os(iOS) || os(tvOS)
                 if successfulSecurityScopedResourceAccess {
                     source.stopAccessingSecurityScopedResource()
                 }
+                #endif
                 progress.cancel()
                 self.dispatch_queue.async {
                     completionHandler?(error)
@@ -371,6 +385,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
+        #if os(macOS) || os(iOS) || os(tvOS)
         if isCoorinating {
             successfulSecurityScopedResourceAccess = source.startAccessingSecurityScopedResource()
             var intents = [NSFileAccessIntent]()
@@ -401,6 +416,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 operationHandler(source, dest)
             }
         }
+        #else
+        operation_queue.addOperation {
+            operationHandler(source, dest)
+        }
+        #endif
         return progress
     }
     
@@ -434,6 +454,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
+        #if os(macOS) || os(iOS) || os(tvOS)
         if isCoorinating {
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
             coordinated(intents: [intent], operationHandler: operationHandler, errorHandler: { error in
@@ -447,6 +468,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 operationHandler(url)
             }
         }
+        #else
+        dispatch_queue.async {
+            operationHandler(url)
+        }
+        #endif
 
         return progress
     }
@@ -512,6 +538,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
             }
         }
         
+        #if os(macOS) || os(iOS) || os(tvOS)
         if isCoorinating {
             let intent = NSFileAccessIntent.readingIntent(with: url, options: .withoutChanges)
             coordinated(intents: [intent], operationHandler: operationHandler, errorHandler: { error in
@@ -523,7 +550,11 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
                 operationHandler(url)
             }
         }
-        
+        #else
+        dispatch_queue.async {
+            operationHandler(url)
+        }
+        #endif
         return progress
     }
     
@@ -618,6 +649,10 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor, FileProvideUndo
     }
 }
 
+#if os(macOS) || os(iOS) || os(tvOS)
+    
+extension LocalFileProvider: FileProvideUndoable { }
+
 internal extension LocalFileProvider {
     func coordinated(intents: [NSFileAccessIntent], operationHandler: @escaping (_ url: URL) -> Void, errorHandler: ((_ error: Error) -> Void)? = nil) {
         let coordinator = NSFileCoordinator(filePresenter: nil)
@@ -649,3 +684,5 @@ internal extension LocalFileProvider {
         }
     }
 }
+#endif
+

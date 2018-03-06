@@ -82,6 +82,13 @@ internal extension URL {
     var fileExists: Bool {
         return (try? self.checkResourceIsReachable()) ?? false
     }
+    
+    #if os(macOS) || os(iOS) || os(tvOS)
+    #else
+    func checkPromisedItemIsReachable() throws -> Bool {
+        return false
+    }
+    #endif
 }
 
 public extension URLRequest {

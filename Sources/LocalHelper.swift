@@ -224,6 +224,7 @@ internal class LocalFileProviderManagerDelegate: NSObject, FileManagerDelegate {
     }
 }
 
+#if os(macOS) || os(iOS) || os(tvOS)
 class UndoBox: NSObject {
     weak var provider: FileProvideUndoable?
     let operation: FileOperationType
@@ -235,3 +236,4 @@ class UndoBox: NSObject {
         self.undoOperation = undoOperation
     }
 }
+#endif
