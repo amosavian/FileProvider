@@ -153,7 +153,8 @@ public protocol FileProviderBasic: class, NSSecureCoding {
     /// - Note: To prevent race condition, use this method wisely and avoid it as far possible.
     ///
     /// - Parameter success: indicated server is reachable or not.
-    func isReachable(completionHandler: @escaping(_ success: Bool) -> Void)
+    /// - Parameter error: `Error` returned by server if occured.
+    func isReachable(completionHandler: @escaping(_ success: Bool, _ error: Error?) -> Void)
 }
 
 extension FileProviderBasic {

@@ -72,9 +72,6 @@
 		799396B91D48C02300086753 /* SMBFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396981D48C02300086753 /* SMBFileProvider.swift */; };
 		799396BA1D48C02300086753 /* SMBFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396981D48C02300086753 /* SMBFileProvider.swift */; };
 		799396BB1D48C02300086753 /* SMBFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396981D48C02300086753 /* SMBFileProvider.swift */; };
-		799396BC1D48C02300086753 /* CIFSTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969A1D48C02300086753 /* CIFSTypes.swift */; };
-		799396BD1D48C02300086753 /* CIFSTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969A1D48C02300086753 /* CIFSTypes.swift */; };
-		799396BE1D48C02300086753 /* CIFSTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969A1D48C02300086753 /* CIFSTypes.swift */; };
 		799396BF1D48C02300086753 /* SMB2DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969B1D48C02300086753 /* SMB2DataTypes.swift */; };
 		799396C01D48C02300086753 /* SMB2DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969B1D48C02300086753 /* SMB2DataTypes.swift */; };
 		799396C11D48C02300086753 /* SMB2DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7993969B1D48C02300086753 /* SMB2DataTypes.swift */; };
@@ -593,7 +590,6 @@
 				799396B91D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C220E1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
 				794C21FE1D58912A00EC49B8 /* DropboxHelper.swift in Sources */,
-				799396BC1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220A1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D11D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1961D89DAE000589DB7 /* Document.swift in Sources */,
@@ -638,7 +634,6 @@
 				799396BA1D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C220F1D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
 				794C21FF1D58912A00EC49B8 /* DropboxHelper.swift in Sources */,
-				799396BD1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220B1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D21D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1971D89DAE000589DB7 /* Document.swift in Sources */,
@@ -683,7 +678,6 @@
 				799396BB1D48C02300086753 /* SMBFileProvider.swift in Sources */,
 				794C22101D591A4B00EC49B8 /* SMB2QueryTypes.swift in Sources */,
 				794C22001D58912A00EC49B8 /* DropboxHelper.swift in Sources */,
-				799396BE1D48C02300086753 /* CIFSTypes.swift in Sources */,
 				794C220C1D5893F800EC49B8 /* SMB2Notification.swift in Sources */,
 				799396D31D48C02300086753 /* SMB2SetInfo.swift in Sources */,
 				7924B1981D89DAE000589DB7 /* Document.swift in Sources */,
@@ -802,6 +796,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				BUNDLE_VERSION_STRING = 0.23.0;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -837,6 +832,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				BUNDLE_VERSION_STRING = 0.23.0;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;

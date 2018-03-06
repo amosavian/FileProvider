@@ -361,13 +361,19 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     /// - Note: To prevent race condition, use this method wisely and avoid it as far possible.
     ///
     /// - Parameter success: indicated server is reachable or not.
-    open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    open override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         var request = URLRequest(url: url(of: ""))
         request.httpMethod = "HEAD"
         request.setValue(authentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
-            completionHandler(status == 200)
+            if status >= 400, let code = FileProviderHTTPErrorCode(rawValue: status) {
+                let errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
+                let error = FileProviderOneDriveError(code: code, path: "", serverDescription: errorDesc)
+                completionHandler(false, error)
+                return
+            }
+            completionHandler(status == 200, error)
         })
         task.resume()
     }
