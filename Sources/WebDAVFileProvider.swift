@@ -267,7 +267,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return progress
     }
     
-    override open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    override open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
@@ -276,7 +276,13 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpBody = WebDavFileObject.xmlProp([.volumeTotalCapacityKey, .volumeAvailableCapacityKey])
         runDataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
-            completionHandler(status < 300)
+            if status >= 400, let code = FileProviderHTTPErrorCode(rawValue: status) {
+                let errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
+                let error = FileProviderWebDavError(code: code, path: "", serverDescription: errorDesc, url: self.baseURL!)
+                completionHandler(false, error)
+                return
+            }
+            completionHandler(status < 300, error)
         })
     }
     

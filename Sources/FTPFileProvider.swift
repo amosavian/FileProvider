@@ -343,9 +343,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
     }
     
-    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         self.attributesOfItem(path: "/") { (file, error) in
-            completionHandler(file != nil)
+            completionHandler(file != nil, error)
         }
     }
     

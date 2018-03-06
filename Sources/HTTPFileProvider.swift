@@ -153,9 +153,16 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    open func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         self.storageProperties { volume in
-            completionHandler(volume != nil)
+            if volume != nil {
+                completionHandler(volume != nil, nil)
+                return
+            } else {
+                self.contentsOfDirectory(path: "", completionHandler: { (files, error) in
+                    completionHandler(false, error)
+                })
+            }
         }
     }
     

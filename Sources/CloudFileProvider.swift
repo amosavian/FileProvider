@@ -283,9 +283,9 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return progress
     }
     
-    open override func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    open override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         dispatch_queue.async {
-            completionHandler(self.fileManager.ubiquityIdentityToken != nil)
+            completionHandler(self.fileManager.ubiquityIdentityToken != nil, nil)
         }
     }
     

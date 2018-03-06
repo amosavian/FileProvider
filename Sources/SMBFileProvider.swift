@@ -68,7 +68,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         NotImplemented()
     }
     
-    func isReachable(completionHandler: @escaping (Bool) -> Void) {
+    func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         NotImplemented()
     }
     

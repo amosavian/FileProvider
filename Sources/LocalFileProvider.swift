@@ -215,9 +215,14 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         return progress
     }
     
-    open func isReachable(completionHandler: @escaping (_ success: Bool) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         dispatch_queue.async {
-            completionHandler(self.fileManager.isReadableFile(atPath: self.baseURL!.path))
+            do {
+                let isReachable = try self.baseURL!.checkResourceIsReachable()
+                completionHandler(isReachable, nil)
+            } catch {
+                completionHandler(false, error)
+            }
         }
     }
     
