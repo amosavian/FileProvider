@@ -134,9 +134,9 @@ public final class OneDriveFileObject: FileObject {
     }
     
     static func relativePathOf(url: URL, baseURL: URL?, route: OneDriveFileProvider.Route) -> String {
-        let base = baseURL?.appendingPathComponent(route.drivePath)
+        let base = baseURL?.appendingPathComponent(route.drivePath).path ?? ""
         
-        let crudePath = url.absoluteString.replacingOccurrences(of: base?.absoluteString ?? "", with: "", options: .anchored)
+        let crudePath = url.path.replacingOccurrences(of: base, with: "", options: .anchored)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         
         switch crudePath {
