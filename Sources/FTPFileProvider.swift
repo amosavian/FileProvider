@@ -202,7 +202,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 
                 
                 let files: [FileObject] = contents.flatMap {
-                    rfc3659enabled ? self.parseMLST($0, in: path) : self.parseUnixList($0, in: path)
+                    rfc3659enabled ? self.parseMLST($0, in: path) : self.parseUnixList($0, in: path) ?? self.parseDOSList($0, in: path)
                 }
                 
                 self.dispatch_queue.async {
