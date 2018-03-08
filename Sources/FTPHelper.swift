@@ -129,7 +129,7 @@ internal extension FTPFileProvider {
                     }
                 })
             } else if isSecure {
-                self.execute(command: "PBSZ 0\r\nPROT P", on: task, completionHandler: { (response, error) in
+                self.execute(command: "PBSZ 0\r\nPROT C", on: task, completionHandler: { (response, error) in
                     if let error = error {
                         completionHandler(error)
                         return
@@ -175,7 +175,7 @@ internal extension FTPFileProvider {
                 
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
-                    passiveTask.startSecureConnection()
+                    //passiveTask.startSecureConnection()
                 }
                 passiveTask.resume()
                 completionHandler(passiveTask, nil)
@@ -819,7 +819,7 @@ internal extension FTPFileProvider {
         let nearDateFormatter = DateFormatter()
         nearDateFormatter.calendar = gregorian
         nearDateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        nearDateFormatter.dateFormat = "MMM dd hh:ss yyyy"
+        nearDateFormatter.dateFormat = "MMM dd hh:mm yyyy"
         let farDateFormatter = DateFormatter()
         farDateFormatter.calendar = gregorian
         farDateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -861,6 +861,33 @@ internal extension FTPFileProvider {
                 file.modifiedDate = parsedDate
             }
         } else if let parsedDate = farDateFormatter.date(from: date) {
+            file.modifiedDate = parsedDate
+        }
+        
+        return file
+    }
+    
+    func parseDOSList(_ text: String, in path: String) -> FileObject? {
+        let gregorian = Calendar(identifier: .gregorian)
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = gregorian
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.dateFormat = "M-d-y hh:mma"
+        
+        let components = text.components(separatedBy: " ").flatMap { $0.isEmpty ? nil : $0 }
+        guard components.count >= 4 else { return nil }
+        let size = Int64(components[2]) ?? -1
+        let date = components[0..<2].joined(separator: " ")
+        let name = components[3..<components.count].joined(separator: " ")
+        
+        guard name != "." && name != ".." else { return nil }
+        let path = (path as NSString).appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
+        
+        let file = FileObject(url: url(of: path), name: name, path: "/" + path)
+        file.type = components[2] == "<DIR>" ? .directory : .regular
+        file.size = size
+        
+        if let parsedDate = dateFormatter.date(from: date) {
             file.modifiedDate = parsedDate
         }
         
