@@ -107,6 +107,8 @@ internal extension FTPFileProvider {
                 return
             }
             
+            let prot = self.securedDataConnection ? "PROT P" : "PROT C"
+            
             if !isSecure && self.baseURL?.scheme == "ftpes" {
                 // Explicit FTP Connection, by upgrading connection to FTP/SSL
                 self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
@@ -118,7 +120,7 @@ internal extension FTPFileProvider {
                     if let response = response, response.hasPrefix("23") {
                         task.startSecureConnection()
                         isSecure = true
-                        self.execute(command: "PBSZ 0\r\nPROT P", on: task, completionHandler: { (response, error) in
+                        self.execute(command: "PBSZ 0\r\n\(prot)", on: task, completionHandler: { (response, error) in
                             if let error = error {
                                 completionHandler(error)
                                 return
@@ -129,7 +131,7 @@ internal extension FTPFileProvider {
                     }
                 })
             } else if isSecure {
-                self.execute(command: "PBSZ 0\r\nPROT C", on: task, completionHandler: { (response, error) in
+                self.execute(command: "PBSZ 0\r\n\(prot)", on: task, completionHandler: { (response, error) in
                     if let error = error {
                         completionHandler(error)
                         return
@@ -175,8 +177,48 @@ internal extension FTPFileProvider {
                 
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
-                    //passiveTask.startSecureConnection()
+                    passiveTask.startSecureConnection()
                 }
+                passiveTask.securityLevel = .tlSv1
+                passiveTask.resume()
+                completionHandler(passiveTask, nil)
+            } catch {
+                completionHandler(nil, error)
+                return
+            }
+            
+        }
+    }
+    
+    func ftpExtendedPassive(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
+        func trimmedNumber(_ s : String) -> String {
+            return s.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        }
+        
+        self.execute(command: "EPSV", on: task) { (response, error) in
+            do {
+                if let error = error {
+                    throw error
+                }
+                
+                guard let response = response, let destString = response.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: " ").last else {
+                    throw self.urlError("", code: .badServerResponse)
+                }
+                
+                let destArray = destString.components(separatedBy: "|")
+                guard destArray.count >= 4, let port = Int(trimmedNumber(destArray[3])) else {
+                    throw self.urlError("", code: .badServerResponse)
+                }
+                var host = destArray[2]
+                if host.isEmpty {
+                    host = self.baseURL?.host ?? ""
+                }
+                
+                let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
+                if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
+                    passiveTask.startSecureConnection()
+                }
+                passiveTask.securityLevel = .tlSv1
                 passiveTask.resume()
                 completionHandler(passiveTask, nil)
             } catch {
@@ -223,9 +265,12 @@ internal extension FTPFileProvider {
     }
     
     func ftpDataConnect(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
-        if self.passiveMode {
+        switch self.mode {
+        case .passive:
             self.ftpPassive(task, completionHandler: completionHandler)
-        } else {
+        case .extendedPassive:
+            self.ftpExtendedPassive(task, completionHandler: completionHandler)
+        case .active:
             dispatch_queue.async {
                 self.ftpActive(task, completionHandler: completionHandler)
             }

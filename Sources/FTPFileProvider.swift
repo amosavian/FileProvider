@@ -13,6 +13,17 @@ import Foundation
  It's a complete reimplementation and doesn't use CFNetwork deprecated API.
  */
 open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
+    
+    /// FTP data connection mode.
+    public enum Mode: String {
+        /// Data connection would establish by client to determined server host/port.
+        case passive
+        /// Data connection would establish by server to determined client's port.
+        case active
+        /// Data connection would establish by client to determined server host/port, with IPv6 support. (RFC 2428)
+        case extendedPassive
+    }
+    
     open class var type: String { return "FTP" }
     open let baseURL: URL?
     
@@ -34,7 +45,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     public var validatingCache: Bool
     
     /// Determine either FTP session is in passive or active mode.
-    public let passiveMode: Bool
+    public let mode: Mode
     
     fileprivate var _session: URLSession!
     internal var sessionDelegate: SessionDelegate?
@@ -67,12 +78,14 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      - Note: `passive` value should be set according to server settings and firewall presence.
      
      - Parameter baseURL: a url with `ftp://hostaddress/` format.
-     - Parameter passive: FTP server data connection, `true` means passive connection (data connection created by client)
-         and `false` means active connection (data connection created by server). Default is `true` (passive mode).
+     - Parameter mode: FTP server data connection type.
      - Parameter credential: a `URLCredential` object contains user and password.
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
+     
+     - Important: Extended Passive or Active modes won't fallback to normal Passive or Active modes. If your server
+         does not support these relatively new modes, connection will fail qith `URLError.badServerResponse` error.
      */
-    public init? (baseURL: URL, passive: Bool = true, credential: URLCredential? = nil, cache: URLCache? = nil) {
+    public init? (baseURL: URL, mode: Mode = .passive, credential: URLCredential? = nil, cache: URLCache? = nil) {
         guard ["ftp", "ftps", "ftpes"].contains(baseURL.uw_scheme.lowercased()) else {
             return nil
         }
@@ -84,7 +97,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         urlComponents.path = urlComponents.path.hasSuffix("/") ? urlComponents.path : urlComponents.path + "/"
         
         self.baseURL =  urlComponents.url!.absoluteURL
-        self.passiveMode = passive
+        self.mode = mode
         self.useCache = false
         self.validatingCache = true
         self.cache = cache
@@ -101,12 +114,36 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         operation_queue.name = "\(queueLabel).Operation"
     }
     
+    /**
+     **DEPRECATED** Initializer for FTP provider with given username and password.
+     
+     - Note: `passive` value should be set according to server settings and firewall presence.
+     
+     - Parameter baseURL: a url with `ftp://hostaddress/` format.
+     - Parameter passive: FTP server data connection, `true` means passive connection (data connection created by client)
+     and `false` means active connection (data connection created by server). Default is `true` (passive mode).
+     - Parameter credential: a `URLCredential` object contains user and password.
+     - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
+     */
+    @available(*, deprecated, renamed: "init(baseURL:mode:credential:cache:)")
+    public convenience init? (baseURL: URL, passive: Bool, credential: URLCredential? = nil, cache: URLCache? = nil) {
+        self.init(baseURL: baseURL, mode: passive ? .passive : .active, credential: credential, cache: cache)
+    }
+    
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else { return nil }
-        self.init(baseURL: baseURL, passive: aDecoder.decodeBool(forKey: "passiveMode"), credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
-        self.useCache        = aDecoder.decodeBool(forKey: "useCache")
-        self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
-        self.supportsRFC3659 = aDecoder.decodeBool(forKey: "supportsRFC3659")
+        let mode: Mode
+        if let modeStr = aDecoder.decodeObject(forKey: "mode") as? String, let mode_v = Mode(rawValue: modeStr) {
+            mode = mode_v
+        } else {
+            let passiveMode = aDecoder.decodeBool(forKey: "passiveMode")
+            mode = passiveMode ? .passive : .active
+        }
+        self.init(baseURL: baseURL, mode: mode, credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+        self.useCache              = aDecoder.decodeBool(forKey: "useCache")
+        self.validatingCache       = aDecoder.decodeBool(forKey: "validatingCache")
+        self.supportsRFC3659       = aDecoder.decodeBool(forKey: "supportsRFC3659")
+        self.securedDataConnection = aDecoder.decodeBool(forKey: "securedDataConnection")
     }
     
     public func encode(with aCoder: NSCoder) {
@@ -114,8 +151,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         aCoder.encode(self.credential, forKey: "credential")
         aCoder.encode(self.useCache, forKey: "useCache")
         aCoder.encode(self.validatingCache, forKey: "validatingCache")
-        aCoder.encode(self.passiveMode, forKey: "passiveMode")
+        aCoder.encode(self.mode.rawValue, forKey: "mode")
         aCoder.encode(self.supportsRFC3659, forKey: "supportsRFC3659")
+        aCoder.encode(self.securedDataConnection, forKey: "securedDataConnection")
     }
     
     public static var supportsSecureCoding: Bool {
@@ -123,11 +161,12 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     }
     
     open func copy(with zone: NSZone? = nil) -> Any {
-        let copy = FTPFileProvider(baseURL: self.baseURL!, credential: self.credential, cache: self.cache)!
+        let copy = FTPFileProvider(baseURL: self.baseURL!, mode: self.mode, credential: self.credential, cache: self.cache)!
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
         copy.useCache = self.useCache
         copy.validatingCache = self.validatingCache
+        copy.securedDataConnection = self.securedDataConnection
         copy.supportsRFC3659 = self.supportsRFC3659
         return copy
     }
@@ -156,6 +195,12 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      - Note: Disabling this option will increase upload speed.
     */
     public var uploadByREST: Bool = FileProviderStreamTask.defaultUseURLSession
+    
+    /**
+     Determines data connection must TLS or not. `false` value indicates to use `PROT C` and
+     `true` value indicates to use `PROT P`.
+    */
+    public var securedDataConnection: Bool = false
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
