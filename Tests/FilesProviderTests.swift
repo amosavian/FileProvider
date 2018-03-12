@@ -8,7 +8,7 @@
 import XCTest
 import FilesProvider
 
-class FilesProviderTests: XCTestCase {
+class FilesProviderTests: XCTestCase, FileProviderDelegate {
     
     override func setUp() {
         super.setUp()
@@ -40,6 +40,7 @@ class FilesProviderTests: XCTestCase {
             cred = nil
         }
         let provider = WebDAVFileProvider(baseURL: url, credential: cred)!
+        provider.delegate = self
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -52,6 +53,7 @@ class FilesProviderTests: XCTestCase {
         }
         let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = DropboxFileProvider(credential: cred)
+        provider.delegate = self
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -68,7 +70,8 @@ class FilesProviderTests: XCTestCase {
         } else {
             cred = nil
         }
-        let provider = FTPFileProvider(baseURL: url, passive: true, credential: cred)!
+        let provider = FTPFileProvider(baseURL: url, mode: .extendedPassive, credential: cred)!
+        provider.delegate = self
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -81,6 +84,7 @@ class FilesProviderTests: XCTestCase {
         }
         let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = OneDriveFileProvider(credential: cred)
+        provider.delegate = self
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -106,16 +110,19 @@ class FilesProviderTests: XCTestCase {
     
     fileprivate func testCreateFolder(_ provider: FileProvider, folderName: String) {
         let desc = "Creating folder at root in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.create(folder: folderName, at: "/") { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testContentsOfDirectory(_ provider: FileProvider) {
         let desc = "Enumerating files list in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.contentsOfDirectory(path: "/") { (files, error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
@@ -128,10 +135,12 @@ class FilesProviderTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testAttributesOfFile(_ provider: FileProvider, filePath: String) {
         let desc = "Attrubutes of file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.attributesOfItem(path: filePath) { (fileObject, error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
@@ -144,21 +153,25 @@ class FilesProviderTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testCreateFile(_ provider: FileProvider, filePath: String) {
         let desc = "Creating file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         let data = sampleText.data(using: .ascii)
         provider.writeContents(path: filePath, contents: data, overwrite: true) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: timeout)
+        wait(for: [expectation], timeout: timeout * 3)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testContentsFile(_ provider: FileProvider, filePath: String, hasSampleText: Bool = true) {
         let desc = "Reading file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.contents(path: filePath) { (data, error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
@@ -170,37 +183,44 @@ class FilesProviderTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: timeout)
+        wait(for: [expectation], timeout: timeout * 3)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testRenameFile(_ provider: FileProvider, filePath: String, to toPath: String) {
         let desc = "Renaming file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.moveItem(path: filePath, to: toPath, overwrite: true) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testCopyFile(_ provider: FileProvider, filePath: String, to toPath: String) {
         let desc = "Copying file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.copyItem(path: filePath, to: toPath, overwrite: true) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testRemoveFile(_ provider: FileProvider, filePath: String) {
         let desc = "Deleting file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.removeItem(path: filePath) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     private func randomData(size: Int = 262144) -> Data {
@@ -229,6 +249,7 @@ class FilesProviderTests: XCTestCase {
         // test Upload/Download
         let url = dummyFile()
         let desc = "Uploading file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         let dummy = dummyFile()
         provider.copyItem(localFile: dummy, to: filePath) { (error) in
@@ -236,11 +257,13 @@ class FilesProviderTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout * 3)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testDownloadFile(_ provider: FileProvider, filePath: String) {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("downloadedfile.dat")
         let desc = "Downloading file in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.copyItem(path: filePath, toLocalURL: url) { (error) in
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
@@ -252,10 +275,12 @@ class FilesProviderTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout * 3)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testStorageProperties(_ provider: FileProvider, isExpected: Bool) {
         let desc = "Querying volume in \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.storageProperties { (volume) in
             if !isExpected {
@@ -270,17 +295,19 @@ class FilesProviderTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testReachability(_ provider: FileProvider) {
-        // Test file operations
         let desc = "Reachability of \(provider.type)"
+        print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
         provider.isReachable { (status, error) in
             XCTAssertTrue(status, "\(provider.type) not reachable: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
     }
     
     fileprivate func testBasic(_ provider: FileProvider) {
@@ -300,6 +327,7 @@ class FilesProviderTests: XCTestCase {
     }
     
     fileprivate func testOperations(_ provider: FileProvider) {
+        // Test file operations
         testReachability(provider)
         testCreateFolder(provider, folderName: testFolderName)
         testContentsOfDirectory(provider)
@@ -316,5 +344,27 @@ class FilesProviderTests: XCTestCase {
         // Test upload/download
         testUploadFile(provider, filePath: uploadFilePath)
         testDownloadFile(provider, filePath: uploadFilePath)
+    }
+    
+    func fileproviderSucceed(_ fileProvider: FileProviderOperations, operation: FileOperationType) {
+        return
+    }
+    
+    func fileproviderFailed(_ fileProvider: FileProviderOperations, operation: FileOperationType, error: Error) {
+        return
+    }
+    
+    func fileproviderProgress(_ fileProvider: FileProviderOperations, operation: FileOperationType, progress: Float) {
+        switch operation {
+        case .copy(source: let source, destination: let dest) where dest.hasPrefix("file://"):
+            print("Downloading \(source) to \((dest as NSString).lastPathComponent): \(progress * 100) completed.")
+        case .copy(source: let source, destination: let dest) where source.hasPrefix("file://"):
+            print("Uploading \((source as NSString).lastPathComponent) to \(dest): \(progress * 100) completed.")
+        case .copy(source: let source, destination: let dest):
+            print("Copy \(source) to \(dest): \(progress * 100) completed.")
+        default:
+            break
+        }
+        return
     }
 }

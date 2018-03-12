@@ -772,16 +772,27 @@ public extension FileProviderBasic {
     
     internal func urlError(_ path: String, code: URLError.Code) -> Error {
         let fileURL = self.url(of: path)
-        let userInfo: [String: Any] = [NSURLErrorKey: fileURL,
+        var userInfo: [String: Any] = [NSURLErrorKey: fileURL,
                                        NSURLErrorFailingURLErrorKey: fileURL,
                                        NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString,
                                        ]
+        let error = NSError(domain: NSURLErrorDomain, code: code.rawValue, userInfo: nil)
+        for (key, value) in error.userInfo {
+            userInfo[key] = value
+        }
         return URLError(code, userInfo: userInfo)
     }
     
     internal func cocoaError(_ path: String, code: CocoaError.Code) -> Error {
         let fileURL = self.url(of: path)
-        return CocoaError(code, userInfo: [NSFilePathErrorKey: path, NSURLErrorKey: fileURL])
+        var userInfo: [String: Any] = [NSFilePathErrorKey: path,
+                                       NSURLErrorKey: fileURL,
+                                       ]
+        let error = NSError(domain: NSCocoaErrorDomain, code: code.rawValue, userInfo: nil)
+        for (key, value) in error.userInfo {
+            userInfo[key] = value
+        }
+        return cocoaError(fileURL.path, code: code)
     }
     
     internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {

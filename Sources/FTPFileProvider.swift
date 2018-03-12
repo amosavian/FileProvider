@@ -198,9 +198,9 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     
     /**
      Determines data connection must TLS or not. `false` value indicates to use `PROT C` and
-     `true` value indicates to use `PROT P`.
+     `true` value indicates to use `PROT P`. Default is `true`.
     */
-    public var securedDataConnection: Bool = false
+    public var securedDataConnection: Bool = true
     
     open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
@@ -247,7 +247,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 
                 
                 let files: [FileObject] = contents.flatMap {
-                    rfc3659enabled ? self.parseMLST($0, in: path) : self.parseUnixList($0, in: path) ?? self.parseDOSList($0, in: path)
+                    rfc3659enabled ? self.parseMLST($0, in: path) : (self.parseUnixList($0, in: path) ?? self.parseDOSList($0, in: path))
                 }
                 
                 self.dispatch_queue.async {
@@ -307,7 +307,10 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                     guard lines.count > 2 else {
                         throw self.urlError(path, code: .badServerResponse)
                     }
-                    let file: FileObject? = rfc3659enabled ? self.parseMLST(lines[1], in: path) : self.parseUnixList(lines[1], in: path)
+                    let dirPath = (path as NSString).deletingLastPathComponent
+                    let file: FileObject? = rfc3659enabled ?
+                        self.parseMLST(lines[1], in: dirPath) :
+                        (self.parseUnixList(lines[1], in: dirPath) ?? self.parseDOSList(lines[1], in: dirPath))
                     self.dispatch_queue.async {
                         completionHandler(file, nil)
                     }
