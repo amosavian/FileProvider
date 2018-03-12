@@ -60,12 +60,13 @@ internal extension FTPFileProvider {
             }
             
             // needs password
-            if FileProviderFTPError(message: response).code == 331 {
+            if response.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("33") {
                 self.execute(command: "PASS \(self.credential?.password ?? "fileprovider@")", on: task) { (response, error) in
                     if response?.hasPrefix("23") ?? false {
                         completionHandler(nil)
                     } else {
-                        completionHandler(self.urlError("", code: .userAuthenticationRequired))
+                        let error: Error = response.flatMap(FileProviderFTPError.init(message:)) ?? self.urlError("", code: .userAuthenticationRequired)
+                        completionHandler(error)
                     }
                 }
                 return
@@ -74,6 +75,25 @@ internal extension FTPFileProvider {
             let error = FileProviderFTPError(message: response)
             completionHandler(error)
         }
+    }
+    
+    fileprivate func ftpEstablishSecureDataConnection(_ task: FileProviderStreamTask, completionHandler: @escaping (_ error: Error?) -> Void) {
+        self.execute(command: "PBSZ 0", on: task, completionHandler: { (response, error) in
+            if let error = error {
+                completionHandler(error)
+                return
+            }
+            
+            let prot = self.securedDataConnection ? "PROT P" : "PROT C"
+            self.execute(command: prot, on: task, completionHandler: { (response, error) in
+                if let error = error {
+                    completionHandler(error)
+                    return
+                }
+                
+                self.ftpUserPass(task, completionHandler: completionHandler)
+            })
+        })
     }
     
     func ftpLogin(_ task: FileProviderStreamTask, completionHandler: @escaping (_ error: Error?) -> Void) {
@@ -107,8 +127,6 @@ internal extension FTPFileProvider {
                 return
             }
             
-            let prot = self.securedDataConnection ? "PROT P" : "PROT C"
-            
             if !isSecure && self.baseURL?.scheme == "ftpes" {
                 // Explicit FTP Connection, by upgrading connection to FTP/SSL
                 self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
@@ -120,25 +138,25 @@ internal extension FTPFileProvider {
                     if let response = response, response.hasPrefix("23") {
                         task.startSecureConnection()
                         isSecure = true
-                        self.execute(command: "PBSZ 0\r\n\(prot)", on: task, completionHandler: { (response, error) in
+                        self.ftpEstablishSecureDataConnection(task) { error in
                             if let error = error {
                                 completionHandler(error)
                                 return
                             }
                             
                             self.ftpUserPass(task, completionHandler: completionHandler)
-                        })
+                        }
                     }
                 })
             } else if isSecure {
-                self.execute(command: "PBSZ 0\r\n\(prot)", on: task, completionHandler: { (response, error) in
+                self.ftpEstablishSecureDataConnection(task) { error in
                     if let error = error {
                         completionHandler(error)
                         return
                     }
                     
                     self.ftpUserPass(task, completionHandler: completionHandler)
-                })
+                }
             } else {
                 self.ftpUserPass(task, completionHandler: completionHandler)
             }
@@ -315,8 +333,7 @@ internal extension FTPFileProvider {
                             let waitResult = group.wait(timeout: .now() + timeout)
                             
                             if let error = error {
-                                if !((error as NSError).domain == URLError.errorDomain
-                                    && (error as NSError).code == URLError.cancelled.rawValue) {
+                                if (error as? URLError)?.code != .cancelled {
                                     throw error
                                 }
                                 return
@@ -849,6 +866,7 @@ internal extension FTPFileProvider {
     
     func ftpPath(_ apath: String) -> String {
         // path of base url should be concreted into file path! And remove final slash
+        let apath = apath.replacingOccurrences(of: "/", with: "", options: [.anchored])
         var path = baseURL!.appendingPathComponent(apath).path.replacingOccurrences(of: "/", with: "", options: [.anchored, .backwards])
         
         // Fixing slashes
@@ -1022,7 +1040,11 @@ public struct FileProviderFTPError: LocalizedError {
         self.serverDescription = serverDescription
     }
     
-    init(message response: String, path: String = "") {
+    init(message  response: String) {
+        self.init(message: response, path: "")
+    }
+    
+    init(message response: String, path: String) {
         let message = response.components(separatedBy: .newlines).last ?? "No Response"
         #if swift(>=4.0)
         let startIndex = (message.index(of: "-") ?? message.index(of: " ")) ?? message.startIndex
