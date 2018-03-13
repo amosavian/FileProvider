@@ -16,6 +16,8 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     
     /// FTP data connection mode.
     public enum Mode: String {
+        /// Passive mode for FTP and Extended Passive mode for FTP over TLS.
+        case `default`
         /// Data connection would establish by client to determined server host/port.
         case passive
         /// Data connection would establish by server to determined client's port.
@@ -82,10 +84,10 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
      - Parameter credential: a `URLCredential` object contains user and password.
      - Parameter cache: A URLCache to cache downloaded files and contents. (unimplemented for FTP and should be nil)
      
-     - Important: Extended Passive or Active modes won't fallback to normal Passive or Active modes. If your server
-         does not support these relatively new modes, connection will fail qith `URLError.badServerResponse` error.
+     - Important: Extended Passive or Active modes will fallback to normal Passive or Active modes if your server
+         does not support extended modes.
      */
-    public init? (baseURL: URL, mode: Mode = .passive, credential: URLCredential? = nil, cache: URLCache? = nil) {
+    public init? (baseURL: URL, mode: Mode = .default, credential: URLCredential? = nil, cache: URLCache? = nil) {
         guard ["ftp", "ftps", "ftpes"].contains(baseURL.uw_scheme.lowercased()) else {
             return nil
         }
