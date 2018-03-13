@@ -223,6 +223,10 @@ internal extension FTPFileProvider {
                     throw self.urlError("", code: .badServerResponse)
                 }
                 
+                if response.trimmingCharacters(in: .whitespaces).hasPrefix("50") {
+                    self.ftpPassive(task, completionHandler: completionHandler)
+                }
+                
                 let destArray = destString.components(separatedBy: "|")
                 guard destArray.count >= 4, let port = Int(trimmedNumber(destArray[3])) else {
                     throw self.urlError("", code: .badServerResponse)
@@ -284,6 +288,12 @@ internal extension FTPFileProvider {
     
     func ftpDataConnect(_ task: FileProviderStreamTask, completionHandler: @escaping (_ dataTask: FileProviderStreamTask?, _ error: Error?) -> Void) {
         switch self.mode {
+        case .default:
+            if self.baseURL?.port == 990 || self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" {
+                self.ftpExtendedPassive(task, completionHandler: completionHandler)
+            } else {
+                self.ftpPassive(task, completionHandler: completionHandler)
+            }
         case .passive:
             self.ftpPassive(task, completionHandler: completionHandler)
         case .extendedPassive:
