@@ -424,14 +424,6 @@ public protocol FileProviderOperations: FileProviderBasic {
 }
 
 public extension FileProviderOperations {
-    /// *OBSOLETED:* Use Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.
-    @available(*, obsoleted: 0.23, message: "Use FileProviderReadWrite.writeContents(path:, data:, completionHandler:) method instead.")
-    @discardableResult
-    public func create(file: String, at: String, contents data: Data?, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let path = (at as NSString).appendingPathComponent(file)
-        return (self as? FileProviderReadWrite)?.writeContents(path: path, contents: data, completionHandler: completionHandler)
-    }
-    
     @discardableResult
     public func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return self.moveItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
@@ -1080,10 +1072,6 @@ public enum FileOperationType: CustomStringConvertible {
         return String(jsonDictionary: dictionary)
     }
 }
-
-/// Allows to get progress or cancel an in-progress operation, useful for remote providers
-@available(*, obsoleted: 1.0, message: "Use Foudation.Progress class instead.")
-public protocol OperationHandle {}
 
 /// Delegate methods for reporting provider's operation result and progress, when it's ready to update
 /// user interface.
