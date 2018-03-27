@@ -190,7 +190,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     /**
      Uploads files in chunk if `true`, Otherwise It will uploads entire file/data as single stream.
      
-     - Note: Due to an internal bug in `NSURLSessionStreamTask`, it must be true when using Apple's stream task,
+     - Note: Due to an internal bug in `NSURLSessionStreamTask`, it must be `true` when using Apple's stream task,
          otherwise it will occasionally throw `Assertion failed: (_writeBufferAlreadyWrittenForNextWrite == 0)`
          fatal error. My implementation of `FileProviderStreamTask` doesn't have this bug.
      

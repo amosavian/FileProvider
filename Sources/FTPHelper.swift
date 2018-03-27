@@ -398,16 +398,16 @@ internal extension FTPFileProvider {
                        completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         let queue = DispatchQueue(label: "\(self.type).recursiveList")
+        let group = DispatchGroup()
         queue.async {
-            let group = DispatchGroup()
             var result = [FileObject]()
             var success = true
             group.enter()
             self.contentsOfDirectory(path: path, completionHandler: { (files, error) in
                 success = success && (error == nil)
                 if let error = error {
-                    completionHandler([], error)
                     group.leave()
+                    completionHandler([], error)
                     return
                 }
                 

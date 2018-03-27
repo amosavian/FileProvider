@@ -17,11 +17,6 @@ import Foundation
 open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
     open let baseURL: URL?
-    
-    /// **OBSOLETED** Current active path used in `contentsOfDirectory(path:completionHandler:)` method.
-    @available(*, obsoleted: 0.22, message: "This property is redundant with almost no use internally.")
-    open var currentPath: String = ""
-    
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {
         willSet {

@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "FilesProvider"
-  s.version      = "0.23.0"
+  s.version      = "0.24.0"
   s.summary      = "FileManager replacement for Local and Remote (WebDAV/FTP/Dropbox/OneDrive/SMB2) files on iOS and macOS."
 
   # This description is used to generate tags and improve search results.
@@ -66,10 +66,7 @@ Pod::Spec.new do |s|
   #  the deployment target. You can optionally include the target after the platform.
   #
 
-  # s.platform     = :ios
-  # s.platform     = :ios, "8.0"
-
-  #  When using multiple platforms
+  s.swift_version = "4.0"
   s.ios.deployment_target = "8.0"
   s.osx.deployment_target = "10.10"
   # s.watchos.deployment_target = "2.0"
@@ -122,7 +119,7 @@ Pod::Spec.new do |s|
   # s.framework  = "SomeFramework"
   # s.frameworks = "SomeFramework", "AnotherFramework"
 
-  # s.library   = "iconv"
+  s.library   = "xml2"
   # s.libraries = "iconv", "xml2"
 
 
