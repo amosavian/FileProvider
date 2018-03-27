@@ -22,6 +22,10 @@
 [![Cocoapods Doc][docs-image]][docs-url]
 [![codecov](https://codecov.io/gh/amosavian/FileProvider/branch/master/graph/badge.svg)](https://codecov.io/gh/amosavian/FileProvider) 
 ---> 
+## Support on Beerpay
+Hey dude! Help me out for a couple of :beers:!
+
+[![Beerpay](https://beerpay.io/amosavian/FileProvider/badge.svg?style=beer-square)](https://beerpay.io/amosavian/FileProvider)  [![Beerpay](https://beerpay.io/amosavian/FileProvider/make-wish.svg?style=flat-square)](https://beerpay.io/amosavian/FileProvider?focus=wish)
 
 This library provides implementaion of WebDav, FTP, Dropbox, OneDrive and SMB2 (incomplete) and local files.
 
@@ -512,7 +516,3 @@ Distributed under the MIT license. See `LICENSE` for more information.
 [cocoapods-apps]: https://img.shields.io/cocoapods/at/FilesProvider.svg
 [docs-image]: https://img.shields.io/cocoapods/metrics/doc-percent/FilesProvider.svg
 [docs-url]: http://cocoadocs.org/docsets/FilesProvider/
-## Support on Beerpay
-Hey dude! Help me out for a couple of :beers:!
-
-[![Beerpay](https://beerpay.io/amosavian/FileProvider/badge.svg?style=beer-square)](https://beerpay.io/amosavian/FileProvider)  [![Beerpay](https://beerpay.io/amosavian/FileProvider/make-wish.svg?style=flat-square)](https://beerpay.io/amosavian/FileProvider?focus=wish)
