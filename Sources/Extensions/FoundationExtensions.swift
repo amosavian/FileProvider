@@ -602,6 +602,12 @@ extension Array {
         return try self.flatMap(transform)
     }
 }
+
+extension ArraySlice {
+    func compactMap<ElementOfResult>(_ transform: (Element) throws -> ElementOfResult?) rethrows -> [ElementOfResult] {
+        return try self.flatMap(transform)
+    }
+}
 #endif
 
 
