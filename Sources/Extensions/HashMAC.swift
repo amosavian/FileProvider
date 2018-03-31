@@ -410,9 +410,12 @@ fileprivate func arrayOfBytes<T>(_ value:T, length:Int? = nil) -> [UInt8] {
         bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
     }
     
-    valuePointer.deinitialize()
+    valuePointer.deinitialize(count: 1)
+    #if swift(>=4.1)
+    valuePointer.deallocate()
+    #else
     valuePointer.deallocate(capacity: 1)
-    
+    #endif
     return bytes
 }
 

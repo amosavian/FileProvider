@@ -471,7 +471,7 @@ We would love for you to contribute to **FileProvider**, check the `LICENSE` fil
 Things you may consider to help us:
 
 - [ ] Implement request/response stack for `SMBClient`
-- [ ] Implement Test-case (`XCTest`)
+- [x] Implement Test-case (`XCTest`)
 - [ ] Add Sample project for iOS
 - [ ] Add Sample project for macOS
 

@@ -248,7 +248,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                 }
                 
                 
-                let files: [FileObject] = contents.flatMap {
+                let files: [FileObject] = contents.compactMap {
                     rfc3659enabled ? self.parseMLST($0, in: path) : (self.parseUnixList($0, in: path) ?? self.parseDOSList($0, in: path))
                 }
                 
@@ -305,7 +305,7 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
                         self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
                     }
                     
-                    let lines = response.components(separatedBy: "\n").flatMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    let lines = response.components(separatedBy: "\n").compactMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     guard lines.count > 2 else {
                         throw self.urlError(path, code: .badServerResponse)
                     }
@@ -705,9 +705,9 @@ extension FTPFileProvider {
                     return
                 }
                 
-                let codes: [Int] = response.components(separatedBy: .newlines).flatMap({ $0.isEmpty ? nil : $0})
-                    .flatMap {
-                        let code = $0.components(separatedBy: .whitespaces).flatMap({ $0.isEmpty ? nil : $0}).first
+                let codes: [Int] = response.components(separatedBy: .newlines).compactMap({ $0.isEmpty ? nil : $0})
+                    .compactMap {
+                        let code = $0.components(separatedBy: .whitespaces).compactMap({ $0.isEmpty ? nil : $0}).first
                         return code != nil ? Int(code!) : nil
                 }
                 

@@ -290,7 +290,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     @discardableResult
     open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
-        let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).flatMap { $0.value as? String }.first
+        let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).compactMap { $0.value as? String }.first
         
         return paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
             guard let `self` = self else { return nil }
