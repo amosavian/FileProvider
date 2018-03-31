@@ -207,7 +207,12 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
             XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: timeout)
+        if provider is FTPFileProvider {
+            // FTP will need to download and upload file again.
+            wait(for: [expectation], timeout: timeout * 6)
+        } else {
+            wait(for: [expectation], timeout: timeout)
+        }
         print("Test fulfilled: \(desc).")
     }
     

@@ -178,13 +178,13 @@ internal extension FTPFileProvider {
                     throw self.urlError("", code: .badServerResponse)
                 }
                 
-                let destArray = destString.components(separatedBy: ",").flatMap({ UInt32(trimmedNumber($0)) })
+                let destArray = destString.components(separatedBy: ",").compactMap({ UInt32(trimmedNumber($0)) })
                 guard destArray.count == 6 else {
                     throw self.urlError("", code: .badServerResponse)
                 }
                 
                 // first 4 elements are ip, 2 next are port, as byte
-                var host = destArray.prefix(4).flatMap(String.init).joined(separator: ".")
+                var host = destArray.prefix(4).compactMap(String.init).joined(separator: ".")
                 let portHi = Int(destArray[4]) << 8
                 let portLo = Int(destArray[5])
                 let port = portHi + portLo
@@ -359,7 +359,7 @@ internal extension FTPFileProvider {
                         }
                         
                         let contents: [String] = response.components(separatedBy: "\n")
-                            .flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                            .compactMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
                         success = true
                         completionHandler(contents, nil)
                     } catch {
@@ -899,7 +899,7 @@ internal extension FTPFileProvider {
         farDateFormatter.dateFormat = "MMM dd yyyy"
         let thisYear = gregorian.component(.year, from: Date())
         
-        let components = text.components(separatedBy: " ").flatMap { $0.isEmpty ? nil : $0 }
+        let components = text.components(separatedBy: " ").compactMap { $0.isEmpty ? nil : $0 }
         guard components.count >= 9 else { return nil }
         let posixPermission = components[0]
         let linksCount = Int(components[1]) ?? 0
@@ -947,7 +947,7 @@ internal extension FTPFileProvider {
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.dateFormat = "M-d-y hh:mma"
         
-        let components = text.components(separatedBy: " ").flatMap { $0.isEmpty ? nil : $0 }
+        let components = text.components(separatedBy: " ").compactMap { $0.isEmpty ? nil : $0 }
         guard components.count >= 4 else { return nil }
         let size = Int64(components[2]) ?? -1
         let date = components[0..<2].joined(separator: " ")
@@ -968,7 +968,7 @@ internal extension FTPFileProvider {
     }
     
     func parseMLST(_ text: String, in path: String) -> FileObject? {
-        var components = text.components(separatedBy: ";").flatMap { $0.isEmpty ? nil : $0 }
+        var components = text.components(separatedBy: ";").compactMap { $0.isEmpty ? nil : $0 }
         guard components.count > 1 else { return nil }
         
         let nameOrPath = components.removeLast().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -985,7 +985,7 @@ internal extension FTPFileProvider {
         
         var attributes = [String: String]()
         for component in components {
-            let keyValue = component.components(separatedBy: "=") .flatMap { $0.isEmpty ? nil : $0 }
+            let keyValue = component.components(separatedBy: "=").compactMap { $0.isEmpty ? nil : $0 }
             guard keyValue.count >= 2, !keyValue[0].isEmpty else { continue }
             attributes[keyValue[0].lowercased()] = keyValue.dropFirst().joined(separator: "=")
         }

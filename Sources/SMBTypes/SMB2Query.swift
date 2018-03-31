@@ -72,17 +72,23 @@ extension SMB2 {
                 let header: SMB2FilesInformationHeader
                 switch type {
                 case .fileDirectoryInformation:
-                    header = buffer.scanValue(start: offset) as FileDirectoryInformationHeader!
+                    let tHeader: FileDirectoryInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 case .fileFullDirectoryInformation:
-                    header = buffer.scanValue(start: offset) as FileFullDirectoryInformationHeader!
+                    let tHeader: FileFullDirectoryInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 case .fileIdFullDirectoryInformation:
-                    header = buffer.scanValue(start: offset) as FileIdFullDirectoryInformationHeader!
+                    let tHeader: FileIdFullDirectoryInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 case .fileBothDirectoryInformation:
-                    header = buffer.scanValue(start: offset) as FileBothDirectoryInformationHeader!
+                    let tHeader: FileBothDirectoryInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 case .fileIdBothDirectoryInformation:
-                    header = buffer.scanValue(start: offset) as FileIdBothDirectoryInformationHeader!
+                    let tHeader: FileIdBothDirectoryInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 case .fileNamesInformation:
-                    header = buffer.scanValue(start: offset) as FileNamesInformationHeader!
+                    let tHeader: FileNamesInformationHeader = buffer.scanValue(start: offset)!
+                    header = tHeader
                 default:
                     return []
                 }
@@ -98,8 +104,10 @@ extension SMB2 {
         }
         
         init? (data: Data) {
-            let offset = Int(data.scanValue(start: 2) as UInt16!)
-            let length = Int(data.scanValue(start: 4) as UInt32!)
+            let tOffset: UInt16 = data.scanValue(start: 2)!
+            let offset = Int(tOffset)
+            let tLength: UInt32 = data.scanValue(start: 4)!
+            let length = Int(tLength)
             guard data.count > offset + length else {
                 return nil
             }
@@ -200,7 +208,8 @@ extension SMB2 {
             /*let offsetData = data.subdataWithRange(NSRange(location: 2, length: 2))
             let offset: UInt16 = decode(offsetData)*/
             
-            let length = Int(data.scanValue(start: 4) as UInt32!)
+            let tLength: UInt32 = data.scanValue(start: 4)!
+            let length = Int(tLength)
             
             guard data.count >= 8 + length else {
                 return nil

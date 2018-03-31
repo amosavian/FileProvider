@@ -89,19 +89,19 @@ public final class LocalFileObject: FileObject {
     }
 }
 
-internal final class LocalFolderMonitor {
+public final class LocalFileMonitor {
     fileprivate let source: DispatchSourceFileSystemObject
     fileprivate let descriptor: CInt
     fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: .default)
     fileprivate var state: Bool = false
     fileprivate var monitoredTime: TimeInterval = Date().timeIntervalSinceReferenceDate
-    var url: URL
+    public var url: URL
     
     /// Creates a folder monitor object with monitoring enabled.
-    init(url: URL, handler: @escaping ()->Void) {
+    public init(url: URL, handler: @escaping ()->Void) {
         self.url = url
         descriptor = open((url as NSURL).fileSystemRepresentation, O_EVTONLY)
-        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: .write, queue: qq)
+        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: [.write, .extend, .attrib], queue: qq)
         // Folder monitoring is recursive and deep. Monitoring a root folder may be very costly
         // We have a 0.2 second delay to ensure we wont call handler 1000s times when there is
         // a huge file operation. This ensures app will work smoothly while this 250 milisec won't
@@ -126,7 +126,7 @@ internal final class LocalFolderMonitor {
     }
     
     /// Starts sending notifications if currently stopped
-    func start() {
+    public func start() {
         if !state {
             state = true
             source.resume()
@@ -134,7 +134,7 @@ internal final class LocalFolderMonitor {
     }
     
     /// Stops sending notifications if currently enabled
-    func stop() {
+    public func stop() {
         if state {
             state = false
             source.suspend()
