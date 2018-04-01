@@ -764,27 +764,19 @@ public extension FileProviderBasic {
     
     internal func urlError(_ path: String, code: URLError.Code) -> Error {
         let fileURL = self.url(of: path)
-        var userInfo: [String: Any] = [NSURLErrorKey: fileURL,
+        let userInfo: [String: Any] = [NSURLErrorKey: fileURL,
                                        NSURLErrorFailingURLErrorKey: fileURL,
                                        NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString,
                                        ]
-        let error = NSError(domain: NSURLErrorDomain, code: code.rawValue, userInfo: nil)
-        for (key, value) in error.userInfo {
-            userInfo[key] = value
-        }
         return URLError(code, userInfo: userInfo)
     }
     
     internal func cocoaError(_ path: String, code: CocoaError.Code) -> Error {
         let fileURL = self.url(of: path)
-        var userInfo: [String: Any] = [NSFilePathErrorKey: path,
+        let userInfo: [String: Any] = [NSFilePathErrorKey: path,
                                        NSURLErrorKey: fileURL,
                                        ]
-        let error = NSError(domain: NSCocoaErrorDomain, code: code.rawValue, userInfo: nil)
-        for (key, value) in error.userInfo {
-            userInfo[key] = value
-        }
-        return cocoaError(fileURL.path, code: code)
+        return CocoaError(code, userInfo: userInfo)
     }
     
     internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {
@@ -890,7 +882,11 @@ extension ExtendedFileProvider {
         let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
         
         #if os(macOS)
-            #if swift(>=3.2)
+            #if swift(>=4.0)
+            let ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #elseif swift(>=3.3)
+            let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #elseif swift(>=3.2)
             let ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
             #else
             let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
@@ -898,15 +894,23 @@ extension ExtendedFileProvider {
             
             size.width  *= CGFloat(ppp)
             size.height *= CGFloat(ppp)
-            
-            #if swift(>=3.2)
+        
+            #if swift(>=4.0)
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
+                                       bytesPerRow: 0, bitsPerPixel: 0)
+            #elseif swift(>=3.3)
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
+                                       bytesPerRow: 0, bitsPerPixel: 0)
+            #elseif swift(>=3.2)
             let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
                                        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
                                        bytesPerRow: 0, bitsPerPixel: 0)
             #else
-                let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                           bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
-                                           bytesPerRow: 0, bitsPerPixel: 0)
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
+                                       bytesPerRow: 0, bitsPerPixel: 0)
             #endif
             
             guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {

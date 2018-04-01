@@ -252,7 +252,6 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
     
     fileprivate func testUploadFile(_ provider: FileProvider, filePath: String) {
         // test Upload/Download
-        let url = dummyFile()
         let desc = "Uploading file in \(provider.type)"
         print("Test started: \(desc).")
         let expectation = XCTestExpectation(description: desc)
