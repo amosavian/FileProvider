@@ -410,12 +410,6 @@ internal extension Data {
         guard self.count >= start + length else { return nil }
         return String(data: self.subdata(in: start..<start+length), encoding: encoding)
     }
-    
-    static func mapMemory<T, U>(from: T) -> U? {
-        guard MemoryLayout<T>.size >= MemoryLayout<U>.size else { return nil }
-        let data = Data(value: from)
-        return data.scanValue()
-    }
 }
 
 internal extension String {
@@ -446,15 +440,6 @@ internal extension String {
         return res
     }
 }
-
-#if swift(>=4.0)
-#else
-extension String {
-    var count: Int {
-        return self.characters.count
-    }
-}
-#endif
 
 internal extension TimeInterval {
     internal var formatshort: String {
@@ -593,7 +578,16 @@ func hasSuffix(_ suffix: String) -> (_ value: String) -> Bool {
     }
 }
 
-// Legacy support
+// Legacy Swift versions support
+
+#if swift(>=4.0)
+#else
+extension String {
+    var count: Int {
+        return self.characters.count
+    }
+}
+#endif
 
 #if swift(>=4.1)
 #else

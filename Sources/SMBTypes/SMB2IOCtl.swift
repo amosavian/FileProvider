@@ -310,11 +310,11 @@ extension SMB2 {
                 static let ipv6: sa_family_t = 0x17
                 
                 var sockaddr: sockaddr_in {
-                    return Data.mapMemory(from: self.sockaddrStorage)!
+                    return unsafeBitCast(self.sockaddrStorage, to: sockaddr_in.self)
                 }
                 
                 var sockaddr6: sockaddr_in6 {
-                     return Data.mapMemory(from: self.sockaddrStorage)!
+                    return unsafeBitCast(self.sockaddrStorage, to: sockaddr_in6.self)
                 }
             }
         }

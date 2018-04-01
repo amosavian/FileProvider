@@ -28,7 +28,7 @@ class SMBClient: NSObject, StreamDelegate {
     public var timeout: TimeInterval = 30
     
     internal private(set) var messageId: UInt64 = 0
-    private func createMessageId() -> UInt64 {
+    fileprivate func createMessageId() -> UInt64 {
         defer {
             messageId += 1
         }
@@ -36,7 +36,7 @@ class SMBClient: NSObject, StreamDelegate {
     }
     
     internal private(set) var credit: UInt16 = 0
-    private func consumeCredit() -> UInt16 {
+    fileprivate func consumeCredit() -> UInt16 {
         if credit > 0 {
             credit -= 1
             return credit
