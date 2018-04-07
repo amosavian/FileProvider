@@ -46,11 +46,11 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else {
+        guard let baseURL = aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL? else {
             return nil
         }
         self.init(baseURL: baseURL,
-                  credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+                  credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"))
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }

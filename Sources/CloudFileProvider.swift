@@ -93,11 +93,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        if let containerId = aDecoder.decodeObject(forKey: "containerId") as? String,
-            let scopeString = aDecoder.decodeObject(forKey: "scope") as? String,
+        if let containerId = aDecoder.decodeObject(of: NSString.self, forKey: "containerId") as String?,
+            let scopeString = aDecoder.decodeObject(of: NSString.self, forKey: "scope") as String?,
             let scope = UbiquitousScope(rawValue: scopeString) {
             self.init(containerId: containerId, scope: scope)
-        } else if let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL {
+        } else if let baseURL = aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL? {
             self.init(baseURL: baseURL)
         } else {
             return nil

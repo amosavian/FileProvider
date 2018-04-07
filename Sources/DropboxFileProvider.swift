@@ -44,7 +44,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+        self.init(credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"))
         self.useCache        = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }

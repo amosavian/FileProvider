@@ -146,13 +146,13 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     
     public required convenience init?(coder aDecoder: NSCoder) {
         let route: Route
-        if let driveId = aDecoder.decodeObject(forKey: "drive") as? String, let uuid = UUID(uuidString: driveId) {
+        if let driveId = aDecoder.decodeObject(of: NSString.self, forKey: "drive") as String?, let uuid = UUID(uuidString: driveId) {
             route = .drive(uuid: uuid)
         } else {
             route = (aDecoder.decodeObject(forKey: "route") as? String).flatMap({ Route(rawValue: $0) }) ?? .me
         }
-        self.init(credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential,
-                  serverURL: aDecoder.decodeObject(forKey: "baseURL") as? URL,
+        self.init(credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"),
+                  serverURL: aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL?,
                   route: route)
         self.useCache = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")

@@ -119,7 +119,7 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
-        guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else {
+        guard let baseURL = aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL? else {
             return nil
         }
         self.init(baseURL: baseURL)
