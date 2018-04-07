@@ -116,7 +116,7 @@ Pod::Spec.new do |s|
   #
 
   # s.framework  = "SomeFramework"
-  s.frameworks = "AVFoundation, "ImageIO", "CoreGraphics"
+  s.frameworks = "AVFoundation", "ImageIO", "CoreGraphics"
   s.ios.framework  = "UIKit"
   s.tvos.framework = "UIKit"
   s.osx.framework  = "AppKit"
