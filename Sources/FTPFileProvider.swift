@@ -135,13 +135,13 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(forKey: "baseURL") as? URL else { return nil }
         let mode: Mode
-        if let modeStr = aDecoder.decodeObject(forKey: "mode") as? String, let mode_v = Mode(rawValue: modeStr) {
+        if let modeStr = aDecoder.decodeObject(of: NSString.self, forKey: "mode") as String?, let mode_v = Mode(rawValue: modeStr) {
             mode = mode_v
         } else {
             let passiveMode = aDecoder.decodeBool(forKey: "passiveMode")
             mode = passiveMode ? .passive : .active
         }
-        self.init(baseURL: baseURL, mode: mode, credential: aDecoder.decodeObject(forKey: "credential") as? URLCredential)
+        self.init(baseURL: baseURL, mode: mode, credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"))
         self.useCache              = aDecoder.decodeBool(forKey: "useCache")
         self.validatingCache       = aDecoder.decodeBool(forKey: "validatingCache")
         self.supportsRFC3659       = aDecoder.decodeBool(forKey: "supportsRFC3659")

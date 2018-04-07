@@ -55,9 +55,8 @@ Pod::Spec.new do |s|
   #  profile URL.
   #
 
-  s.author             = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
   # Or just: s.author    = "Amir Abbas Mousavian"
-  # s.authors            = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
+  s.authors            = { "Amir Abbas Mousavian" => "a.mosavian@gmail.com" }
   s.social_media_url   = "https://twitter.com/amosavian"
 
   # ――― Platform Specifics ――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
@@ -117,7 +116,10 @@ Pod::Spec.new do |s|
   #
 
   # s.framework  = "SomeFramework"
-  # s.frameworks = "SomeFramework", "AnotherFramework"
+  s.frameworks = "AVFoundation, "ImageIO", "CoreGraphics"
+  s.ios.framework  = "UIKit"
+  s.tvos.framework = "UIKit"
+  s.osx.framework  = "AppKit"
 
   s.library   = "xml2"
   # s.libraries = "iconv", "xml2"
