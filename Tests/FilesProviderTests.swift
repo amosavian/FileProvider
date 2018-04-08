@@ -27,6 +27,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
         testBasic(provider)
+        testArchiving(provider)
         testOperations(provider)
     }
     
@@ -41,6 +42,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         }
         let provider = WebDAVFileProvider(baseURL: url, credential: cred)!
         provider.delegate = self
+        testArchiving(provider)
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -54,6 +56,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = DropboxFileProvider(credential: cred)
         provider.delegate = self
+        testArchiving(provider)
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -72,6 +75,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         }
         let provider = FTPFileProvider(baseURL: url, mode: .extendedPassive, credential: cred)!
         provider.delegate = self
+        testArchiving(provider)
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
@@ -85,10 +89,11 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = OneDriveFileProvider(credential: cred)
         provider.delegate = self
+        testBasic(provider)
+        testArchiving(provider)
         addTeardownBlock {
             self.testRemoveFile(provider, filePath: self.testFolderName)
         }
-        testBasic(provider)
         testOperations(provider)
     }
     
@@ -312,6 +317,21 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         }
         wait(for: [expectation], timeout: timeout)
         print("Test fulfilled: \(desc).")
+    }
+    
+    fileprivate func testArchiving(_ provider: FileProvider) {
+        let archivedData = NSKeyedArchiver.archivedData(withRootObject: provider)
+        let unarchived = NSKeyedUnarchiver.unarchiveObject(with: archivedData) as? FileProvider
+        XCTAssertNotNil(unarchived)
+        XCTAssertEqual(unarchived?.baseURL, provider.baseURL, "archived provider is not same with original")
+        XCTAssertEqual(unarchived?.credential, provider.credential, "archived provider is not same with original")
+        if let provider = provider as? FileProviderBasicRemote, let unarchived_r = unarchived as? FileProviderBasicRemote {
+            XCTAssertEqual(unarchived_r.useCache, provider.useCache, "archived provider is not same with original")
+            XCTAssertEqual(unarchived_r.validatingCache, provider.validatingCache, "archived provider is not same with original")
+        }
+        if let provider = provider as? OneDriveFileProvider, let unarchived_o = unarchived as? OneDriveFileProvider {
+            XCTAssertEqual(unarchived_o.route.rawValue, provider.route.rawValue, "archived provider is not same with original")
+        }
     }
     
     fileprivate func testBasic(_ provider: FileProvider) {

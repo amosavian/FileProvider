@@ -14,7 +14,7 @@ import Foundation
  
  No instance of this class should (and can) be created. Use derived classes instead. It leads to a crash with `fatalError()`.
  */
-open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
+open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
     open let baseURL: URL?
     open var dispatch_queue: DispatchQueue
@@ -97,6 +97,8 @@ open class HTTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fi
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"
+        
+        super.init()
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {

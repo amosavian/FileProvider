@@ -14,7 +14,7 @@ import Foundation
  
  it uses `FileManager` foundation class with some additions like searching and reading a portion of file.
  */
-open class LocalFileProvider: FileProvider, FileProviderMonitor {
+open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor {
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
     open var dispatch_queue: DispatchQueue
@@ -113,6 +113,8 @@ open class LocalFileProvider: FileProvider, FileProviderMonitor {
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"
+        
+        super.init()
         
         fileProviderManagerDelegate = LocalFileProviderManagerDelegate(provider: self)
         opFileManager.delegate = fileProviderManagerDelegate
