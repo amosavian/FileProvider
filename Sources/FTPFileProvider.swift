@@ -12,7 +12,7 @@ import Foundation
  Allows accessing to FTP files and directories. This provider doesn't cache or save files internally.
  It's a complete reimplementation and doesn't use CFNetwork deprecated API.
  */
-open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
+open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
     
     /// FTP data connection mode.
     public enum Mode: String {
@@ -114,6 +114,8 @@ open class FTPFileProvider: FileProviderBasicRemote, FileProviderOperations, Fil
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"
+        
+        super.init()
     }
     
     /**
