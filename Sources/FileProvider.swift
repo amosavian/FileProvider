@@ -569,6 +569,72 @@ extension FileProviderReadWrite {
     }
 }
 
+/// Defines method for fetching file contents progressivly
+public protocol FileProviderReadWriteProgressive {
+    /**
+     Retreives a `Data` object with a portion contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - progressHandler: a closure which will be called every time a new data received from server.
+         - position: Start position of returned data, indexed from zero.
+         - data: returned `Data` from server.
+       - completionHandler: a closure which will be called after receiving is completed or an error occureed.
+     - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
+    @discardableResult
+    func contents(path: String, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress?
+    
+    /**
+     Retreives a `Data` object with a portion contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - responseHandler: a closure which will be called after fetching server response.
+         - response: `URLResponse` returned from server.
+       - progressHandler: a closure which will be called every time a new data received from server.
+         - position: Start position of returned data, indexed from zero.
+         - data: returned `Data` from server.
+       - completionHandler: a closure which will be called after receiving is completed or an error occureed.
+     - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
+    @discardableResult
+    func contents(path: String, responseHandler: ((_ response: URLResponse) -> Void)?, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress?
+    
+    /**
+     Retreives a `Data` object with a portion contents of the file asynchronously vis contents argument of completion handler.
+     If path specifies a directory, or if some other error occurs, data will be nil.
+     
+     - Parameters:
+       - path: Path of file.
+       - offset: First byte index which should be read. **Starts from 0.**
+       - length: Bytes count of data. Pass `-1` to read until the end of file.
+       - responseHandler: a closure which will be called after fetching server response.
+         - response: `URLResponse` returned from server.
+       - progressHandler: a closure which will be called every time a new data received from server.
+         - position: Start position of returned data, indexed from offset.
+         - data: returned `Data` from server.
+       - completionHandler: a closure which will be called after receiving is completed or an error occureed.
+     - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
+     */
+    @discardableResult
+    func contents(path: String, offset: Int64, length: Int, responseHandler: ((_ response: URLResponse) -> Void)?, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress?
+}
+
+public extension FileProviderReadWriteProgressive {
+    @discardableResult
+    public func contents(path: String, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+        return contents(path: path, offset: 0, length: -1, responseHandler: nil, progressHandler: progressHandler, completionHandler: completionHandler)
+    }
+    
+    @discardableResult
+    public func contents(path: String, responseHandler: ((_ response: URLResponse) -> Void)?, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+        return contents(path: path, offset: 0, length: -1, responseHandler: responseHandler, progressHandler: progressHandler, completionHandler: completionHandler)
+    }
+}
+
 /// Allows a file provider to notify changes occured
 public protocol FileProviderMonitor: FileProviderBasic {
     

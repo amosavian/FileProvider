@@ -53,7 +53,7 @@ public final class OneDriveFileObject: FileObject {
         self.entryTag = json["eTag"] as? String
         let hashes = json["file"]?["hashes"] as? NSDictionary
         // checks for both sha1 or quickXor. First is available in personal drives, second in business one.
-        self.hash = (hashes?["sha1Hash"] as? String) ?? (hashes?["quickXorHash"] as? String)
+        self.fileHash = (hashes?["sha1Hash"] as? String) ?? (hashes?["quickXorHash"] as? String)
     }
     
     /// The document identifier is a value assigned by the OneDrive to a file.
@@ -88,7 +88,7 @@ public final class OneDriveFileObject: FileObject {
     }
     
     /// Calculated hash from OneDrive server. Hex string SHA1 in personal or Base65 string [QuickXOR](https://dev.onedrive.com/snippets/quickxorhash.htm) in business drives.
-    open internal(set) var hash: String? {
+    open internal(set) var fileHash: String? {
         get {
             return allValues[.documentIdentifierKey] as? String
         }

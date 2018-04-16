@@ -538,7 +538,7 @@ internal extension FTPFileProvider {
     
     func ftpFileData(_ task: FileProviderStreamTask, filePath: String, from position: Int64 = 0, length: Int = -1,
                      onTask: ((_ task: FileProviderStreamTask) -> Void)?,
-                     onProgress: ((_ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?,
+                     onProgress: ((_ data: Data, _ bytesReceived: Int64, _ totalReceived: Int64, _ expectedBytes: Int64) -> Void)?,
                      completionHandler: @escaping (_ data: Data?, _ error: Error?) -> Void) {
         
         // Check cache
@@ -552,7 +552,7 @@ internal extension FTPFileProvider {
         var finalData = Data()
         self.ftpRetrieve(task, filePath: filePath, from: position, length: length, onTask: onTask, onProgress: { (data, total, expected) in
             finalData.append(data)
-            onProgress?(Int64(data.count), total, expected)
+            onProgress?(data, Int64(data.count), total, expected)
         }) { (error) in
             if let error = error {
                 completionHandler(nil, error)

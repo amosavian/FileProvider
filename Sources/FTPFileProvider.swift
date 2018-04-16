@@ -12,7 +12,7 @@ import Foundation
  Allows accessing to FTP files and directories. This provider doesn't cache or save files internally.
  It's a complete reimplementation and doesn't use CFNetwork deprecated API.
  */
-open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite {
+open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite, FileProviderReadWriteProgressive {
     
     /// FTP data connection mode.
     public enum Mode: String {
@@ -561,7 +561,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     weakTask?.cancel()
                 }
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-            }, onProgress: { recevied, totalReceived, totalSize in
+            }, onProgress: { _, recevied, totalReceived, totalSize in
                 progress.totalUnitCount = totalSize
                 progress.completedUnitCount = totalReceived
                 self.delegateNotify(operation, progress: progress.fractionCompleted)
@@ -639,6 +639,60 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                         storeHandler()
                     }
                 })
+            }
+        }
+        
+        return progress
+    }
+    
+    public func contents(path: String, offset: Int64, length: Int, responseHandler: ((URLResponse) -> Void)?, progressHandler: @escaping (Int64, Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let operation = FileOperationType.fetch(path: path)
+        if length == 0 || offset < 0 {
+            dispatch_queue.async {
+                completionHandler?(nil)
+                self.delegateNotify(operation)
+            }
+            return nil
+        }
+        let progress = Progress(totalUnitCount: 0)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        self.ftpLogin(task) { (error) in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                return
+            }
+            
+            self.ftpFileData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
+                weak var weakTask = task
+                progress.cancellationHandler = {
+                    weakTask?.cancel()
+                }
+                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+            }, onProgress: { data, recevied, totalReceived, totalSize in
+                progressHandler(totalReceived - recevied, data)
+                progress.totalUnitCount = totalSize
+                progress.completedUnitCount = totalReceived
+                self.delegateNotify(operation, progress: progress.fractionCompleted)
+            }) { (data, error) in
+                if let error = error {
+                    progress.cancel()
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(operation, error: error)
+                    }
+                    return
+                }
+                
+                self.dispatch_queue.async {
+                    completionHandler?(nil)
+                    self.delegateNotify(operation)
+                }
             }
         }
         
