@@ -568,6 +568,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         operation_queue.addOperation {
             var timedOut: Bool = false
             while (self.dataReceived.count == 0 || self.dataReceived.count < minBytes) && !timedOut {
+                if let error = inputStream.streamError {
+                    completionHandler(nil, inputStream.streamStatus == .atEnd, error)
+                    return
+                }
+                
                 Thread.sleep(forTimeInterval: 0.1)
                 timedOut = expireDate < Date()
             }
@@ -681,6 +686,10 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         var byteSent: Int = 0
         let expireDate = Date(timeIntervalSinceNow: timeout)
         while self.dataToBeSent.count > 0 && (timeout == 0 || expireDate > Date()) {
+            if let _ = outputStream.streamError {
+                return byteSent == 0 ? -1 : byteSent
+            }
+            
             let bytesWritten = self.dataToBeSent.withUnsafeBytes {
                 outputStream.write($0, maxLength: self.dataToBeSent.count)
             }
