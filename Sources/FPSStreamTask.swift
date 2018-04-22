@@ -8,14 +8,67 @@
 
 import Foundation
 
-private var lasttaskIdAssociated = 1_000_000_000
+private var _lasttaskIdAssociated = 1_000_000_000
+let _lasttaskIdAssociated_lock: NSLock = NSLock()
+var lasttaskIdAssociated: Int {
+    get {
+        _lasttaskIdAssociated_lock.try()
+        defer {
+            _lasttaskIdAssociated_lock.unlock()
+        }
+        return _lasttaskIdAssociated
+    }
+    set {
+        _lasttaskIdAssociated_lock.try()
+        defer {
+            _lasttaskIdAssociated_lock.unlock()
+        }
+        _lasttaskIdAssociated = newValue
+    }
+}
 
 // codebeat:disable[TOTAL_LOC,TOO_MANY_IVARS]
 /// This class is a replica of NSURLSessionStreamTask with same api for iOS 7/8
 /// while it can actually fallback to NSURLSessionStreamTask in iOS 9.
 public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
-    fileprivate var inputStream: InputStream?
-    fileprivate var outputStream: OutputStream?
+    fileprivate var _inputStream: InputStream?
+    fileprivate var _outputStream: OutputStream?
+    
+    let _inputStream_lock: NSLock = NSLock()
+    var inputStream: InputStream? {
+        get {
+            _inputStream_lock.try()
+            defer {
+                _inputStream_lock.unlock()
+            }
+            return _inputStream
+        }
+        set {
+            _inputStream_lock.try()
+            defer {
+                _inputStream_lock.unlock()
+            }
+            _inputStream = newValue
+        }
+    }
+    
+    let _outputStream_lock: NSLock = NSLock()
+    var outputStream: OutputStream? {
+        get {
+            _outputStream_lock.try()
+            defer {
+                _outputStream_lock.unlock()
+            }
+            return _outputStream
+        }
+        set {
+            _outputStream_lock.try()
+            defer {
+                _outputStream_lock.unlock()
+            }
+            _outputStream = newValue
+        }
+    }
     
     fileprivate var operation_queue: OperationQueue!
     internal var _underlyingSession: URLSession
@@ -331,16 +384,17 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
+        self.operation_queue.isSuspended = true
         self._state = .canceling
+        
+        self.inputStream?.delegate = nil
+        self.outputStream?.delegate = nil
         
         self.inputStream?.close()
         self.outputStream?.close()
         
         self.inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
         self.outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
-        
-        self.inputStream?.delegate = nil
-        self.outputStream?.delegate = nil
         
         self.inputStream = nil
         self.outputStream = nil
@@ -350,7 +404,25 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         self._countOfBytesRecieved = 0
     }
     
-    var _error: Error? = nil
+    var __error: Error? = nil
+    
+    let _error_lock: NSLock = NSLock()
+    var _error: Error? {
+        get {
+            _error_lock.try()
+            defer {
+                _error_lock.unlock()
+            }
+            return __error
+        }
+        set {
+            _error_lock.try()
+            defer {
+                _error_lock.unlock()
+            }
+            __error = newValue
+        }
+    }
     
     /**
      * An error object that indicates why the task failed.
@@ -398,29 +470,29 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         var readStream : Unmanaged<CFReadStream>?
         var writeStream : Unmanaged<CFWriteStream>?
         
-        if inputStream == nil || outputStream == nil {
-            if let host = host {
+        if self.inputStream == nil || self.outputStream == nil {
+            if let host = self.host {
                 CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, host.hostname as CFString, UInt32(host.port), &readStream, &writeStream)
-            } else if let service = service {
+            } else if let service = self.service {
                 let cfnetService = CFNetServiceCreate(kCFAllocatorDefault, service.domain as CFString, service.type as CFString, service.name as CFString, Int32(service.port))
                 CFStreamCreatePairWithSocketToNetService(kCFAllocatorDefault, cfnetService.takeRetainedValue(), &readStream, &writeStream)
             }
             
-            inputStream = readStream?.takeRetainedValue()
-            outputStream = writeStream?.takeRetainedValue()
-            guard let inputStream = inputStream, let outputStream = outputStream else {
+            self.inputStream = readStream?.takeRetainedValue()
+            self.outputStream = writeStream?.takeRetainedValue()
+            guard let inputStream = self.inputStream, let outputStream = self.outputStream else {
                 return
             }
-            streamDelegate?.urlSession?(self._underlyingSession, streamTask: self, didBecome: inputStream, outputStream: outputStream)
+            self.streamDelegate?.urlSession?(self._underlyingSession, streamTask: self, didBecome: inputStream, outputStream: outputStream)
         }
         
-        guard let inputStream = inputStream, let outputStream = outputStream else {
+        guard let inputStream = self.inputStream, let outputStream = self.outputStream else {
             return
         }
         
-        if isSecure {
-            inputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
-            outputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+        if self.isSecure {
+            inputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+            outputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
         } else {
             inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
             outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
@@ -435,12 +507,37 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         inputStream.open()
         outputStream.open()
         
-        operation_queue.isSuspended = false
-        _state = .running
+        self.operation_queue.isSuspended = false
+        self._state = .running
     }
     
     fileprivate var dataToBeSent: Data = Data()
-    fileprivate var dataReceived: Data = Data()
+    fileprivate var _dataReceived: Data = Data()
+    
+    // We are updating `dataReceived` from main thread while reading it from operation_queue.
+    let _dataReceived_lock: NSLock = NSLock()
+    
+    var dataReceived: Data {
+        get {
+            if !_dataReceived_lock.try() {
+                print("not locked")
+            }
+            
+            defer {
+                _dataReceived_lock.unlock()
+            }
+            return _dataReceived
+        }
+        set {
+            if !_dataReceived_lock.try() {
+                print("not locked")
+            }
+            defer {
+                _dataReceived_lock.unlock()
+            }
+            _dataReceived = newValue
+        }
+    }
     
     /**
      * Asynchronously reads a number of bytes from the stream, and calls a handler upon completion.
@@ -690,12 +787,12 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
         }
         
-        if aStream == inputStream && eventCode.contains(.hasBytesAvailable) {
-            while (inputStream!.hasBytesAvailable) {
+        if aStream == self.inputStream && eventCode.contains(.hasBytesAvailable) {
+            while (self.inputStream!.hasBytesAvailable) {
                 var buffer = [UInt8](repeating: 0, count: 2048)
-                let len = inputStream!.read(&buffer, maxLength: buffer.count)
+                let len = self.inputStream!.read(&buffer, maxLength: buffer.count)
                 if len > 0 {
-                    dataReceived.append(&buffer, count: len)
+                    self.dataReceived.append(&buffer, count: len)
                     self._countOfBytesRecieved += Int64(len)
                 }
             }
