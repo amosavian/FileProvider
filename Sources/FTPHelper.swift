@@ -319,6 +319,7 @@ internal extension FTPFileProvider {
                 return
             }
             
+            let success_lock = NSLock()
             var success = false
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
             self.execute(command: command, on: task, minLength: 20, afterSend: { error in
@@ -326,6 +327,7 @@ internal extension FTPFileProvider {
                     let timeout = self.session.configuration.timeoutIntervalForRequest
                     var finalData = Data()
                     var eof = false
+                    let error_lock = NSLock()
                     var error: Error?
                     
                     do {
@@ -337,17 +339,22 @@ internal extension FTPFileProvider {
                                     finalData.append(data)
                                 }
                                 eof = seof
+                                error_lock.try()
                                 error = serror
+                                error_lock.unlock()
                                 group.leave()
                             }
                             let waitResult = group.wait(timeout: .now() + timeout)
                             
+                            error_lock.try()
                             if let error = error {
+                                error_lock.unlock()
                                 if (error as? URLError)?.code != .cancelled {
                                     throw error
                                 }
                                 return
                             }
+                            error_lock.unlock()
                             
                             if waitResult == .timedOut {
                                 throw self.urlError(path, code: .timedOut)
@@ -360,7 +367,9 @@ internal extension FTPFileProvider {
                         
                         let contents: [String] = response.components(separatedBy: "\n")
                             .compactMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                        success_lock.try()
                         success = true
+                        success_lock.unlock()
                         completionHandler(contents, nil)
                     } catch {
                         completionHandler([], error)
@@ -382,8 +391,12 @@ internal extension FTPFileProvider {
                         throw self.urlError(path, code: .unsupportedURL)
                     }
                     
+                    success_lock.try()
                     if !success && !(response.hasPrefix("25") || response.hasPrefix("15")) {
+                        success_lock.unlock()
                         throw FileProviderFTPError(message: response, path: path)
+                    } else {
+                        success_lock.unlock()
                     }
                 } catch {
                     self.dispatch_queue.async {
@@ -477,6 +490,7 @@ internal extension FTPFileProvider {
                     DispatchQueue.global().async {
                         var totalReceived: Int64 = 0
                         var eof = false
+                        let error_lock = NSLock()
                         var error: Error?
                         while !eof {
                             let group = DispatchGroup()
@@ -491,15 +505,20 @@ internal extension FTPFileProvider {
                                     onProgress(data, totalReceived, totalSize)
                                 }
                                 eof = segeof || (length > 0 && totalReceived >= Int64(length))
+                                error_lock.try()
                                 error = segerror
+                                error_lock.unlock()
                                 group.leave()
                             }
                             let waitResult = group.wait(timeout: .now() + timeout)
                             
+                            error_lock.try()
                             if let error = error {
+                                error_lock.unlock()
                                 completionHandler(error)
                                 return
                             }
+                            error_lock.unlock()
                             
                             if waitResult == .timedOut {
                                 completionHandler(self.urlError(filePath, code: .timedOut))
@@ -637,6 +656,7 @@ internal extension FTPFileProvider {
                 return
             }
             let len = 19 /* TYPE response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
+            let success_lock = NSLock()
             var success = false
             self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
                 onTask?(dataTask)
@@ -655,6 +675,7 @@ internal extension FTPFileProvider {
                 }
                 
                 let chunkSize = 4096
+                let lock = NSLock()
                 var eof = false
                 var sent: Int64 = 0
                 repeat {
@@ -673,33 +694,49 @@ internal extension FTPFileProvider {
                     let group = DispatchGroup()
                     group.enter()
                     dataTask.write(subdata, timeout: timeout, completionHandler: { (serror) in
+                        lock.try()
                         error = serror
                         sent += Int64(subdata.count)
+                        let totalsent = sent
+                        let sentbytes = Int64(subdata.count)
+                        lock.unlock()
                         group.leave()
-                        onProgress?(Int64(subdata.count), sent, size)
+                        onProgress?(sentbytes, totalsent, size)
                         //print("ftp \(filePath): \(subdata.count), \(sent), \(size)")
                     })
                     let waitResult = group.wait(timeout: .now() + timeout)
                     
+                    lock.try()
                     if waitResult == .timedOut {
                         error = self.urlError(filePath, code: .timedOut)
                     }
                     
                     if let error = error {
+                        lock.unlock()
                         completionHandler(error)
                         return
                     }
                     
                     if let data = fromData {
+                        lock.try()
                         let endIndex = min(data.count, Int(sent) + chunkSize)
                         eof = endIndex == data.count
+                        lock.unlock()
                     } else if let fileHandle = fileHandle {
                         eof = Int64(fileHandle.offsetInFile) == size
                     }
+                    
                 } while !eof
+                success_lock.try()
                 success = true
+                success_lock.unlock()
             }) { (response, error) in
-                guard success else { return }
+                success_lock.try()
+                guard success else {
+                    success_lock.unlock()
+                    return
+                }
+                success_lock.unlock()
                 
                 do {
                     if let error = error {
@@ -822,6 +859,7 @@ internal extension FTPFileProvider {
             }
             
             // Send retreive command
+            let success_lock = NSLock()
             var success = false
             let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
             self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
@@ -836,13 +874,20 @@ internal extension FTPFileProvider {
                         completionHandler(error)
                         return
                     }
+                    success_lock.try()
                     success = true
+                    success_lock.unlock()
                     
                     dataTask.closeRead()
                     dataTask.closeWrite()
                 })
             }) { (response, error) in
-                guard success else { return }
+                success_lock.try()
+                guard success else {
+                    success_lock.unlock()
+                    return
+                }
+                success_lock.unlock()
                 
                 do {
                     if let error = error {
