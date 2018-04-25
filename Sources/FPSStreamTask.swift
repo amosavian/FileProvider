@@ -790,10 +790,27 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
+    private var _retriesForInputStream: Int = 0
+    private var _retriesForOutputStream: Int = 0
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         if eventCode.contains(.errorOccurred) {
-            self._error = aStream.streamError
-            streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
+            let retries: Int
+            if aStream == self.inputStream {
+                retries = _retriesForInputStream
+                _retriesForInputStream += 1
+            } else if aStream == self.outputStream {
+                retries = _retriesForOutputStream
+                _retriesForOutputStream += 1
+            } else {
+                return
+            }
+            
+            if retries < 3 {
+                aStream.open()
+            } else {
+                self._error = aStream.streamError
+                streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
+            }
         }
         
         if aStream == self.inputStream && eventCode.contains(.hasBytesAvailable) {
