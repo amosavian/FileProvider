@@ -9,7 +9,7 @@
 import Foundation
 
 /// Containts path, url and attributes of a file or resource.
-open class FileObject: Equatable {
+open class FileObject: NSObject {
     /// A `Dictionary` contains file information,  using `URLResourceKey` keys.
     open internal(set) var allValues: [URLResourceKey: Any]
     
@@ -19,6 +19,7 @@ open class FileObject: Equatable {
     
     internal init(url: URL?, name: String, path: String) {
         self.allValues = [URLResourceKey: Any]()
+        super.init()
         if let url = url {
             self.url = url
         }
@@ -147,6 +148,18 @@ open class FileObject: Equatable {
     open var isSymLink: Bool {
         return self.type == .symbolicLink
     }
+}
+
+extension FileObject {
+    open override var hashValue: Int {
+        let hashURL =  self.url.hashValue
+        let hashSize = self.size.hashValue
+        return (hashURL << 7) &+ hashURL &+ hashSize
+    }
+    
+    open override var hash: Int {
+        return self.hashValue
+    }
     
     /// Check `FileObject` equality
     public static func ==(lhs: FileObject, rhs: FileObject) -> Bool {
@@ -159,7 +172,7 @@ open class FileObject: Equatable {
         }
         #else
         if type(of: lhs) != type(of: rhs) {
-            return false
+        return false
         }
         #endif
         
@@ -169,6 +182,13 @@ open class FileObject: Equatable {
         return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
     }
     
+    open override func isEqual(_ object: Any?) -> Bool {
+        guard let object = object as? FileObject else { return false }
+        return self == object
+    }
+}
+
+extension FileObject {
     internal func mapPredicate() -> [String: Any] {
         let mapDict: [URLResourceKey: String] = [.fileURLKey: "url", .nameKey: "name", .pathKey: "path",
                                                  .fileSizeKey: "fileSize", .creationDateKey: "creationDate",
@@ -225,7 +245,7 @@ open class FileObject: Equatable {
 }
 
 /// Containts attributes of a provider.
-open class VolumeObject {
+open class VolumeObject: NSObject {
     /// A `Dictionary` contains volume information,  using `URLResourceKey` keys.
     open internal(set) var allValues: [URLResourceKey: Any]
     

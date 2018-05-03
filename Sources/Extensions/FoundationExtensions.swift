@@ -441,6 +441,15 @@ internal extension String {
     }
 }
 
+internal extension NSNumber {
+    internal func format(precision: Int = 2, style: NumberFormatter.Style = .decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.maximumFractionDigits = precision
+        formatter.numberStyle = style
+        return formatter.string(from: self)!
+    }
+}
+
 internal extension TimeInterval {
     internal var formatshort: String {
         var result = "0:00"
