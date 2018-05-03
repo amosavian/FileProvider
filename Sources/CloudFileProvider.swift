@@ -583,16 +583,76 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return file
     }
     
-    lazy fileprivate var observer: KVOObserver = KVOObserver()
-    
     fileprivate func monitorFile(path: String, operation: FileOperationType, progress: Progress?) {
         let pathURL = self.url(of: path).standardizedFileURL
         let query = NSMetadataQuery()
-        query.predicate = NSPredicate(format: "%K LIKE[CD] %@", NSMetadataItemPathKey, pathURL.path)
-        query.valueListAttributes = [NSMetadataItemURLKey, NSMetadataItemFSNameKey, NSMetadataItemPathKey, NSMetadataUbiquitousItemPercentDownloadedKey, NSMetadataUbiquitousItemPercentUploadedKey, NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataItemFSSizeKey]
+        query.predicate = NSPredicate(format: "(%K LIKE[CD] %@)", NSMetadataItemPathKey, pathURL.path)
+        query.valueListAttributes = [NSMetadataUbiquitousItemPercentDownloadedKey,
+                                     NSMetadataUbiquitousItemPercentUploadedKey,
+                                     NSMetadataUbiquitousItemDownloadingStatusKey,
+                                     NSMetadataItemFSSizeKey]
         query.searchScopes = [self.scope.rawValue]
-        var context = QueryProgressWrapper(provider: self, progress: progress, operation: operation)
-        query.addObserver(self.observer, forKeyPath: "results", options: [.initial, .new, .old], context: &context)
+        
+        var isDownloadingOperation = false
+        var isUploadingOperation = false
+        
+        switch operation {
+        case .fetch:
+            isDownloadingOperation = true
+        case .modify, .create:
+            isUploadingOperation = true
+        case .copy(_, destination: let dest) where dest.hasPrefix("file://"), .move(_, destination: let dest) where dest.hasPrefix("file://"):
+            isDownloadingOperation = true
+        case .copy(source: let source, _) where source.hasPrefix("file://"), .move(source: let source, _) where source.hasPrefix("file://"):
+            isDownloadingOperation = true
+        default:
+            break
+        }
+        
+        var observer: NSObjectProtocol?
+        observer = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] (notification) in
+            guard let items = notification.userInfo?[NSMetadataQueryUpdateChangedItemsKey] as? NSArray,
+                let item = items.firstObject as? NSMetadataItem else {
+                return
+            }
+            
+            func terminateAndRemoveObserver() {
+                query.stop()
+                observer.flatMap(NotificationCenter.default.removeObserver)
+                observer = nil
+            }
+            
+            func updateProgress(_ percent: NSNumber) {
+                let fraction = percent.doubleValue / 100
+                self?.delegateNotify(operation, progress: fraction)
+                if  let progress = progress {
+                    if progress.totalUnitCount < 1, let size = item.value(forAttribute: NSMetadataItemFSSizeKey) as? NSNumber {
+                        progress.totalUnitCount = size.int64Value
+                    }
+                    progress.completedUnitCount = progress.totalUnitCount > 0 ? Int64(Double(progress.totalUnitCount) * fraction) : 0
+                }
+                if percent.doubleValue == 100.0 {
+                    terminateAndRemoveObserver()
+                }
+            }
+            
+            for attrName in item.attributes {
+                switch attrName {
+                case NSMetadataUbiquitousItemDownloadingStatusKey:
+                    if let value = item.value(forAttribute: attrName) as? String, value == NSMetadataUbiquitousItemDownloadingStatusDownloaded {
+                        terminateAndRemoveObserver()
+                    }
+                case NSMetadataUbiquitousItemPercentDownloadedKey:
+                    guard isDownloadingOperation, let percent = item.value(forAttribute: attrName) as? NSNumber else { break }
+                    updateProgress(percent)
+                case NSMetadataUbiquitousItemPercentUploadedKey:
+                    guard isUploadingOperation, let percent = item.value(forAttribute: attrName) as? NSNumber else { break }
+                    updateProgress(percent)
+                default:
+                    break
+                }
+            }
+        }
         
         DispatchQueue.main.async {
             query.start()
@@ -691,57 +751,6 @@ public enum UbiquitousScope: RawRepresentable {
         }
     }
 }
-
-struct QueryProgressWrapper {
-    weak var provider: CloudFileProvider?
-    weak var progress: Progress?
-    let operation: FileOperationType
-}
-
-fileprivate class KVOObserver: NSObject {
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        guard let query = object as? NSMetadataQuery else {
-            return
-        }
-        guard let wrapper = context?.load(as: QueryProgressWrapper.self) else {
-            query.stop()
-            query.removeObserver(self, forKeyPath: "results")
-            return
-        }
-        let provider = wrapper.provider
-        let progress = wrapper.progress
-        let operation = wrapper.operation
-        
-        guard let results = change?[.newKey], let item = (results as? [NSMetadataItem])?.first else {
-            return
-        }
-        
-        query.disableUpdates()
-        var size = progress?.totalUnitCount ?? -1
-        if size < 0, let size_d = item.value(forAttribute: NSMetadataItemFSSizeKey) as? Int64 {
-            size = size_d
-            progress?.totalUnitCount = size
-        }
-        let downloadStatus = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? String ?? ""
-        let downloaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double ?? 0
-        let uploaded = item.value(forAttribute: NSMetadataUbiquitousItemPercentUploadedKey) as? Double ?? 0
-        if (downloaded == 0 || downloaded == 100) && (uploaded > 0 && uploaded < 100) {
-            progress?.completedUnitCount = Int64(uploaded / 100 * Double(size))
-            provider?.delegateNotify(operation, progress: uploaded / 100)
-        } else if (uploaded == 0 || uploaded == 100) && downloadStatus != NSMetadataUbiquitousItemDownloadingStatusCurrent {
-            progress?.completedUnitCount = Int64(downloaded / 100 * Double(size))
-            provider?.delegateNotify(operation, progress: downloaded / 100)
-        } else if uploaded == 100 || downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent {
-            progress?.completedUnitCount = size
-            query.stop()
-            query.removeObserver(self, forKeyPath: "results")
-            provider?.delegateNotify(operation)
-        }
-        
-        query.enableUpdates()
-    }
-}
-
 /*
 func getMetadataItem(url: URL) -> NSMetadataItem? {
     let query = NSMetadataQuery()

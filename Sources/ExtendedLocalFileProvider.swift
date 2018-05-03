@@ -282,26 +282,31 @@ public struct LocalFileInformationGenerator {
         let imageDict = cfImageDict as NSDictionary
         let tiffDict = imageDict[kCGImagePropertyTIFFDictionary as String] as? NSDictionary ?? [:]
         let exifDict = imageDict[kCGImagePropertyExifDictionary as String] as? NSDictionary ?? [:]
+        let gpsDict = imageDict[kCGImagePropertyGPSDictionary as String] as? NSDictionary ?? [:]
+        
         if let pixelWidth = imageDict.object(forKey: kCGImagePropertyPixelWidth) as? NSNumber, let pixelHeight = imageDict.object(forKey: kCGImagePropertyPixelHeight) as? NSNumber {
             add(key: "Dimensions", value: "\(pixelWidth)x\(pixelHeight)")
         }
-        
         add(key: "DPI", value: imageDict[kCGImagePropertyDPIWidth as String])
-        add(key: "Device make", value: tiffDict[kCGImagePropertyTIFFMake as String])
+        add(key: "Device maker", value: tiffDict[kCGImagePropertyTIFFMake as String])
         add(key: "Device model", value: tiffDict[kCGImagePropertyTIFFModel as String])
         add(key: "Lens model", value: exifDict[kCGImagePropertyExifLensModel as String])
         add(key: "Artist", value: tiffDict[kCGImagePropertyTIFFArtist as String] as? String)
         add(key: "Copyright", value: tiffDict[kCGImagePropertyTIFFCopyright as String] as? String)
         add(key: "Date taken", value: tiffDict[kCGImagePropertyTIFFDateTime as String] as? String)
         
-        if let latitude = tiffDict[kCGImagePropertyGPSLatitude as String] as? NSNumber, let longitude = tiffDict[kCGImagePropertyGPSLongitude as String] as? NSNumber {
-            add(key: "Location", value: "\(latitude), \(longitude)")
+        if let latitude = gpsDict[kCGImagePropertyGPSLatitude as String] as? NSNumber,
+            let longitude = gpsDict[kCGImagePropertyGPSLongitude as String] as? NSNumber {
+            let altitudeDesc = (gpsDict[kCGImagePropertyGPSAltitude as String] as? NSNumber).map({ " at \($0.format(precision: 0))m" }) ?? ""
+            add(key: "Location", value: "\(latitude.format()), \(longitude.format())\(altitudeDesc)")
         }
-        add(key: "Altitude", value: tiffDict[kCGImagePropertyGPSAltitude as String] as? NSNumber)
-        add(key: "Area", value: tiffDict[kCGImagePropertyGPSAreaInformation as String])
+        add(key: "Area", value: gpsDict[kCGImagePropertyGPSAreaInformation as String])
         
         add(key: "Color space", value: imageDict[kCGImagePropertyColorModel as String])
+        add(key: "Color depth", value: (imageDict[kCGImagePropertyDepth as String] as? NSNumber).map({ "\($0) bits" }))
+        add(key: "Color profile", value: imageDict[kCGImagePropertyProfileName as String])
         add(key: "Focal length", value: exifDict[kCGImagePropertyExifFocalLength as String])
+        add(key: "White banance", value: exifDict[kCGImagePropertyExifWhiteBalance as String])
         add(key: "F number", value: exifDict[kCGImagePropertyExifFNumber as String])
         add(key: "Exposure program", value: exifDict[kCGImagePropertyExifExposureProgram as String])
         
@@ -325,7 +330,7 @@ public struct LocalFileInformationGenerator {
             }
         }
         
-        func makeDescription(_ key: String?) -> String? {
+        func makeKeyDescription(_ key: String?) -> String? {
             guard let key = key else {
                 return nil
             }
@@ -334,6 +339,18 @@ public struct LocalFileInformationGenerator {
             }
             let newKey = regex.stringByReplacingMatches(in: key, options: [], range: NSRange(location: 0, length: (key as NSString).length) , withTemplate: "$1 $2")
             return newKey.capitalized
+        }
+        
+        func parseLocationData(_ value: String) -> (latitude: Double, longitude: Double, height: Double?)? {
+            let scanner = Scanner.init(string: value)
+            var latitude: Double = 0.0, longitude: Double = 0.0, height: Double = 0
+            
+            if scanner.scanDouble(&latitude), scanner.scanDouble(&longitude) {
+                scanner.scanDouble(&height)
+                return (latitude, longitude, height)
+            } else {
+                return nil
+            }
         }
         
         guard fileURL.fileExists else {
@@ -347,10 +364,20 @@ public struct LocalFileInformationGenerator {
             #else
                 let commonKey = item.commonKey
             #endif
-            if let description = makeDescription(commonKey) {
-                if let value = item.stringValue {
-                    keys.append(description)
-                    dic[description] = value
+            if let key = makeKeyDescription(commonKey) {
+                if commonKey == "location", let value = item.stringValue, let loc = parseLocationData(value) {
+                    keys.append(key)
+                    let heightStr: String = (loc.height as NSNumber?).map({ ", \($0.format(precision: 0))m" }) ?? ""
+                    dic[key] = "\((loc.latitude as NSNumber).format())°, \((loc.longitude as NSNumber).format())°\(heightStr)"
+                } else if let value = item.dateValue {
+                    keys.append(key)
+                    dic[key] = value
+                } else if let value = item.numberValue {
+                    keys.append(key)
+                    dic[key] = value
+                } else if let value = item.stringValue {
+                    keys.append(key)
+                    dic[key] = value
                 }
             }
         }
