@@ -589,6 +589,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         query.predicate = NSPredicate(format: "(%K LIKE[CD] %@)", NSMetadataItemPathKey, pathURL.path)
         query.valueListAttributes = [NSMetadataUbiquitousItemPercentDownloadedKey,
                                      NSMetadataUbiquitousItemPercentUploadedKey,
+                                     NSMetadataUbiquitousItemIsUploadedKey,
                                      NSMetadataUbiquitousItemDownloadingStatusKey,
                                      NSMetadataItemFSSizeKey]
         query.searchScopes = [self.scope.rawValue]
@@ -617,6 +618,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             }
             
             func terminateAndRemoveObserver() {
+                guard observer != nil else { return }
                 query.stop()
                 observer.flatMap(NotificationCenter.default.removeObserver)
                 observer = nil
@@ -638,16 +640,21 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             
             for attrName in item.attributes {
                 switch attrName {
-                case NSMetadataUbiquitousItemDownloadingStatusKey:
-                    if let value = item.value(forAttribute: attrName) as? String, value == NSMetadataUbiquitousItemDownloadingStatusDownloaded {
-                        terminateAndRemoveObserver()
-                    }
                 case NSMetadataUbiquitousItemPercentDownloadedKey:
                     guard isDownloadingOperation, let percent = item.value(forAttribute: attrName) as? NSNumber else { break }
                     updateProgress(percent)
                 case NSMetadataUbiquitousItemPercentUploadedKey:
                     guard isUploadingOperation, let percent = item.value(forAttribute: attrName) as? NSNumber else { break }
                     updateProgress(percent)
+                case NSMetadataUbiquitousItemDownloadingStatusKey:
+                    if isDownloadingOperation, let value = item.value(forAttribute: attrName) as? String,
+                        value == NSMetadataUbiquitousItemDownloadingStatusDownloaded {
+                        terminateAndRemoveObserver()
+                    }
+                case NSMetadataUbiquitousItemIsUploadedKey:
+                    if isUploadingOperation, let value = item.value(forAttribute: attrName) as? NSNumber, value.boolValue {
+                        terminateAndRemoveObserver()
+                    }
                 default:
                     break
                 }
