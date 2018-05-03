@@ -584,6 +584,23 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     }
     
     fileprivate func monitorFile(path: String, operation: FileOperationType, progress: Progress?) {
+        var isDownloadingOperation: Bool
+        let isUploadingOperation: Bool
+        switch operation {
+        case .copy(_, destination: let dest) where dest.hasPrefix("file://"), .move(_, destination: let dest) where dest.hasPrefix("file://"):
+            fallthrough
+        case .fetch:
+            isDownloadingOperation = true
+            isUploadingOperation = false
+        case .copy(source: let source, _) where source.hasPrefix("file://"), .move(source: let source, _) where source.hasPrefix("file://"):
+            fallthrough
+        case .modify, .create:
+            isDownloadingOperation = false
+            isUploadingOperation = true
+        default:
+            return
+        }
+        
         let pathURL = self.url(of: path).standardizedFileURL
         let query = NSMetadataQuery()
         query.predicate = NSPredicate(format: "(%K LIKE[CD] %@)", NSMetadataItemPathKey, pathURL.path)
@@ -593,22 +610,6 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                                      NSMetadataUbiquitousItemDownloadingStatusKey,
                                      NSMetadataItemFSSizeKey]
         query.searchScopes = [self.scope.rawValue]
-        
-        var isDownloadingOperation = false
-        var isUploadingOperation = false
-        
-        switch operation {
-        case .fetch:
-            isDownloadingOperation = true
-        case .modify, .create:
-            isUploadingOperation = true
-        case .copy(_, destination: let dest) where dest.hasPrefix("file://"), .move(_, destination: let dest) where dest.hasPrefix("file://"):
-            isDownloadingOperation = true
-        case .copy(source: let source, _) where source.hasPrefix("file://"), .move(source: let source, _) where source.hasPrefix("file://"):
-            isDownloadingOperation = true
-        default:
-            break
-        }
         
         var observer: NSObjectProtocol?
         observer = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] (notification) in
