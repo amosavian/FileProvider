@@ -342,7 +342,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                 try self.opFileManager.copyItem(at: localFile, to: tmpFile)
                 let toUrl = self.url(of: toPath)
                 try self.opFileManager.setUbiquitous(true, itemAt: tmpFile, destinationURL: toUrl)
-                self.monitorFile(path: toPath, operation: operation, progress: progress)
+                self.monitorTransmissionProgress(path: toPath, operation: operation, progress: progress)
                 completionHandler?(nil)
                 self.delegateNotify(operation)
             } catch  {
@@ -390,7 +390,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         let progress = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
-        monitorFile(path: path, operation: operation, progress: progress)
+        monitorTransmissionProgress(path: path, operation: operation, progress: progress)
         do {
             try self.opFileManager.startDownloadingUbiquitousItem(at: self.url(of: path))
         } catch {
@@ -416,7 +416,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         let progress = super.contents(path: path, completionHandler: completionHandler)
-        monitorFile(path: path, operation: operation, progress: progress)
+        monitorTransmissionProgress(path: path, operation: operation, progress: progress)
         return progress
     }
     
@@ -437,7 +437,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         let progress = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
-        monitorFile(path: path, operation: operation, progress: progress)
+        monitorTransmissionProgress(path: path, operation: operation, progress: progress)
         return progress
     }
     
@@ -460,7 +460,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         progress.kind = .file
         progress.setUserInfoObject(self.url(of: path), forKey: .fileURLKey)
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        monitorFile(path: path, operation: operation, progress: progress)
+        monitorTransmissionProgress(path: path, operation: operation, progress: progress)
         _ = super.writeContents(path: path, contents: data, atomically: atomically, overwrite: overwrite, completionHandler: completionHandler)
         return progress
     }
@@ -527,6 +527,40 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return monitors[path] != nil
     }
     
+    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+        operation_queue.addOperation {
+            do {
+                var expiration: NSDate?
+                let url = try self.opFileManager.url(forPublishingUbiquitousItemAt: self.url(of: path), expiration: &expiration)
+                self.dispatch_queue.async {
+                    completionHandler(url, nil, expiration as Date?, nil)
+                }
+            } catch {
+                self.dispatch_queue.async {
+                    completionHandler(nil, nil, nil, error)
+                }
+            }
+        }
+    }
+    
+    /**
+     Removes local copy of file, but spares cloud copy.
+     - Parameter path: Path of file or directory to be removed from local.
+     - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+    */
+    open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
+        operation_queue.addOperation {
+            do {
+                try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
+                completionHandler?(nil)
+            } catch {
+                completionHandler?(error)
+            }
+        }
+    }
+}
+
+extension CloudFileProvider {
     fileprivate func updateQueryTypeKeys(_ queryComponent: NSPredicate) -> NSPredicate {
         let mapDict: [String: String] = ["url": NSMetadataItemURLKey, "name": NSMetadataItemFSNameKey, "path": NSMetadataItemPathKey, "filesize": NSMetadataItemFSSizeKey, "modifiedDate": NSMetadataItemFSContentChangeDateKey, "creationDate": NSMetadataItemFSCreationDateKey, "contentType": NSMetadataItemContentTypeKey]
         
@@ -557,7 +591,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             return queryComponent
         }
     }
-
+    
     
     fileprivate func mapFileObject(attributes attribs: [String: Any]) -> FileObject? {
         guard let url = (attribs[NSMetadataItemURLKey] as? URL)?.standardizedFileURL, let name = attribs[NSMetadataItemFSNameKey] as? String else {
@@ -583,7 +617,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return file
     }
     
-    fileprivate func monitorFile(path: String, operation: FileOperationType, progress: Progress?) {
+    fileprivate func monitorTransmissionProgress(path: String, operation: FileOperationType, progress: Progress?) {
         var isDownloadingOperation: Bool
         let isUploadingOperation: Bool
         switch operation {
@@ -615,7 +649,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         observer = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] (notification) in
             guard let items = notification.userInfo?[NSMetadataQueryUpdateChangedItemsKey] as? NSArray,
                 let item = items.firstObject as? NSMetadataItem else {
-                return
+                    return
             }
             
             func terminateAndRemoveObserver() {
@@ -668,53 +702,37 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
     }
     
-    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
-        operation_queue.addOperation {
-            do {
-                var expiration: NSDate?
-                let url = try self.opFileManager.url(forPublishingUbiquitousItemAt: self.url(of: path), expiration: &expiration)
-                self.dispatch_queue.async {
-                    completionHandler(url, nil, expiration as Date?, nil)
-                }
-            } catch {
-                self.dispatch_queue.async {
-                    completionHandler(nil, nil, nil, error)
-                }
+    fileprivate func metadataItem(for url: URL) -> NSMetadataItem? {
+        assert(!Thread.isMainThread, "CloudFileProvider.metadataItem(for:) is not recommended to be executed on Main Thread.")
+        let query = NSMetadataQuery()
+        query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope, NSMetadataQueryUbiquitousDataScope]
+        
+        var item: NSMetadataItem?
+        
+        let group = DispatchGroup()
+        group.enter()
+        var finishObserver: NSObjectProtocol?
+        finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
+            defer {
+                query.stop()
+                group.leave()
+                NotificationCenter.default.removeObserver(finishObserver!)
             }
-        }
-    }
-    
-    /**
-     Removes local copy of file, but spares cloud copy.
-     - Parameter path: Path of file or directory to be removed from local
-     - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-    */
-    open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
-        operation_queue.addOperation {
-            do {
-                try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))
-                completionHandler?(nil)
-            } catch {
-                completionHandler?(error)
+            
+            if query.resultCount > 0 {
+                item = query.result(at: 0) as? NSMetadataItem
             }
+            
+            query.disableUpdates()
+            
+        })
+        
+        DispatchQueue.main.async {
+            query.start()
         }
-    }
-    
-    /**
-     Returns current version of file on this device and all versions of files in user devices.
-     - Parameter path: Path of file or directory.
-     - Parameter completionHandler: Retrieve current version on this device and all versions available. `currentVersion` will be nil if file doesn't exist. If an error parameter was provided, a presentable `Error` will be returned.
-    */
-    func versionsOfItem(path: String, completionHandler: @escaping ((_ currentVersion: NSFileVersion?, _ versions: [NSFileVersion], _ error: Error?) -> Void)) {
-        NotImplemented()
-    }
-    
-    /// Resolves conflicts by selecting a version.
-    /// - Parameter path: Path of file or directory.
-    /// - Parameter version: Version than will be choose as main version. `nil` value indicates current version on this device will be selected.
-    /// - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-    func selectVersionOfItem(path: String, version: NSFileVersion? = nil, completionHandler: SimpleCompletionHandler) {
-        NotImplemented()
+        _ = group.wait(timeout: .now() + 30)
+        return item
     }
 }
 
@@ -759,36 +777,3 @@ public enum UbiquitousScope: RawRepresentable {
         }
     }
 }
-/*
-func getMetadataItem(url: URL) -> NSMetadataItem? {
-    let query = NSMetadataQuery()
-    query.predicate = NSPredicate(format: "(%K LIKE %@)", NSMetadataItemPathKey, url.path)
-    query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope, NSMetadataQueryUbiquitousDataScope]
-    
-    var item: NSMetadataItem?
-    
-    let group = DispatchGroup()
-    group.enter()
-    var finishObserver: NSObjectProtocol?
-    finishObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil, using: { (notification) in
-        defer {
-            query.stop()
-            group.leave()
-            NotificationCenter.default.removeObserver(finishObserver!)
-        }
-        
-        if query.resultCount > 0 {
-            item = query.result(at: 0) as? NSMetadataItem
-        }
-        
-        query.disableUpdates()
-        
-    })
-    
-    DispatchQueue.main.async {
-        query.start()
-    }
-    _ = group.wait(timeout: .now() + 30)
-    return item
-}
-*/

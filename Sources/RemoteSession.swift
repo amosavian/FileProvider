@@ -216,7 +216,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         authenticate(didReceive: challenge, completionHandler: completionHandler)
     }
     
-    func authenticate(didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    private func authenticate(didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         switch (challenge.previousFailureCount, credential != nil) {
         case (0...1, true):
             completionHandler(.useCredential, credential)
