@@ -744,6 +744,29 @@ public protocol FileProviderSharing {
     func publicLink(to path: String, completionHandler: @escaping (_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)
 }
 
+//efines protocol for provider allows symbolic link operations.
+public protocol FileProviderSymbolicLink {
+    /**
+     Creates a symbolic link at the specified path that points to an item at the given path.
+     This method does not traverse symbolic links contained in destination path, making it possible
+     to create symbolic links to locations that do not yet exist.
+     Also, if the final path component is a symbolic link, that link is not followed.
+     
+     - Parameters:
+     - symbolicLink: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
+     - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
+     - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
+     */
+    func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler)
+    
+    /// Returns the path of the item pointed to by a symbolic link.
+    ///
+    /// - Parameters:
+    ///   - path: The path of a file or directory.
+    ///   - completionHandler: Returns destination url of given symbolic link, or an `Error` object if it fails.
+    func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ file: FileObject?, _ error: Error?) -> Void)
+}
+
 /// Defines protocol for provider allows all common operations.
 public protocol FileProvider: FileProviderOperations, FileProviderReadWrite, NSCopying {
 }

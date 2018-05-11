@@ -14,7 +14,7 @@ import Foundation
  
  it uses `FileManager` foundation class with some additions like searching and reading a portion of file.
  */
-open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor {
+open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileProviderSymbolicLink {
     open class var type: String { return "Local" }
     open fileprivate(set) var baseURL: URL?
     open var dispatch_queue: DispatchQueue
@@ -587,11 +587,10 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor {
     open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let url = self.url(of: path)
-        let monitor = LocalFileMonitor(url: url) {
-            eventHandler()
+        if let monitor = LocalFileMonitor(url: url, handler: eventHandler) {
+            monitor.start()
+            monitors.append(monitor)
         }
-        monitor.start()
-        monitors.append(monitor)
     }
     
     open func unregisterNotifcation(path: String) {
@@ -609,17 +608,6 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor {
         return monitors.map( { self.relativePathOf(url: $0.url) } ).contains(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
     }
     
-    /**
-     Creates a symbolic link at the specified path that points to an item at the given path.
-     This method does not traverse symbolic links contained in destination path, making it possible
-     to create symbolic links to locations that do not yet exist.
-     Also, if the final path component is a symbolic link, that link is not followed.
-    
-     - Parameters:
-       - symbolicLink: The file path at which to create the new symbolic link. The last component of the path issued as the name of the link.
-       - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
-       - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
-    */
     open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             let operation = FileOperationType.link(link: path, target: destPath)
@@ -634,17 +622,12 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor {
         }
     }
     
-    /// Returns the path of the item pointed to by a symbolic link.
-    ///
-    /// - Parameters:
-    ///   - path: The path of a file or directory.
-    ///   - completionHandler: Returns destination url of given symbolic link, or an `Error` object if it fails.
-    open func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ url: URL?, _ error: Error?) -> Void) {
+    open func destination(ofSymbolicLink path: String, completionHandler: @escaping (_ file: FileObject?, _ error: Error?) -> Void) {
         dispatch_queue.async {
             do {
                 let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.url(of: path).path)
-                let destUrl = URL(fileURLWithPath: destPath)
-                completionHandler(destUrl, nil)
+                let file = LocalFileObject(fileWithPath: destPath, relativeTo: self.baseURL)
+                completionHandler(file, nil)
             } catch {
                 completionHandler(nil, error)
             }

@@ -17,12 +17,19 @@ public final class LocalFileObject: FileObject {
     /// Initiates a `LocalFileObject` with attributes of file in path.
     public convenience init? (fileWithPath path: String, relativeTo relativeURL: URL?) {
         var fileURL: URL?
-        var rpath = path.replacingOccurrences(of: relativeURL?.path ?? "", with: "", options: .anchored).replacingOccurrences(of: "/", with: "", options: .anchored)
+        var rpath = path.replacingOccurrences(of: "/", with: "", options: .anchored)
+        var resolvedRelativeURL: URL?
+        if !path.hasPrefix("/") {
+            resolvedRelativeURL = relativeURL
+        }else if let relPath = relativeURL?.path.replacingOccurrences(of: "/", with: "", options: .anchored), rpath.hasPrefix(relPath) {
+            rpath = rpath.replacingOccurrences(of: relPath, with: "", options: .anchored).replacingOccurrences(of: "/", with: "", options: .anchored)
+            resolvedRelativeURL = relativeURL
+        }
         if #available(iOS 9.0, macOS 10.11, *) {
-            fileURL = URL(fileURLWithPath: rpath, relativeTo: relativeURL)
+            fileURL = URL(fileURLWithPath: rpath, relativeTo: resolvedRelativeURL)
         } else {
             rpath = rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath
-            fileURL = URL(string: rpath, relativeTo: relativeURL) ?? relativeURL
+            fileURL = URL(string: rpath, relativeTo: resolvedRelativeURL) ?? resolvedRelativeURL
         }
         
         if let fileURL = fileURL {
@@ -98,9 +105,10 @@ public final class LocalFileMonitor {
     public var url: URL
     
     /// Creates a folder monitor object with monitoring enabled.
-    public init(url: URL, handler: @escaping ()->Void) {
+    public init?(url: URL, handler: @escaping ()->Void) {
         self.url = url
         descriptor = open((url.absoluteURL as NSURL).fileSystemRepresentation, O_EVTONLY)
+        guard descriptor >= 0 else { return nil }
         let event: DispatchSource.FileSystemEvent = url.fileIsDirectory ? [.write] : .all
         source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: event, queue: qq)
         
@@ -108,7 +116,7 @@ public final class LocalFileMonitor {
         // We have a 0.2 second delay to ensure we wont call handler 1000s times when there is
         // a huge file operation. This ensures app will work smoothly while this 250 milisec won't
         // affect user experince much
-        let main_handler: ()->Void = { [weak self] in
+        let main_handler: DispatchSourceProtocol.DispatchSourceHandler = { [weak self] in
             guard let `self` = self else { return }
             if Date().timeIntervalSinceReferenceDate < self.monitoredTime + 0.2 {
                 return
