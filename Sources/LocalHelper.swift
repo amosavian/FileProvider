@@ -19,10 +19,10 @@ public final class LocalFileObject: FileObject {
         var fileURL: URL?
         var rpath = path.replacingOccurrences(of: "/", with: "", options: .anchored)
         var resolvedRelativeURL: URL?
-        if !path.hasPrefix("/") {
-            resolvedRelativeURL = relativeURL
-        }else if let relPath = relativeURL?.path.replacingOccurrences(of: "/", with: "", options: .anchored), rpath.hasPrefix(relPath) {
+        if let relPath = relativeURL?.path.replacingOccurrences(of: "/", with: "", options: .anchored), rpath.hasPrefix(relPath) {
             rpath = rpath.replacingOccurrences(of: relPath, with: "", options: .anchored).replacingOccurrences(of: "/", with: "", options: .anchored)
+            resolvedRelativeURL = relativeURL
+        } else {
             resolvedRelativeURL = relativeURL
         }
         if #available(iOS 9.0, macOS 10.11, *) {

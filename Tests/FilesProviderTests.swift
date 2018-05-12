@@ -334,6 +334,26 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         }
     }
     
+    fileprivate func testSymlink(_ provider: FileProvider & FileProviderSymbolicLink, filePath: String) {
+        let desc = "Symlink in \(provider.type)"
+        print("Test started: \(desc).")
+        let expectation = XCTestExpectation(description: desc)
+        provider.create(symbolicLink: filePath + " Link", withDestinationPath: filePath) { (error) in
+            XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
+            provider.destination(ofSymbolicLink: filePath + " Link", completionHandler: { (fileObject, error) in
+                provider.removeItem(path: filePath + " Link", completionHandler: nil)
+                XCTAssertNil(error, "\(desc) failed: \(error?.localizedDescription ?? "no error desc")")
+                XCTAssertNotNil(fileObject, "file '\(filePath)' didn't exist")
+                guard fileObject != nil else { return }
+                XCTAssertEqual(fileObject!.path, filePath, "file path is different from '\(filePath)'")
+                XCTAssertEqual(fileObject!.type, URLFileResourceType.regular, "file '\(filePath)' is not a regular file")
+                expectation.fulfill()
+            })
+        }
+        wait(for: [expectation], timeout: timeout)
+        print("Test fulfilled: \(desc).")
+    }
+    
     fileprivate func testBasic(_ provider: FileProvider) {
         let filepath = "/test/file.txt"
         let fileurl = provider.url(of: filepath)
@@ -360,6 +380,9 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         testContentsFile(provider, filePath: textFilePath)
         testRenameFile(provider, filePath: textFilePath, to: renamedFilePath)
         testCopyFile(provider, filePath: renamedFilePath, to: textFilePath)
+        if let provider = provider as? FileProvider & FileProviderSymbolicLink {
+            testSymlink(provider, filePath: textFilePath)
+        }
         testRemoveFile(provider, filePath: textFilePath)
         
         // TODO: Test search
