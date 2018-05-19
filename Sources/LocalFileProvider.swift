@@ -246,7 +246,7 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
     
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let operation = FileOperationType.create(path: (atPath as NSString).appendingPathComponent(folderName) + "/")
+        let operation = FileOperationType.create(path: atPath.appendingPathComponent(folderName) + "/")
         return self.doOperation(operation, completionHandler: completionHandler)
     }
     

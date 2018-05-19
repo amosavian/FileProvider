@@ -22,11 +22,11 @@ public final class OneDriveFileObject: FileObject {
         self.init(baseURL: baseURL, route: route, json: json)
     }
     
-    internal init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: AnyObject]) {
+    internal init? (baseURL: URL?, route: OneDriveFileProvider.Route, json: [String: Any]) {
         guard let name = json["name"] as? String else { return nil }
         guard let id = json["id"] as? String else { return nil }
         let path: String
-        if let refpath = json["parentReference"]?["path"] as? String {
+        if let refpath = (json["parentReference"] as? [String: Any])?["path"] as? String {
             let parentPath: String
             if let colonIndex = refpath.index(of: ":") {
                 #if swift(>=4.0)
@@ -37,7 +37,7 @@ public final class OneDriveFileObject: FileObject {
             } else {
                 parentPath = refpath
             }
-             path = (parentPath as NSString).appendingPathComponent(name)
+             path = parentPath.appendingPathComponent(name)
         } else {
             path = "id:\(id)"
         }
@@ -45,13 +45,13 @@ public final class OneDriveFileObject: FileObject {
         super.init(url: url, name: name, path: path)
         self.id = id
         self.size = (json["size"] as? NSNumber)?.int64Value ?? -1
-        self.childrensCount = json["folder"]?["childCount"] as? Int
+        self.childrensCount = (json["folder"] as? [String: Any])?["childCount"] as? Int
         self.modifiedDate = (json["lastModifiedDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
         self.type = json["folder"] != nil ? .directory : .regular
-        self.contentType = (json["file"]?["mimeType"] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
+        self.contentType = ((json["file"] as? [String: Any])?["mimeType"] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         self.entryTag = json["eTag"] as? String
-        let hashes = json["file"]?["hashes"] as? NSDictionary
+        let hashes = (json["file"] as? [String: Any])?["hashes"] as? [String: Any]
         // checks for both sha1 or quickXor. First is available in personal drives, second in business one.
         self.fileHash = (hashes?["sha1Hash"] as? String) ?? (hashes?["quickXorHash"] as? String)
     }
@@ -141,7 +141,7 @@ public final class OneDriveFileObject: FileObject {
         
         switch crudePath {
         case hasPrefix("items/"):
-            let components = (crudePath as NSString).pathComponents
+            let components = crudePath.components(separatedBy: "/")
             return components.dropFirst().first.map { "id:\($0)" } ?? ""
         case hasPrefix("root:"):
             return crudePath.components(separatedBy: ":").dropFirst().first ?? ""
@@ -252,11 +252,11 @@ internal extension OneDriveFileProvider {
         }
         let task = session.uploadTask(with: request, from: data)
         
-        var dictionary: [String: AnyObject] = ["type": operation.description as NSString]
-        dictionary["source"] = operation.source as NSString?
-        dictionary["dest"] = operation.destination as NSString?
-        dictionary["uploadedBytes"] = uploadedSoFar as NSNumber
-        dictionary["totalBytes"] = data.count as NSNumber
+        var dictionary: [String: Any] = ["type": operation.description]
+        dictionary["source"] = operation.source
+        dictionary["dest"] = operation.destination
+        dictionary["uploadedBytes"] = NSNumber(value: uploadedSoFar)
+        dictionary["totalBytes"] = NSNumber(value: data.count)
         task.taskDescription = String(jsonDictionary: dictionary)
         task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
         progress.cancellationHandler = { [weak task, weak self] in
@@ -339,7 +339,7 @@ internal extension OneDriveFileProvider {
         var keys = [String]()
         
         func add(key: String, value: Any?) {
-            if let value = value {
+            if let value = value, !((value as? String)?.isEmpty ?? false) {
                 keys.append(key)
                 dic[key] = value
             }

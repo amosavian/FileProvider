@@ -405,7 +405,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
             return false
         }
         let supportedExt: [String] = ["jpg", "jpeg", "png", "gif"]
-        return supportedExt.contains((path as NSString).pathExtension)
+        return supportedExt.contains(path.pathExtension)
     }
     
     @discardableResult

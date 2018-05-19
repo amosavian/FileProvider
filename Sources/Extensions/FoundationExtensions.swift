@@ -358,7 +358,7 @@ internal extension URLRequest {
         self.setValue(contentType.rawValue + parameter, forHTTPHeaderField: "Content-Type")
     }
     
-    mutating func setValue(dropboxArgKey requestDictionary: [String: AnyObject]) {
+    mutating func setValue(dropboxArgKey requestDictionary: [String: Any]) {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestDictionary, options: []) else {
             return
         }
@@ -378,7 +378,7 @@ internal extension Data {
         return self.count > 4 && self.scanString(length: 4, using: .ascii) == "%PDF"
     }
     
-    init? (jsonDictionary dictionary: [String: AnyObject]) {
+    init? (jsonDictionary dictionary: [String: Any]) {
         guard JSONSerialization.isValidJSONObject(dictionary) else { return nil }
         guard let data = try? JSONSerialization.data(withJSONObject: dictionary, options: []) else {
             return nil
@@ -386,8 +386,8 @@ internal extension Data {
         self = data
     }
     
-    func deserializeJSON() -> [String: AnyObject]? {
-        return (try? JSONSerialization.jsonObject(with: self, options: [])) as? [String: AnyObject]
+    func deserializeJSON() -> [String: Any]? {
+        return (try? JSONSerialization.jsonObject(with: self, options: [])) as? [String: Any]
     }
     
     init<T>(value: T) {
@@ -413,14 +413,14 @@ internal extension Data {
 }
 
 internal extension String {
-    init? (jsonDictionary: [String: AnyObject]) {
+    init? (jsonDictionary: [String: Any]) {
         guard let data = Data(jsonDictionary: jsonDictionary) else {
             return nil
         }
         self.init(data: data, encoding: .utf8)
     }
     
-    func deserializeJSON(using encoding: String.Encoding = .utf8) -> [String: AnyObject]? {
+    func deserializeJSON(using encoding: String.Encoding = .utf8) -> [String: Any]? {
         guard let data = self.data(using: encoding) else {
             return nil
         }
@@ -447,6 +447,24 @@ internal extension NSNumber {
         formatter.maximumFractionDigits = precision
         formatter.numberStyle = style
         return formatter.string(from: self)!
+    }
+}
+
+internal extension String {
+    internal var pathExtension: String {
+        return (self as NSString).pathExtension
+    }
+    
+    internal func appendingPathComponent(_ pathComponent: String) -> String {
+        return (self as NSString).appendingPathComponent(pathComponent)
+    }
+    
+    internal var lastPathComponent: String {
+        return (self as NSString).lastPathComponent
+    }
+    
+    internal var deletingLastPathComponent: String {
+        return (self as NSString).deletingLastPathComponent
     }
 }
 

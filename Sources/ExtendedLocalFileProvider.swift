@@ -14,7 +14,7 @@ import AVFoundation
 
 extension LocalFileProvider: ExtendedFileProvider {
     open func thumbnailOfFileSupported(path: String) -> Bool {
-        switch (path as NSString).pathExtension.lowercased() {
+        switch path.pathExtension.lowercased() {
         case LocalFileInformationGenerator.imageThumbnailExtensions.contains:
             return true
         case LocalFileInformationGenerator.audioThumbnailExtensions.contains:
@@ -33,7 +33,7 @@ extension LocalFileProvider: ExtendedFileProvider {
     }
     
     open func propertiesOfFileSupported(path: String) -> Bool {
-        let fileExt = (path as NSString).pathExtension.lowercased()
+        let fileExt = path.pathExtension.lowercased()
         switch fileExt {
         case LocalFileInformationGenerator.imagePropertiesExtensions.contains:
             return LocalFileInformationGenerator.imageProperties != nil
@@ -92,7 +92,7 @@ extension LocalFileProvider: ExtendedFileProvider {
     @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String: Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         (dispatch_queue).async {
-            let fileExt = (path as NSString).pathExtension.lowercased()
+            let fileExt = path.pathExtension.lowercased()
             var getter: ((_ fileURL: URL) -> (prop: [String: Any], keys: [String]))?
             switch fileExt {
             case LocalFileInformationGenerator.imagePropertiesExtensions.contains:

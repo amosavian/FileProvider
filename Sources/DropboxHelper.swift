@@ -22,9 +22,9 @@ public final class DropboxFileObject: FileObject {
         self.init(json: json)
     }
     
-    internal init? (json: [String: AnyObject]) {
+    internal init? (json: [String: Any]) {
         var json = json
-        if json["name"] == nil, let metadata = json["metadata"] as? [String: AnyObject] {
+        if json["name"] == nil, let metadata = json["metadata"] as? [String: Any] {
             json = metadata
         }
         guard let name = json["name"] as? String else { return nil }
@@ -34,7 +34,7 @@ public final class DropboxFileObject: FileObject {
         self.serverTime =  (json["server_modified"] as? String).flatMap(Date.init(rfcString:))
         self.modifiedDate = (json["client_modified"] as? String).flatMap(Date.init(rfcString:))
         self.type = (json[".tag"] as? String) == "folder" ? .directory : .regular
-        self.isReadOnly = (json["sharing_info"]?["read_only"] as? NSNumber)?.boolValue ?? false
+        self.isReadOnly = ((json["sharing_info"] as? [String: Any])?["read_only"] as? NSNumber)?.boolValue ?? false
         self.id = json["id"] as? String
         self.rev = json["rev"] as? String
     }
@@ -94,8 +94,8 @@ internal extension DropboxFileProvider {
                 request.httpMethod = "POST"
                 request.setValue(authentication: self.credential, with: .oAuth2)
                 request.setValue(contentType: .json)
-                var requestDictionary: [String: AnyObject] = ["path": self.correctPath(path)! as NSString]
-                requestDictionary["query"] = queryStr as NSString
+                var requestDictionary: [String: Any] = ["path": self.correctPath(path)!]
+                requestDictionary["query"] = queryStr
                 requestDictionary["start"] = NSNumber(value: (token.flatMap( { Int($0) } ) ?? 0))
                 request.httpBody = Data(jsonDictionary: requestDictionary)
                 return request
@@ -103,14 +103,14 @@ internal extension DropboxFileProvider {
         } else {
             return { [weak self] (token) -> URLRequest? in
                 guard let `self` = self else { return nil }
-                var requestDictionary = [String: AnyObject]()
+                var requestDictionary = [String: Any]()
                 let url: URL
                 if let token = token {
                     url = URL(string: "files/list_folder/continue", relativeTo: self.apiURL)!
-                    requestDictionary["cursor"] = token as NSString?
+                    requestDictionary["cursor"] = token
                 } else {
                     url = URL(string: "files/list_folder", relativeTo: self.apiURL)!
-                    requestDictionary["path"] = self.correctPath(path) as NSString?
+                    requestDictionary["path"] = self.correctPath(path)
                     requestDictionary["recursive"] = NSNumber(value: recursive)
                 }
                 var request = URLRequest(url: url)
