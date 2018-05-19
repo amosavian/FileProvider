@@ -955,7 +955,7 @@ internal extension FTPFileProvider {
         let name = components[8..<components.count].joined(separator: " ")
         
         guard name != "." && name != ".." else { return nil }
-        let path = (path as NSString).appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
+        let path = path.appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
         
         let file = FileObject(url: url(of: path), name: name, path: "/" + path)
         #if swift(>=4.0)
@@ -999,7 +999,7 @@ internal extension FTPFileProvider {
         let name = components[3..<components.count].joined(separator: " ")
         
         guard name != "." && name != ".." else { return nil }
-        let path = (path as NSString).appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
+        let path = path.appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
         
         let file = FileObject(url: url(of: path), name: name, path: "/" + path)
         file.type = components[2] == "<DIR>" ? .directory : .regular
@@ -1021,10 +1021,10 @@ internal extension FTPFileProvider {
         let name: String
         if nameOrPath.hasPrefix("/") {
             correctedPath = nameOrPath.replacingOccurrences(of: baseURL!.path, with: "", options: .anchored)
-            name = (nameOrPath as NSString).lastPathComponent
+            name = nameOrPath.lastPathComponent
         } else {
             name = nameOrPath
-            correctedPath = (path as NSString).appendingPathComponent(nameOrPath)
+            correctedPath = path.appendingPathComponent(nameOrPath)
         }
         correctedPath = correctedPath.replacingOccurrences(of: "/", with: "", options: .anchored)
         

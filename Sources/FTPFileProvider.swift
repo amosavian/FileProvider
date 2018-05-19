@@ -311,7 +311,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     guard lines.count > 2 else {
                         throw self.urlError(path, code: .badServerResponse)
                     }
-                    let dirPath = (path as NSString).deletingLastPathComponent
+                    let dirPath = path.deletingLastPathComponent
                     let file: FileObject? = rfc3659enabled ?
                         self.parseMLST(lines[1], in: dirPath) :
                         (self.parseUnixList(lines[1], in: dirPath) ?? self.parseDOSList(lines[1], in: dirPath))
@@ -405,7 +405,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
+        let path = atPath.appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     

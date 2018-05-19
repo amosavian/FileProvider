@@ -419,8 +419,8 @@ public struct FileObjectSorting {
             case .nameCaseInsensitive:
                 return ($0.name).localizedCaseInsensitiveCompare($1.name) == (ascending ? .orderedAscending : .orderedDescending)
             case .extension:
-                let kind1 = $0.isDirectory ? "folder" : ($0.path as NSString).pathExtension
-                let kind2 = $1.isDirectory ? "folder" : ($1.path as NSString).pathExtension
+                let kind1 = $0.isDirectory ? "folder" : $0.path.pathExtension
+                let kind2 = $1.isDirectory ? "folder" : $1.path.pathExtension
                 return kind1.localizedCaseInsensitiveCompare(kind2) == (ascending ? .orderedAscending : .orderedDescending)
             case .modifiedDate:
                 let fileMod1 = $0.modifiedDate ?? Date.distantPast

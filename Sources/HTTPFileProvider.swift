@@ -198,7 +198,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     
     @discardableResult
     open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
-        let path = (atPath as NSString).appendingPathComponent(folderName) + "/"
+        let path = atPath.appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     

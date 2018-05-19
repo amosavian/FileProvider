@@ -194,14 +194,14 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         }, pageHandler: { [weak self] (data, _) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
             
-            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [AnyObject] else {
+            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [Any] else {
                 let err = self.urlError(path, code: .badServerResponse)
                 return ([], err, nil)
             }
             
             var files = [FileObject]()
             for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry) {
+                if let entry = entry as? [String: Any], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry) {
                     files.append(file)
                 }
             }
@@ -257,8 +257,9 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             volume.uuid = json["id"] as? String
             volume.name = json["name"] as? String
             volume.creationDate = (json["createdDateTime"] as? String).flatMap { Date(rfcString: $0) }
-            volume.totalCapacity = (json["quota"]?["total"] as? NSNumber)?.int64Value ?? -1
-            volume.availableCapacity = (json["quota"]?["remaining"] as? NSNumber)?.int64Value ?? 0
+            let quota = json["quota"] as? [String: Any]
+            volume.totalCapacity = (quota?["total"] as? NSNumber)?.int64Value ?? -1
+            volume.availableCapacity = (quota?["remaining"] as? NSNumber)?.int64Value ?? 0
             completionHandler(volume)
         }) 
         task.resume()
@@ -314,14 +315,14 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             return request
         }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
-            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [AnyObject] else {
+            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [Any] else {
                 let err = self.urlError(path, code: .badServerResponse)
                 return ([], err, nil)
             }
             
             var foundFiles = [FileObject]()
             for entry in entries {
-                if let entry = entry as? [String: AnyObject], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry), query.evaluate(with: file.mapPredicate()) {
+                if let entry = entry as? [String: Any], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry), query.evaluate(with: file.mapPredicate()) {
                     foundFiles.append(file)
                     foundItemHandler?(file)
                 }
@@ -449,7 +450,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             url = self.url(of: path, modifier: "content")
         case .create(path: let path) where path.hasSuffix("/"):
             method = "POST"
-            let parent =  (path as NSString).deletingLastPathComponent
+            let parent =  path.deletingLastPathComponent
             url = self.url(of: parent, modifier: "children")
         case .modify(path: let path):
             method = "PUT"
@@ -486,32 +487,32 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         switch operation {
         case .create(path: let path) where path.hasSuffix("/"):
             request.setValue(contentType: .json)
-            var requestDictionary = [String: AnyObject]()
-            let name = (path as NSString).lastPathComponent
-            requestDictionary["name"] = name as NSString
-            requestDictionary["folder"] = NSDictionary()
-            requestDictionary["@microsoft.graph.conflictBehavior"] = "fail" as NSString
+            var requestDictionary = [String: Any]()
+            let name = path.lastPathComponent
+            requestDictionary["name"] = name
+            requestDictionary["folder"] = [String: Any]()
+            requestDictionary["@microsoft.graph.conflictBehavior"] = "fail"
             request.httpBody = Data(jsonDictionary: requestDictionary)
         case .copy(let source, let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"),
              .move(source: let source, destination: let dest):
             request.setValue(contentType: .json, charset: .utf8)
-            let cdest = correctPath(dest) as NSString
-            var parentReference: [String: AnyObject] = [:]
+            let cdest = correctPath(dest)
+            var parentReference: [String: Any] = [:]
             if cdest.hasPrefix("id:") {
-                parentReference["id"] = cdest.components(separatedBy: "/").first?.replacingOccurrences(of: "id:", with: "", options: .anchored) as NSString?
+                parentReference["id"] = cdest.components(separatedBy: "/").first?.replacingOccurrences(of: "id:", with: "", options: .anchored)
             } else {
-                parentReference["path"] = ("/drive/root:" as NSString).appendingPathComponent(cdest.deletingLastPathComponent) as NSString
+                parentReference["path"] = "/drive/root:".appendingPathComponent(cdest.deletingLastPathComponent)
             }
             switch self.route {
             case .drive(uuid: let uuid):
-                parentReference["driveId"] = uuid.uuidString as NSString
+                parentReference["driveId"] = uuid.uuidString
             default:
-                //parentReference["driveId"] = cachedDriveID as NSString? ?? ""
+                //parentReference["driveId"] = cachedDriveID ?? ""
                 break
             }
-            var requestDictionary = [String: AnyObject]()
-            requestDictionary["parentReference"] = parentReference as NSDictionary
-            requestDictionary["name"] = (cdest as NSString).lastPathComponent as NSString
+            var requestDictionary = [String: Any]()
+            requestDictionary["parentReference"] = parentReference
+            requestDictionary["name"] = cdest.lastPathComponent
             request.httpBody = Data(jsonDictionary: requestDictionary)
         default:
             break
@@ -523,7 +524,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
         let errorDesc: String?
         if let response = data?.deserializeJSON() {
-            errorDesc = response["error"]?["message"] as? String
+            errorDesc = (response["error"] as? [String: Any])?["message"] as? String
         } else {
             errorDesc = data.flatMap({ String(data: $0, encoding: .utf8) })
         }
@@ -550,7 +551,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: self.url(of: path, modifier: "createLink"))
         request.httpMethod = "POST"
-        let requestDictionary: [String: AnyObject] = ["type": "view" as NSString]
+        let requestDictionary: [String: Any] = ["type": "view"]
         request.httpBody = Data(jsonDictionary: requestDictionary)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             var serverError: FileProviderHTTPError?
@@ -560,7 +561,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
                 serverError = code.flatMap { self.serverError(with: $0, path: path, data: data) }
             }
             if let json = data?.deserializeJSON() {
-                if let linkDic = json["link"] as? NSDictionary, let linkStr = linkDic["webUrl"] as? String {
+                if let linkDic = json["link"] as? [String: Any], let linkStr = linkDic["webUrl"] as? String {
                     link = URL(string: linkStr)
                 }
             }
@@ -600,7 +601,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     
     #if os(macOS) || os(iOS) || os(tvOS)
     open func thumbnailOfFileSupported(path: String) -> Bool {
-        let fileExt = (path as NSString).pathExtension.lowercased()
+        let fileExt = path.pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
             return true

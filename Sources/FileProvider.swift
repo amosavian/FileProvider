@@ -848,7 +848,7 @@ public extension FileProviderBasic {
         }
         _ = group.wait(timeout: .now() + 5)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
-        return (dirPath as NSString).appendingPathComponent(finalFile)
+        return dirPath.appendingPathComponent(finalFile)
     }
     
     internal func urlError(_ path: String, code: URLError.Code) -> Error {
@@ -1130,7 +1130,7 @@ public enum FileOperationType: CustomStringConvertible {
         return mirror.children.dropFirst().first?.value as? String
     }
     
-    init? (json: [String: AnyObject]) {
+    init? (json: [String: Any]) {
         guard let type = json["type"] as? String, let source = json["source"] as? String else {
             return nil
         }
@@ -1159,9 +1159,9 @@ public enum FileOperationType: CustomStringConvertible {
     }
     
     internal var json: String? {
-        var dictionary: [String: AnyObject] = ["type": self.description as NSString]
-        dictionary["source"] = source as NSString?
-        dictionary["dest"] = destination as NSString?
+        var dictionary: [String: Any] = ["type": self.description]
+        dictionary["source"] = source
+        dictionary["dest"] = destination
         return String(jsonDictionary: dictionary)
     }
 }
