@@ -612,7 +612,16 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         operation_queue.addOperation {
             let operation = FileOperationType.link(link: path, target: destPath)
             do {
-                try self.opFileManager.createSymbolicLink(at: self.url(of: path), withDestinationURL: self.url(of: destPath))
+                let url = self.url(of: path)
+                let destURL = self.url(of: destPath)
+                let homePath = NSHomeDirectory()
+                if destURL.path.hasPrefix(homePath) {
+                    let canonicalHomePath = "/" + homePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                    let destRelativePath = destURL.path.replacingOccurrences(of: canonicalHomePath, with: "~", options: .anchored)
+                    try self.opFileManager.createSymbolicLink(atPath: url.path, withDestinationPath: destRelativePath)
+                } else {
+                    try self.opFileManager.createSymbolicLink(at: url, withDestinationURL: destURL)
+                }
                 completionHandler?(nil)
                 self.delegateNotify(operation)
             } catch {
@@ -626,7 +635,8 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         dispatch_queue.async {
             do {
                 let destPath = try self.opFileManager.destinationOfSymbolicLink(atPath: self.url(of: path).path)
-                let file = LocalFileObject(fileWithPath: destPath, relativeTo: self.baseURL)
+                let absoluteDestPath = (destPath as NSString).expandingTildeInPath
+                let file = LocalFileObject(fileWithPath: absoluteDestPath, relativeTo: self.baseURL)
                 completionHandler(file, nil)
             } catch {
                 completionHandler(nil, error)
