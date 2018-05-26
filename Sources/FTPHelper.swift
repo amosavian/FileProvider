@@ -681,8 +681,7 @@ internal extension FTPFileProvider {
                 repeat {
                     let subdata: Data
                     if let data = fromData {
-                        let endIndex = min(data.count, Int(sent) + chunkSize)
-                        subdata = data.subdata(in: Int(sent)..<endIndex)
+                        subdata = data.dropFirst(Int(sent)).prefix(chunkSize)
                     } else if let fileHandle = fileHandle {
                         fileHandle.seek(toFileOffset: UInt64(sent))
                         subdata = fileHandle.readData(ofLength: chunkSize)
@@ -719,14 +718,13 @@ internal extension FTPFileProvider {
                     
                     if let data = fromData {
                         lock.try()
-                        let endIndex = min(data.count, Int(sent) + chunkSize)
-                        eof = endIndex == data.count
+                        eof = sent == data.count
                         lock.unlock()
                     } else if let fileHandle = fileHandle {
                         eof = Int64(fileHandle.offsetInFile) == size
                     }
-                    
                 } while !eof
+                
                 success_lock.try()
                 success = true
                 success_lock.unlock()
