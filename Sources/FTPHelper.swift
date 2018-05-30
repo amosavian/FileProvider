@@ -247,7 +247,6 @@ internal extension FTPFileProvider {
                 completionHandler(nil, error)
                 return
             }
-            
         }
     }
     
@@ -481,8 +480,8 @@ internal extension FTPFileProvider {
                 }
                 
                 // Send retreive command
-                let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 53 + filePath.count + String(totalSize).count /* RETR open response */ + 26 /* RETR Transfer complete message. */
-                self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task, minLength: len, afterSend: { error in
+                self.execute(command: "TYPE I" + "\r\n" + "REST \(position)" + "\r\n" + "RETR \(filePath)", on: task,
+                             afterSend: { error in
                     // starting passive task
                     onTask?(dataTask)
                     
@@ -655,10 +654,9 @@ internal extension FTPFileProvider {
                 completionHandler(self.urlError(filePath, code: .badServerResponse))
                 return
             }
-            let len = 19 /* TYPE response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
             let success_lock = NSLock()
             var success = false
-            self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
+            self.execute(command: "TYPE I"  + "\r\n" + "STOR \(filePath)", on: task, afterSend: { error in
                 onTask?(dataTask)
                 
                 let timeout = self.session.configuration.timeoutIntervalForResource
@@ -728,6 +726,7 @@ internal extension FTPFileProvider {
                 success_lock.try()
                 success = true
                 success_lock.unlock()
+                completionHandler(nil)
             }) { (response, error) in
                 success_lock.try()
                 guard success else {
@@ -748,12 +747,8 @@ internal extension FTPFileProvider {
                     if !(response.hasPrefix("1") || response.hasPrefix("2")) {
                         throw FileProviderFTPError(message: response)
                     }
-                    
-                    completionHandler(nil)
                 } catch {
-                    self.dispatch_queue.async {
-                        completionHandler(error)
-                    }
+                    completionHandler(error)
                 }
             }
         }
@@ -859,8 +854,7 @@ internal extension FTPFileProvider {
             // Send retreive command
             let success_lock = NSLock()
             var success = false
-            let len = 19 /* TYPE response */ + 65 + String(position).count /* REST Response */ + 44 + filePath.count /* STOR open response */ + 10 /* RETR Transfer complete message. */
-            self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, minLength: len, afterSend: { error in
+            self.execute(command: "TYPE I"  + "\r\n" + "REST \(position)"  + "\r\n" + "STOR \(filePath)", on: task, afterSend: { error in
                 // starting passive task
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 onTask?(dataTask)
@@ -878,6 +872,8 @@ internal extension FTPFileProvider {
                     
                     dataTask.closeRead()
                     dataTask.closeWrite()
+                    
+                    completionHandler(nil)
                 })
             }) { (response, error) in
                 success_lock.try()
@@ -899,8 +895,6 @@ internal extension FTPFileProvider {
                     if !(response.hasPrefix("1") || response.hasPrefix("2")) {
                         throw FileProviderFTPError(message: response)
                     }
-                    
-                    completionHandler(nil)
                 } catch {
                     self.dispatch_queue.async {
                         completionHandler(error)
