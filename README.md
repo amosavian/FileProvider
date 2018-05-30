@@ -40,7 +40,7 @@ All functions do async calls and it wont block your main thread.
 - [ ] **GoogleFileProvider** A wrapper around Goodle Drive REST API.
 - [ ] **SMBFileProvider** SMB2/3 introduced in 2006, which is a file and printer sharing protocol originated from Microsoft Windows and now is replacing AFP protocol on macOS.
     * Data types and some basic functions are implemented but *main interface is not implemented yet!*.
-    * SMBv1/CIFS is insecure, deprecated and kinda tricky to be implemented due to strict memory allignment in Swift.
+    * For now, you can use [amosavian/AMSMB2](https://github.com/amosavian/AMSMB2) framework to connect to SMB2.
 
 ## Requirements
 
