@@ -16,7 +16,7 @@ import Foundation
  */
 open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOperations, FileProviderReadWrite, FileProviderReadWriteProgressive {
     open class var type: String { fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.") }
-    open let baseURL: URL?
+    public let baseURL: URL?
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {
         willSet {

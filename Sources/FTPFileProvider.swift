@@ -27,7 +27,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     }
     
     open class var type: String { return "FTP" }
-    open let baseURL: URL?
+    public let baseURL: URL?
     
     open var dispatch_queue: DispatchQueue
     open var operation_queue: OperationQueue {

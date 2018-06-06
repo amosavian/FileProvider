@@ -61,7 +61,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         self.credential = fileProvider.credential
     }
     
-    open override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         if let progress = context?.load(as: Progress.self), let newVal = change?[.newKey] as? Int64 {
             switch keyPath ?? "" {
             case #keyPath(URLSessionTask.countOfBytesReceived):
