@@ -578,7 +578,7 @@ public final class WebDavFileObject: FileObject {
     }
     
     /// MIME type of the file.
-    open internal(set) var contentType: ContentMIMEType {
+    public internal(set) var contentType: ContentMIMEType {
         get {
             return (allValues[.mimeTypeKey] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         }
@@ -588,7 +588,7 @@ public final class WebDavFileObject: FileObject {
     }
     
     /// HTTP E-Tag, can be used to mark changed files.
-    open internal(set) var entryTag: String? {
+    public internal(set) var entryTag: String? {
         get {
             return allValues[.entryTagKey] as? String
         }

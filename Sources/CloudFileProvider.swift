@@ -37,7 +37,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     open fileprivate(set) var scope: UbiquitousScope
     
     /// Set this property to ignore initiations asserting to be on secondary thread
-    static open var asserting: Bool = true
+    static public var asserting: Bool = true
     
     /**
      Initializes the provider for the iCloud container associated with the specified identifier and 

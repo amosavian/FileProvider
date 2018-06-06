@@ -101,7 +101,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     public static var graphVersion = "v1.0"
     
     /// Route for container, default is `.me`.
-    open let route: Route
+    public let route: Route
     
     /**
      Initializer for Onedrive provider with given client ID and Token.

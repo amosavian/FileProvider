@@ -24,9 +24,9 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     override open class var type: String { return "Dropbox" }
     
     /// Dropbox RPC API URL, which is equal with [https://api.dropboxapi.com/2/](https://api.dropboxapi.com/2/)
-    open let apiURL: URL
+    public let apiURL: URL
     /// Dropbox contents download/upload API URL, which is equal with [https://content.dropboxapi.com/2/](https://content.dropboxapi.com/2/)
-    open let contentURL: URL
+    public let contentURL: URL
     
     /**
      Initializer for Dropbox provider with given client ID and Token.

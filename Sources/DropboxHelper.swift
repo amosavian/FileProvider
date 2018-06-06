@@ -40,7 +40,7 @@ public final class DropboxFileObject: FileObject {
     }
     
     /// The time contents of file has been modified on server, returns nil if not set
-    open internal(set) var serverTime: Date? {
+    public internal(set) var serverTime: Date? {
         get {
             return allValues[.serverDateKey] as? Date
         }
@@ -51,7 +51,7 @@ public final class DropboxFileObject: FileObject {
     
     /// The document identifier is a value assigned by the Dropbox to a file.
     /// This value is used to identify the document regardless of where it is moved on a volume.
-    open internal(set) var id: String? {
+    public internal(set) var id: String? {
         get {
             return allValues[.fileResourceIdentifierKey] as? String
         }
@@ -62,7 +62,7 @@ public final class DropboxFileObject: FileObject {
     
     /// The revision of file, which changes when a file contents are modified.
     /// Changes to attributes or other file metadata do not change the identifier.
-    open internal(set) var rev: String? {
+    public internal(set) var rev: String? {
         get {
             return allValues[.generationIdentifierKey] as? String
         }

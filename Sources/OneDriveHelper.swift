@@ -58,7 +58,7 @@ public final class OneDriveFileObject: FileObject {
     
     /// The document identifier is a value assigned by the OneDrive to a file.
     /// This value is used to identify the document regardless of where it is moved on a volume.
-    open internal(set) var id: String? {
+    public internal(set) var id: String? {
         get {
             return allValues[.fileResourceIdentifierKey] as? String
         }
@@ -68,7 +68,7 @@ public final class OneDriveFileObject: FileObject {
     }
     
     /// MIME type of file contents returned by OneDrive server.
-    open internal(set) var contentType: ContentMIMEType {
+    public internal(set) var contentType: ContentMIMEType {
         get {
             return (allValues[.mimeTypeKey] as? String).flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
         }
@@ -78,7 +78,7 @@ public final class OneDriveFileObject: FileObject {
     }
     
     /// HTTP E-Tag, can be used to mark changed files.
-    open internal(set) var entryTag: String? {
+    public internal(set) var entryTag: String? {
         get {
             return allValues[.entryTagKey] as? String
         }
@@ -88,7 +88,7 @@ public final class OneDriveFileObject: FileObject {
     }
     
     /// Calculated hash from OneDrive server. Hex string SHA1 in personal or Base65 string [QuickXOR](https://dev.onedrive.com/snippets/quickxorhash.htm) in business drives.
-    open internal(set) var fileHash: String? {
+    public internal(set) var fileHash: String? {
         get {
             return allValues[.documentIdentifierKey] as? String
         }

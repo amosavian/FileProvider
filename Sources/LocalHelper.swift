@@ -55,7 +55,7 @@ public final class LocalFileObject: FileObject {
     }
     
     /// The total size allocated on disk for the file
-    open internal(set) var allocatedSize: Int64 {
+    public internal(set) var allocatedSize: Int64 {
         get {
             return allValues[.fileAllocatedSizeKey] as? Int64 ?? 0
         }
@@ -67,7 +67,7 @@ public final class LocalFileObject: FileObject {
     /// The document identifier is a value assigned by the kernel/system to a file or directory. 
     /// This value is used to identify the document regardless of where it is moved on a volume. 
     /// The identifier persists across system restarts.
-    open internal(set) var id: Int? {
+    public internal(set) var id: Int? {
         get {
             return allValues[.documentIdentifierKey] as? Int
         }
@@ -78,7 +78,7 @@ public final class LocalFileObject: FileObject {
     
     /// The revision of file, which changes when a file contents are modified. 
     /// Changes to attributes or other file metadata do not change the identifier.
-    open var rev: String? {
+    public var rev: String? {
         get {
             let data = allValues[.generationIdentifierKey] as? Data
             return data?.map { String(format: "%02hhx", $0) }.joined()
@@ -86,7 +86,7 @@ public final class LocalFileObject: FileObject {
     }
     
     /// Count of children items of a driectory. It costs disk access for local directories.
-    open public(set) override var childrensCount: Int? {
+    public internal(set) override var childrensCount: Int? {
         get {
             return try? FileManager.default.contentsOfDirectory(atPath: self.url.path).count
         }
