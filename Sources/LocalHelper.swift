@@ -86,7 +86,7 @@ public final class LocalFileObject: FileObject {
     }
     
     /// Count of children items of a driectory. It costs disk access for local directories.
-    public internal(set) override var childrensCount: Int? {
+    public override var childrensCount: Int? {
         get {
             return try? FileManager.default.contentsOfDirectory(atPath: self.url.path).count
         }
