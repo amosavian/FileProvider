@@ -489,12 +489,16 @@ extension DropboxFileProvider: ExtendedFileProvider {
                 }
             }
             if let data = data {
-                if data.isPDF, let pageImage = DropboxFileProvider.convertToImage(pdfData: data) {
+                if data.isPDF, let pageImage = DropboxFileProvider.convertToImage(pdfData: data, maxSize: dimension) {
                     image = pageImage
                 } else if let contentType = (response as? HTTPURLResponse)?.allHeaderFields["Content-Type"] as? String, contentType.contains("text/html") {
                      // TODO: Implement converting html returned type of get_preview to image
-                } else if let fetchedimage = ImageClass(data: data) {
-                    image = dimension.map({ DropboxFileProvider.scaleDown(image: fetchedimage, toSize: $0) }) ?? fetchedimage
+                } else {
+                    if let dimension = dimension {
+                        image = DropboxFileProvider.scaleDown(data: data, toSize: dimension)
+                    } else {
+                        
+                    }
                 }
             }
             completionHandler(image, error)

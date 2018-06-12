@@ -65,26 +65,23 @@ extension LocalFileProvider: ExtendedFileProvider {
             // Create Thumbnail and cache
             switch fileURL.pathExtension.lowercased() {
             case LocalFileInformationGenerator.videoThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.videoThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.videoThumbnail(fileURL, dimension)
             case LocalFileInformationGenerator.audioThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.audioThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.audioThumbnail(fileURL, dimension)
             case LocalFileInformationGenerator.imageThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.imageThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.imageThumbnail(fileURL, dimension)
             case LocalFileInformationGenerator.pdfThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.pdfThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.pdfThumbnail(fileURL, dimension)
             case LocalFileInformationGenerator.officeThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.officeThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.officeThumbnail(fileURL, dimension)
             case LocalFileInformationGenerator.customThumbnailExtensions.contains:
-                thumbnailImage = LocalFileInformationGenerator.customThumbnail(fileURL)
+                thumbnailImage = LocalFileInformationGenerator.customThumbnail(fileURL, dimension)
             default:
                 completionHandler(nil, nil)
                 return
             }
             
-            if let image = thumbnailImage {
-                let scaledImage = LocalFileProvider.scaleDown(image: image, toSize: dimension)
-                completionHandler(scaledImage, nil)
-            }
+            completionHandler(thumbnailImage, nil)
         }
         return nil
     }
@@ -194,12 +191,12 @@ public struct LocalFileInformationGenerator {
     static public var customPropertiesExtensions: [String]  = []
     
     /// Thumbnail generator closure for image files.
-    static public var imageThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
-        return ImageClass(contentsOfFile: fileURL.path)
+    static public var imageThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
+        return LocalFileProvider.scaleDown(fileURL: fileURL, toSize: dimension)
     }
     
     /// Thumbnail generator closure for audio and music files.
-    static public var audioThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
+    static public var audioThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
         let playerItem = AVPlayerItem(url: fileURL)
         let metadataList = playerItem.asset.commonMetadata
         #if swift(>=4.0)
@@ -210,7 +207,7 @@ public struct LocalFileInformationGenerator {
         for item in metadataList {
             if item.commonKey == commonKeyArtwork {
                 if let data = item.dataValue {
-                    return ImageClass(data: data)
+                    return LocalFileProvider.scaleDown(data: data, toSize: dimension)
                 }
             }
         }
@@ -218,9 +215,10 @@ public struct LocalFileInformationGenerator {
     }
     
     /// Thumbnail generator closure for video files.
-    static public var videoThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
+    static public var videoThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
         let asset = AVAsset(url: fileURL)
         let assetImgGenerate = AVAssetImageGenerator(asset: asset)
+        assetImgGenerate.maximumSize = dimension ?? .zero
         assetImgGenerate.appliesPreferredTrackTransform = true
         let time = CMTime(value: asset.duration.value / 3, timescale: asset.duration.timescale)
         if let cgImage = try? assetImgGenerate.copyCGImage(at: time, actualTime: nil) {
@@ -234,19 +232,19 @@ public struct LocalFileInformationGenerator {
     }
     
     /// Thumbnail generator closure for portable document files files.
-    static public var pdfThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
-        return LocalFileProvider.convertToImage(pdfURL: fileURL)
+    static public var pdfThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
+        return LocalFileProvider.convertToImage(pdfURL: fileURL, maxSize: dimension)
     }
     
     /// Thumbnail generator closure for office document files.
     /// - Note: No default implementation is avaiable
-    static public var officeThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
+    static public var officeThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
         return nil
     }
     
     /// Thumbnail generator closure for custom type of files.
     /// - Note: No default implementation is avaiable
-    static public var customThumbnail: (_ fileURL: URL) -> ImageClass? = { fileURL in
+    static public var customThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
         return nil
     }
     
@@ -276,18 +274,17 @@ public struct LocalFileInformationGenerator {
             return(Int(newTopVal), Int(newBottomVal))
         }
         
-        guard let cgDataRef = CGImageSourceCreateWithURL(fileURL as CFURL, nil), let cfImageDict = CGImageSourceCopyPropertiesAtIndex(cgDataRef, 0, nil) else {
+        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil), let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as NSDictionary? else {
             return (dic, keys)
         }
-        let imageDict = cfImageDict as NSDictionary
-        let tiffDict = imageDict[kCGImagePropertyTIFFDictionary as String] as? NSDictionary ?? [:]
-        let exifDict = imageDict[kCGImagePropertyExifDictionary as String] as? NSDictionary ?? [:]
-        let gpsDict = imageDict[kCGImagePropertyGPSDictionary as String] as? NSDictionary ?? [:]
+        let tiffDict = properties[kCGImagePropertyTIFFDictionary as String] as? NSDictionary ?? [:]
+        let exifDict = properties[kCGImagePropertyExifDictionary as String] as? NSDictionary ?? [:]
+        let gpsDict = properties[kCGImagePropertyGPSDictionary as String] as? NSDictionary ?? [:]
         
-        if let pixelWidth = imageDict.object(forKey: kCGImagePropertyPixelWidth) as? NSNumber, let pixelHeight = imageDict.object(forKey: kCGImagePropertyPixelHeight) as? NSNumber {
+        if let pixelWidth = properties.object(forKey: kCGImagePropertyPixelWidth) as? NSNumber, let pixelHeight = properties.object(forKey: kCGImagePropertyPixelHeight) as? NSNumber {
             add(key: "Dimensions", value: "\(pixelWidth)x\(pixelHeight)")
         }
-        add(key: "DPI", value: imageDict[kCGImagePropertyDPIWidth as String])
+        add(key: "DPI", value: properties[kCGImagePropertyDPIWidth as String])
         add(key: "Device maker", value: tiffDict[kCGImagePropertyTIFFMake as String])
         add(key: "Device model", value: tiffDict[kCGImagePropertyTIFFModel as String])
         add(key: "Lens model", value: exifDict[kCGImagePropertyExifLensModel as String])
@@ -302,9 +299,9 @@ public struct LocalFileInformationGenerator {
         }
         add(key: "Area", value: gpsDict[kCGImagePropertyGPSAreaInformation as String])
         
-        add(key: "Color space", value: imageDict[kCGImagePropertyColorModel as String])
-        add(key: "Color depth", value: (imageDict[kCGImagePropertyDepth as String] as? NSNumber).map({ "\($0) bits" }))
-        add(key: "Color profile", value: imageDict[kCGImagePropertyProfileName as String])
+        add(key: "Color space", value: properties[kCGImagePropertyColorModel as String])
+        add(key: "Color depth", value: (properties[kCGImagePropertyDepth as String] as? NSNumber).map({ "\($0) bits" }))
+        add(key: "Color profile", value: properties[kCGImagePropertyProfileName as String])
         add(key: "Focal length", value: exifDict[kCGImagePropertyExifFocalLength as String])
         add(key: "White banance", value: exifDict[kCGImagePropertyExifWhiteBalance as String])
         add(key: "F number", value: exifDict[kCGImagePropertyExifFNumber as String])

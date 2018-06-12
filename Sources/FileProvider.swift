@@ -9,9 +9,11 @@
 import Foundation
 #if os(iOS) || os(tvOS)
 import UIKit
+import ImageIO
 public typealias ImageClass = UIImage
 #elseif os(macOS)
 import Cocoa
+import ImageIO
 public typealias ImageClass = NSImage
 #endif
 
@@ -945,133 +947,157 @@ extension ExtendedFileProvider {
         return self.thumbnailOfFile(path: path, dimension: nil, completionHandler: completionHandler)
     }
     
-    internal static func convertToImage(pdfData: Data?, page: Int = 1) -> ImageClass? {
+    internal static func convertToImage(pdfData: Data?, page: Int = 1, maxSize: CGSize?) -> ImageClass? {
         guard let pdfData = pdfData else { return nil }
         
         let cfPDFData: CFData = pdfData as CFData
         if let provider = CGDataProvider(data: cfPDFData), let reference = CGPDFDocument(provider), let pageRef = reference.page(at: page) {
-            return self.convertToImage(pdfPage: pageRef)
+            return self.convertToImage(pdfPage: pageRef, maxSize: maxSize)
         }
         return nil
     }
     
-    internal static func convertToImage(pdfURL: URL, page: Int = 1) -> ImageClass? {
+    internal static func convertToImage(pdfURL: URL, page: Int = 1, maxSize: CGSize?) -> ImageClass? {
         // To accelerate, supporting only local file URL
         guard pdfURL.isFileURL else { return nil }
         
         if let reference = CGPDFDocument(pdfURL as CFURL), let pageRef = reference.page(at: page) {
-            return self.convertToImage(pdfPage: pageRef)
+            return self.convertToImage(pdfPage: pageRef, maxSize: maxSize)
         }
         return nil
     }
     
-    private static func convertToImage(pdfPage: CGPDFPage) -> ImageClass? {
-        let frame = pdfPage.getBoxRect(CGPDFBox.mediaBox)
-        var size = frame.size
-        let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+    private static func convertToImage(pdfPage: CGPDFPage, maxSize: CGSize?) -> ImageClass? {
+        let rect: CGRect
+        let size: CGSize
+        let ppp: Int
         
+        if let maxSize = maxSize {
+            size = maxSize
+            rect = CGRect(origin: .zero, size: maxSize)
+            ppp = 1
+        } else {
+            let frame = pdfPage.getBoxRect(CGPDFBox.mediaBox)
+            rect = CGRect(origin: .zero, size: frame.size)
+            #if os(macOS)
+            #if swift(>=4.0)
+            ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #elseif swift(>=3.3)
+            ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #elseif swift(>=3.2)
+            ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #else
+            ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            #endif
+            #else
+            ppp = Int(UIScreen.main.scale) // fetch device is retina or not
+            #endif
+            size = CGSize(width: frame.size.width * CGFloat(ppp), height: frame.size.height * CGFloat(ppp))
+        }
+        
+        let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
+
         #if os(macOS)
-            #if swift(>=4.0)
-            let ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
-            #elseif swift(>=3.3)
-            let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
-            #elseif swift(>=3.2)
-            let ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
-            #else
-            let ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
-            #endif
-            
-            size.width  *= CGFloat(ppp)
-            size.height *= CGFloat(ppp)
-        
-            #if swift(>=4.0)
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
-                                       bytesPerRow: 0, bitsPerPixel: 0)
-            #elseif swift(>=3.3)
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
-                                       bytesPerRow: 0, bitsPerPixel: 0)
-            #elseif swift(>=3.2)
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
-                                       bytesPerRow: 0, bitsPerPixel: 0)
-            #else
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: NSCalibratedRGBColorSpace,
-                                       bytesPerRow: 0, bitsPerPixel: 0)
-            #endif
-            
-            guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
-                return nil
-            }
-            
-            NSGraphicsContext.saveGraphicsState()
-            #if swift(>=4.0)
-            NSGraphicsContext.current = context
-            #else
-            NSGraphicsContext.setCurrent(context)
-            #endif
-            
-            let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
-            context.cgContext.concatenate(transform)
-            
-            context.cgContext.translateBy(x: 0, y: size.height)
-            context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
-            context.cgContext.drawPDFPage(pdfPage)
-            
-            let resultingImage = NSImage(size: size)
-            resultingImage.addRepresentation(rep!)
-            return resultingImage
+        #if swift(>=4.0)
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
+                                    bytesPerRow: 0, bitsPerPixel: 0)
+        #elseif swift(>=3.3)
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                    colorSpaceName: NSCalibratedRGBColorSpace, bytesPerRow: 0, bitsPerPixel: 0)
+        #elseif swift(>=3.2)
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                    colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)
         #else
-            let ppp = Int(UIScreen.main.scale) // fetch device is retina or not
-            size.width  *= CGFloat(ppp)
-            size.height *= CGFloat(ppp)
-            UIGraphicsBeginImageContext(size)
-            guard let context = UIGraphicsGetCurrentContext() else {
-                return nil
-            }
-            context.saveGState()
-            let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
-            context.concatenate(transform)
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                    colorSpaceName: NSCalibratedRGBColorSpace,  bytesPerRow: 0, bitsPerPixel: 0)
+        #endif
+        
+        guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
+            return nil
+        }
             
-            context.translateBy(x: 0, y: size.height)
-            context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
-            context.setFillColor(UIColor.white.cgColor)
-            context.fill(rect)
-            context.drawPDFPage(pdfPage)
-            
-            context.restoreGState()
-            let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
-            UIGraphicsEndImageContext()
-            return resultingImage
+        NSGraphicsContext.saveGraphicsState()
+        #if swift(>=4.0)
+        NSGraphicsContext.current = context
+        #else
+        NSGraphicsContext.setCurrent(context)
+        #endif
+        
+        context.cgContext.concatenate(transform)
+        context.cgContext.translateBy(x: 0, y: size.height)
+        context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+        context.cgContext.drawPDFPage(pdfPage)
+        
+        let resultingImage = NSImage(size: size)
+        resultingImage.addRepresentation(rep!)
+        return resultingImage
+        #else
+        UIGraphicsBeginImageContext(size)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return nil
+        }
+        context.saveGState()
+        
+        context.concatenate(transform)
+        context.translateBy(x: 0, y: size.height)
+        context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+        context.setFillColor(UIColor.white.cgColor)
+        context.fill(rect)
+        context.drawPDFPage(pdfPage)
+        
+        context.restoreGState()
+        let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return resultingImage
         #endif
     }
     
-    internal static func scaleDown(image: ImageClass, toSize maxSize: CGSize) -> ImageClass {
-        let height, width: CGFloat
-        if image.size.width > image.size.height {
-            width = maxSize.width
-            height = (image.size.height / image.size.width) * width
+    internal static func scaleDown(fileURL: URL, toSize maxSize: CGSize?) -> ImageClass? {
+        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else {
+            return nil
+        }
+        return scaleDown(source: source, toSize: maxSize)
+    }
+    
+    internal static func scaleDown(data: Data, toSize maxSize: CGSize?) -> ImageClass? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+        return scaleDown(source: source, toSize: maxSize)
+    }
+    
+    internal static func scaleDown(source: CGImageSource, toSize maxSize: CGSize?) -> ImageClass? {
+        let options: [NSString: Any]
+        if let maxSize = maxSize {
+            let pixelSize: CGFloat
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+            
+            if let width: CGFloat = ((properties as NSDictionary?)?.object(forKey: kCGImagePropertyPixelWidth) as? CGFloat),
+                let height: CGFloat = ((properties as NSDictionary?)?.object(forKey: kCGImagePropertyPixelHeight) as? CGFloat) {
+                pixelSize = (width / maxSize.width < height / maxSize.height) ? maxSize.width : maxSize.height
+            } else {
+                pixelSize = max(maxSize.width, maxSize.height)
+            }
+            
+            options = [
+                kCGImageSourceThumbnailMaxPixelSize: pixelSize,
+                kCGImageSourceCreateThumbnailFromImageAlways: true]
         } else {
-            height = maxSize.height
-            width = (image.size.width / image.size.height) * height
+            options = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true]
         }
         
-        let newSize = CGSize(width: width, height: height)
-        
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
         #if os(macOS)
-            var imageRect = NSRect(origin: .zero, size: image.size)
-            let imageRef = image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
-            
-            // Create NSImage from the CGImage using the new size
-            return NSImage(cgImage: imageRef!, size: newSize)
+        return ImageClass(cgImage: image, size: .zero)
         #else
-            UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-            let newImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
-            UIGraphicsEndImageContext()
-            return newImage
+        return ImageClass(cgImage: image)
         #endif
     }
 }
