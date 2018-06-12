@@ -101,7 +101,26 @@ public final class LocalFileMonitor {
     fileprivate let descriptor: CInt
     fileprivate let qq: DispatchQueue = DispatchQueue.global(qos: .default)
     fileprivate var state: Bool = false
-    fileprivate var monitoredTime: TimeInterval = Date().timeIntervalSinceReferenceDate
+    
+    fileprivate var _monitoredTime: TimeInterval = Date().timeIntervalSinceReferenceDate
+    fileprivate let _monitoredTimeLock = NSLock()
+    fileprivate var monitoredTime: TimeInterval {
+        get {
+            _monitoredTimeLock.lock()
+            defer {
+                _monitoredTimeLock.unlock()
+            }
+            return _monitoredTime
+        }
+        set {
+            _monitoredTimeLock.lock()
+            defer {
+                _monitoredTimeLock.unlock()
+            }
+            _monitoredTime = newValue
+        }
+    }
+    
     public var url: URL
     
     /// Creates a folder monitor object with monitoring enabled.
