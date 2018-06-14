@@ -968,33 +968,27 @@ extension ExtendedFileProvider {
     }
     
     private static func convertToImage(pdfPage: CGPDFPage, maxSize: CGSize?) -> ImageClass? {
-        let rect: CGRect
-        let size: CGSize
-        let ppp: Int
-        
+        let scale: CGFloat
+        let frame = pdfPage.getBoxRect(CGPDFBox.mediaBox)
         if let maxSize = maxSize {
-            size = maxSize
-            rect = CGRect(origin: .zero, size: maxSize)
-            ppp = 1
+            scale = min(maxSize.width / frame.width, maxSize.height / frame.height)
         } else {
-            let frame = pdfPage.getBoxRect(CGPDFBox.mediaBox)
-            rect = CGRect(origin: .zero, size: frame.size)
             #if os(macOS)
             #if swift(>=4.0)
-            ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
+            scale = NSScreen.main?.backingScaleFactor ?? 1.0 // fetch device is retina or not
             #elseif swift(>=3.3)
-            ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            scale = NSScreen.main()?.backingScaleFactor ?? 1.0 // fetch device is retina or not
             #elseif swift(>=3.2)
-            ppp = Int(NSScreen.main?.backingScaleFactor ?? 1) // fetch device is retina or not
+            scale = NSScreen.main?.backingScaleFactor ?? 1.0 // fetch device is retina or not
             #else
-            ppp = Int(NSScreen.main()?.backingScaleFactor ?? 1) // fetch device is retina or not
+            scale = NSScreen.main()?.backingScaleFactor ?? 1.0 // fetch device is retina or not
             #endif
             #else
-            ppp = Int(UIScreen.main.scale) // fetch device is retina or not
+            scale = UIScreen.main.scale // fetch device is retina or not
             #endif
-            size = CGSize(width: frame.size.width * CGFloat(ppp), height: frame.size.height * CGFloat(ppp))
         }
-        
+        let rect = CGRect(origin: .zero, size: frame.size)
+        let size = CGSize(width: frame.size.width * scale, height: frame.size.height * scale)
         let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
 
         #if os(macOS)
@@ -1029,30 +1023,39 @@ extension ExtendedFileProvider {
         
         context.cgContext.concatenate(transform)
         context.cgContext.translateBy(x: 0, y: size.height)
-        context.cgContext.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
+        context.cgContext.scaleBy(x: scale, y: -scale)
         context.cgContext.drawPDFPage(pdfPage)
         
         let resultingImage = NSImage(size: size)
         resultingImage.addRepresentation(rep!)
         return resultingImage
         #else
-        UIGraphicsBeginImageContext(size)
-        guard let context = UIGraphicsGetCurrentContext() else {
-            return nil
+        
+        let handler : (CGContext) -> Void = { context in
+            context.concatenate(transform)
+            context.translateBy(x: 0, y: size.height)
+            context.scaleBy(x: CGFloat(scale), y: CGFloat(-scale))
+            context.setFillColor(UIColor.white.cgColor)
+            context.fill(rect)
+            context.drawPDFPage(pdfPage)
         }
-        context.saveGState()
         
-        context.concatenate(transform)
-        context.translateBy(x: 0, y: size.height)
-        context.scaleBy(x: CGFloat(ppp), y: CGFloat(-ppp))
-        context.setFillColor(UIColor.white.cgColor)
-        context.fill(rect)
-        context.drawPDFPage(pdfPage)
-        
-        context.restoreGState()
-        let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return resultingImage
+        if #available(iOS 10.0, tvOS 10.0, *) {
+            return UIGraphicsImageRenderer(size: size).image { (rendererContext) in
+                handler(rendererContext.cgContext)
+            }
+        } else {
+            UIGraphicsBeginImageContext(size)
+            guard let context = UIGraphicsGetCurrentContext() else {
+                return nil
+            }
+            context.saveGState()
+            handler(context)
+            context.restoreGState()
+            let resultingImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            return resultingImage
+        }
         #endif
     }
     
