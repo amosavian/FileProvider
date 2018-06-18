@@ -250,11 +250,11 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                     throw cantLoadError
                 }
                 
+                #if os(macOS) || os(iOS) || os(tvOS)
                 var coordError: NSError?
                 NSFileCoordinator().coordinate(writingItemAt: tempURL, options: .forMoving, writingItemAt: destURL, options: .forReplacing, error: &coordError, byAccessor: { (tempURL, destURL) in
                     do {
                         try FileManager.default.moveItem(at: tempURL, to: destURL)
-                        
                         completionHandler?(nil)
                         self?.delegateNotify(operation)
                     } catch {
@@ -266,6 +266,17 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                 if let error = coordError {
                     throw error
                 }
+                #else
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destURL)
+                    completionHandler?(nil)
+                    self?.delegateNotify(operation)
+                } catch {
+                    completionHandler?(error)
+                    self?.delegateNotify(operation, error: error)
+                }
+                #endif
+                
             } catch {
                 completionHandler?(error)
                 self?.delegateNotify(operation, error: error)
@@ -544,6 +555,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
+        #if os(macOS) || os(iOS) || os(tvOS)
         var error: NSError?
         NSFileCoordinator().coordinate(readingItemAt: localFile, options: .forUploading, error: &error, byAccessor: { (url) in
             let task = self.session.uploadTask(with: request, fromFile: localFile)
@@ -552,6 +564,9 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         if let error = error {
             completionHandler?(error)
         }
+        #else
+        self.upload_task(targetPath, progress: progress, task: task, operation: operation, completionHandler: completionHandler)
+        #endif
         
         return progress
     }
