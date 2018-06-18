@@ -121,7 +121,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         }
         
         guard let json = task.taskDescription?.deserializeJSON(),
-            let op = FileOperationType(json: json), let fileProvider = fileProvider else {
+            let op = FileOperationType(json: json) else {
                 return
         }
         
@@ -143,8 +143,6 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
                 return
             }
         }
-        
-        fileProvider.delegateNotify(op, error: error)
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
