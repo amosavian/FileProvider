@@ -620,11 +620,11 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         
         let task = session.downloadTask(with: request)
         completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            if error != nil {
+            if let error = error {
                 progress.cancel()
+                completionHandler(nil, error)
+                self.delegateNotify(operation, error: error)
             }
-            completionHandler(nil, error)
-            self.delegateNotify(operation, error: error)
         }
         downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
             guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
