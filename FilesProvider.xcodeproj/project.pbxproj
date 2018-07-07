@@ -60,6 +60,7 @@
 		7958155B1F478ED9003344DD /* HTTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795815591F478ED9003344DD /* HTTPFileProvider.swift */; };
 		7958155C1F478ED9003344DD /* HTTPFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795815591F478ED9003344DD /* HTTPFileProvider.swift */; };
 		798654331E8874BC002FA550 /* FTPHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798654321E8874BC002FA550 /* FTPHelper.swift */; };
+		798D394020D01DA100FFB9EF /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798D393F20D01DA000FFB9EF /* CoreGraphics.framework */; };
 		799396AA1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AB1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
 		799396AC1D48C02300086753 /* DropboxFileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799396931D48C02300086753 /* DropboxFileProvider.swift */; };
@@ -113,7 +114,6 @@
 		79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AB1E2CC2C20035128C /* ImageIO.framework */; };
 		79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63AF1E2CC3300035128C /* libxml2.tbd */; };
 		79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B11E2CC3350035128C /* ImageIO.framework */; };
-		79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B51E2CC3860035128C /* CoreFoundation.framework */; };
 		79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B71E2CC38D0035128C /* AVFoundation.framework */; };
 		79BD63BA1E2CC39B0035128C /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63B91E2CC39B0035128C /* libxml2.tbd */; };
 		79BD63BE1E2CC3C20035128C /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79BD63BD1E2CC3C20035128C /* ImageIO.framework */; };
@@ -163,6 +163,7 @@
 		794C220D1D591A4B00EC49B8 /* SMB2QueryTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SMB2QueryTypes.swift; sourceTree = "<group>"; };
 		795815591F478ED9003344DD /* HTTPFileProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPFileProvider.swift; sourceTree = "<group>"; };
 		798654321E8874BC002FA550 /* FTPHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FTPHelper.swift; sourceTree = "<group>"; };
+		798D393F20D01DA000FFB9EF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		799396671D48B7F600086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396751D48B80D00086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		799396821D48B82700086753 /* FilesProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FilesProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -213,8 +214,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				79BD63AA1E2CC2BB0035128C /* AVFoundation.framework in Frameworks */,
-				79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */,
 				79BD63A81E2CC2940035128C /* CoreGraphics.framework in Frameworks */,
+				79BD63AC1E2CC2C20035128C /* ImageIO.framework in Frameworks */,
 				791950F51DE58A5400B4426E /* libxml2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -224,7 +225,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				79BD63B81E2CC38D0035128C /* AVFoundation.framework in Frameworks */,
-				79BD63B61E2CC3860035128C /* CoreFoundation.framework in Frameworks */,
+				798D394020D01DA100FFB9EF /* CoreGraphics.framework in Frameworks */,
 				79BD63B21E2CC3350035128C /* ImageIO.framework in Frameworks */,
 				79BD63B01E2CC3300035128C /* libxml2.tbd in Frameworks */,
 			);
@@ -255,6 +256,7 @@
 		791950F31DE58A5300B4426E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				798D393F20D01DA000FFB9EF /* CoreGraphics.framework */,
 				79BD63C11E2CC3D30035128C /* AVFoundation.framework */,
 				79BD63BF1E2CC3CD0035128C /* CoreGraphics.framework */,
 				79BD63BD1E2CC3C20035128C /* ImageIO.framework */,

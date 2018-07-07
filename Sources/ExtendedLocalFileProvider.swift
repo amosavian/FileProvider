@@ -506,7 +506,7 @@ public struct LocalFileInformationGenerator {
         add(key: "Content creator", value: getKey("Creator", from: dict))
         add(key: "Creation date", value: convertDate(getKey("CreationDate", from: dict)))
         add(key: "Modified date", value: convertDate(getKey("ModDate", from: dict)))
-        add(key: "Security", value: reference.isEncrypted)
+        add(key: "Security", value: reference.isEncrypted ? (reference.isUnlocked ? "Present" : "Password Protected") : "None")
         add(key: "Allows printing", value: reference.allowsPrinting)
         add(key: "Allows copying", value: reference.allowsCopying)
         return (dic, keys)

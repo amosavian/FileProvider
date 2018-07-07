@@ -204,7 +204,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
      
      - Note: Disabling this option will increase upload speed.
     */
-    public var uploadByREST: Bool = FileProviderStreamTask.defaultUseURLSession
+    public var uploadByREST: Bool = false
     
     /**
      Determines data connection must TLS or not. `false` value indicates to use `PROT C` and
