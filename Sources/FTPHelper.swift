@@ -625,14 +625,14 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpStore(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?,
+    func ftpStore(_ task: FileProviderStreamTask, filePath: String, from stream: InputStream, size: Int64,
                   onTask: ((_ task: FileProviderStreamTask) -> Void)?,
                   onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?,
                   completionHandler: @escaping (_ error: Error?) -> Void) {
         if self.uploadByREST {
-            ftpStoreParted(task, filePath: filePath, fromData: fromData, fromFile: fromFile, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
+            ftpStoreParted(task, filePath: filePath, from: stream, size: size, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
         } else {
-            ftpStoreSerial(task, filePath: filePath, fromData: fromData, fromFile: fromFile, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
+            ftpStoreSerial(task, filePath: filePath, from: stream, size: size, onTask: onTask, onProgress: onProgress, completionHandler: completionHandler)
         }
     }
     
@@ -651,11 +651,9 @@ internal extension FTPFileProvider {
         }
     }
     
-    func ftpStoreSerial(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?,
+    func ftpStoreSerial(_ task: FileProviderStreamTask, filePath: String, from stream: InputStream, size: Int64,
                         onTask: ((_ task: FileProviderStreamTask) -> Void)?,
                         onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
-        guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
-        
         self.execute(command: "TYPE I", on: task) { (response, error) in
             do {
                 if let error = error {
@@ -692,32 +690,24 @@ internal extension FTPFileProvider {
                     let timeout = self.session.configuration.timeoutIntervalForResource
                     var error: Error?
                     
-                    var fileHandle: FileHandle?
-                    if let file = fromFile {
-                        fileHandle = FileHandle(forReadingAtPath: file.path)
-                    }
-                    defer {
-                        fileHandle?.closeFile()
-                    }
-                    
                     let chunkSize = self.optimizedChunkSize(size)
                     let lock = NSLock()
-                    var eof = false
                     var sent: Int64 = 0
+                    
+                    stream.open()
+                    defer {
+                        stream.close()
+                    }
+                    
                     repeat {
                         lock.lock()
-                        let subdata: Data
-                        if let data = fromData {
-                            subdata = data.dropFirst(Int(sent)).prefix(chunkSize)
-                        } else if let fileHandle = fileHandle {
-                            fileHandle.seek(toFileOffset: UInt64(sent))
-                            subdata = fileHandle.readData(ofLength: chunkSize)
-                        } else {
-                            lock.unlock()
-                            return
+                        var subdata = Data.init(count: chunkSize)
+                        let count = subdata.withUnsafeMutableBytes { buffer in
+                            stream.read(buffer, maxLength: chunkSize)
                         }
+                        subdata.count = count
                         lock.unlock()
-                        if subdata.count == 0 { return }
+                        if count == 0 { break }
                         
                         let group = DispatchGroup()
                         group.enter()
@@ -749,10 +739,8 @@ internal extension FTPFileProvider {
                             completionHandler(self.urlError(filePath, code: .timedOut))
                             return
                         }
-                        
-                        eof = sent == size
                         lock.unlock()
-                    } while !eof
+                    } while stream.streamStatus != .atEnd
                     
                     success_lock.lock()
                     success = true
@@ -788,75 +776,51 @@ internal extension FTPFileProvider {
         
     }
     
-    func ftpStoreParted(_ task: FileProviderStreamTask, filePath: String, fromData: Data?, fromFile: URL?, from position: Int64 = 0,
+    func ftpStoreParted(_ task: FileProviderStreamTask, filePath: String, from stream: InputStream, size: Int64, from position: Int64 = 0,
                         onTask: ((_ task: FileProviderStreamTask) -> Void)?,
                         onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?,
                         completionHandler: @escaping (_ error: Error?) -> Void) {
         operation_queue.addOperation {
-            guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
-            
             let timeout = self.session.configuration.timeoutIntervalForResource
             var error: Error?
             let chunkSize = self.optimizedChunkSize(size)
             
-            var fileHandle: FileHandle?
-            if let file = fromFile {
-                fileHandle = FileHandle(forReadingAtPath: file.path)
-            }
+            stream.open()
             defer {
-                fileHandle?.closeFile()
+                stream.close()
             }
-            
-            var eof = false
             var sent: Int64 = position
-            var retried = 0
-            
             repeat {
-                let subdata: Data
-                if let data = fromData {
-                    subdata = data.dropFirst(Int(sent - position)).prefix(chunkSize)
-                } else if let fileHandle = fileHandle {
-                    fileHandle.seek(toFileOffset: UInt64(sent))
-                    subdata = fileHandle.readData(ofLength: chunkSize)
-                } else {
-                    return
+                var subdata = Data.init(count: chunkSize)
+                let count = subdata.withUnsafeMutableBytes { buffer in
+                    stream.read(buffer, maxLength: chunkSize)
                 }
-                if subdata.count == 0 { break }
+                subdata.count = count
+                if count == 0 { break }
                 
                 let group = DispatchGroup()
                 group.enter()
                 self.ftpStore(task, data: subdata, to: filePath, from: sent, onTask: onTask, completionHandler: { (serror) in
                     error = serror
                     if serror == nil {
-                        sent += Int64(subdata.count)
-                        retried = 0
+                        sent += Int64(count)
                         group.leave()
-                        onProgress?(Int64(subdata.count), sent, size)
+                        onProgress?(Int64(count), sent, size)
                     }
                 })
                 let waitResult = group.wait(timeout: .now() + timeout)
                 
                 if let error = error {
-                    retried += 1
                     print(error.localizedDescription)
-                    if retried > 3 {
-                        completionHandler(error)
-                        return
-                    }
+                    completionHandler(error)
+                    return
                 }
                 
                 if waitResult == .timedOut {
                     completionHandler(self.urlError(filePath, code: .timedOut))
                     return
                 }
-                
-                if let data = fromData {
-                    let endIndex = min(data.count, Int(sent) + chunkSize)
-                    eof = endIndex == data.count
-                } else if let fileHandle = fileHandle {
-                    eof = Int64(fileHandle.offsetInFile) == size
-                }
-            } while !eof
+            } while stream.streamStatus != .atEnd
             completionHandler(nil)
         }
     }

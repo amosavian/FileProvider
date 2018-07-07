@@ -460,7 +460,11 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 return
             }
             
-            self.ftpStore(task, filePath: self.ftpPath(toPath), fromData: nil, fromFile: localFile, onTask: { task in
+            guard let stream = InputStream(url: localFile) else {
+                return
+            }
+            let size = localFile.fileSize
+            self.ftpStore(task, filePath: self.ftpPath(toPath), from: stream, size: size, onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()
@@ -616,7 +620,9 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             }
             
             let storeHandler = {
-                self.ftpStore(task, filePath: self.ftpPath(path), fromData: data ?? Data(), fromFile: nil, onTask: { task in
+                let data = data ?? Data()
+                let stream = InputStream(data: data)
+                self.ftpStore(task, filePath: self.ftpPath(path), from: stream, size: Int64(data.count), onTask: { task in
                     weak var weakTask = task
                     progress.cancellationHandler = {
                         weakTask?.cancel()

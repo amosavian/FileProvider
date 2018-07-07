@@ -377,13 +377,13 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return FileProviderWebDavError(code: code, path: path ?? "", serverDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
     }
     
-    override func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) {
+    override func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
         let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
         for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
             let code = xresponse.status.flatMap { FileProviderHTTPErrorCode(rawValue: $0) } ?? .internalServerError
-            let error = self.serverError(with: code, path: source, data: data)
-            completionHandler?(error)
+            return self.serverError(with: code, path: operation.source, data: data)
         }
+        return nil
     }
     
     /*
