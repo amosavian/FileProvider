@@ -128,7 +128,7 @@ internal extension FTPFileProvider {
             
             if !isSecure && self.baseURL?.scheme == "ftpes" {
                 // Explicit FTP Connection, by upgrading connection to FTP/SSL
-                self.execute(command: "AUTH TLS", on: task, minLength: 0, completionHandler: { (response, error) in
+                self.execute(command: "AUTH TLS", on: task, completionHandler: { (response, error) in
                     if let error = error {
                         completionHandler(error)
                         return
@@ -320,7 +320,7 @@ internal extension FTPFileProvider {
             let success_lock = NSLock()
             var success = false
             let command = useMLST ? "MLSD \(path)" : "LIST \(path)"
-            self.execute(command: command, on: task, minLength: 20, afterSend: { error in
+            self.execute(command: command, on: task, afterSend: { error in
                 let timeout = self.session.configuration.timeoutIntervalForRequest
                 var finalData = Data()
                 var eof = false
@@ -331,7 +331,7 @@ internal extension FTPFileProvider {
                     while !eof {
                         let group = DispatchGroup()
                         group.enter()
-                        dataTask.readData(ofMinLength: 1, maxLength: 65536, timeout: timeout) { (data, seof, serror) in
+                        dataTask.readData(ofMinLength: 1, maxLength: Int.max, timeout: timeout) { (data, seof, serror) in
                             if let data = data {
                                 finalData.append(data)
                             }
@@ -656,7 +656,7 @@ internal extension FTPFileProvider {
                         onProgress: ((_ bytesSent: Int64, _ totalSent: Int64, _ expectedBytes: Int64) -> Void)?, completionHandler: @escaping (_ error: Error?) -> Void) {
         guard let size: Int64 = (fromData != nil ? Int64(fromData!.count) : nil) ?? fromFile?.fileSize else { return }
         
-        self.execute(command: "TYPE I", on: task, minLength: 10) { (response, error) in
+        self.execute(command: "TYPE I", on: task) { (response, error) in
             do {
                 if let error = error {
                     throw error
@@ -686,7 +686,7 @@ internal extension FTPFileProvider {
                 }
                 let success_lock = NSLock()
                 var success = false
-                self.execute(command: "STOR \(filePath)", on: task, minLength: 80, afterSend: { error in
+                self.execute(command: "STOR \(filePath)", on: task, afterSend: { error in
                     onTask?(dataTask)
                     
                     let timeout = self.session.configuration.timeoutIntervalForResource
@@ -698,8 +698,6 @@ internal extension FTPFileProvider {
                     }
                     defer {
                         fileHandle?.closeFile()
-                        dataTask.closeRead()
-                        dataTask.closeWrite()
                     }
                     
                     let chunkSize = self.optimizedChunkSize(size)
@@ -732,7 +730,7 @@ internal extension FTPFileProvider {
                                 let totalsent = sent
                                 let sentbytes = Int64(subdata.count)
                                 onProgress?(sentbytes, totalsent, size)
-                                print("ftp", filePath, dataTask.countOfBytesSent, dataTask.countOfBytesExpectedToSend, totalsent)
+                                //print("ftp", filePath, dataTask.countOfBytesSent, dataTask.countOfBytesExpectedToSend, totalsent)
                             }
                             lock.unlock()
                             group.leave()
@@ -866,7 +864,7 @@ internal extension FTPFileProvider {
     func ftpStore(_ task: FileProviderStreamTask, data: Data, to filePath: String, from position: Int64,
                   onTask: ((_ task: FileProviderStreamTask) -> Void)?,
                   completionHandler: @escaping (_ error: Error?) -> Void) {
-        self.execute(command: "TYPE I", on: task, minLength: 10) { (response, error) in
+        self.execute(command: "TYPE I", on: task) { (response, error) in
             do {
                 if let error = error {
                     throw error
@@ -884,7 +882,7 @@ internal extension FTPFileProvider {
                 return
             }
             
-            self.execute(command: "REST \(position)", on: task, minLength: 21, completionHandler: { (response, error) in
+            self.execute(command: "REST \(position)", on: task, completionHandler: { (response, error) in
                 do {
                     if let error = error {
                         throw error
@@ -916,7 +914,7 @@ internal extension FTPFileProvider {
                     // Send retreive command
                     let success_lock = NSLock()
                     var success = false
-                    self.execute(command: "STOR \(filePath)", on: task, minLength: 80, afterSend: { error in
+                    self.execute(command: "STOR \(filePath)", on: task, minLength: 44 + filePath.count + 4, afterSend: { error in
                         // starting passive task
                         let timeout = self.session.configuration.timeoutIntervalForRequest
                         onTask?(dataTask)
@@ -931,9 +929,6 @@ internal extension FTPFileProvider {
                             success_lock.lock()
                             success = true
                             success_lock.unlock()
-                            
-                            dataTask.closeRead()
-                            dataTask.closeWrite()
                             
                             completionHandler(nil)
                         })

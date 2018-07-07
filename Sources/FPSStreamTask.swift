@@ -342,7 +342,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     
     deinit {
         if !self.useURLSession {
-            self.cancel()
+            finish()
         }
     }
     
@@ -366,21 +366,13 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         
         self._state = .canceling
         
-        self.inputStream?.delegate = nil
-        self.outputStream?.delegate = nil
-        
-        self.inputStream?.close()
-        self.outputStream?.close()
-        
-        self.inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
-        self.outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
-        
-        self.inputStream = nil
-        self.outputStream = nil
-        
-        self._state = .completed
-        self._countOfBytesSent = 0
-        self._countOfBytesRecieved = 0
+        dispatch_queue.async {
+            self.finish()
+            
+            self._state = .completed
+            self._countOfBytesSent = 0
+            self._countOfBytesRecieved = 0
+        }
     }
     
     var _error: Error? = nil
@@ -430,19 +422,19 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
         }
         
-        var readStream : Unmanaged<CFReadStream>?
-        var writeStream : Unmanaged<CFWriteStream>?
-        
         if inputStream == nil || outputStream == nil {
             if let host = host {
-                CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, host.hostname as CFString, UInt32(host.port), &readStream, &writeStream)
+                Stream.getStreamsToHost(withName: host.hostname, port: host.port, inputStream: &self.inputStream, outputStream: &self.outputStream)
             } else if let service = service {
+                var readStream : Unmanaged<CFReadStream>?
+                var writeStream : Unmanaged<CFWriteStream>?
                 let cfnetService = CFNetServiceCreate(kCFAllocatorDefault, service.domain as CFString, service.type as CFString, service.name as CFString, Int32(service.port))
                 CFStreamCreatePairWithSocketToNetService(kCFAllocatorDefault, cfnetService.takeRetainedValue(), &readStream, &writeStream)
+                inputStream = readStream?.takeRetainedValue()
+                outputStream = writeStream?.takeRetainedValue()
             }
             
-            inputStream = readStream?.takeRetainedValue()
-            outputStream = writeStream?.takeRetainedValue()
+            
             guard let inputStream = inputStream, let outputStream = outputStream else {
                 return
             }
@@ -626,6 +618,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
+    var shouldCloseWrite = false
     fileprivate func write(timeout: TimeInterval = 0, close: Bool) -> Int {
         guard let outputStream = outputStream else {
             return -1
@@ -634,16 +627,18 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         var byteSent: Int = 0
         let expireDate = Date(timeIntervalSinceNow: timeout)
         self.dataToBeSentLock.lock()
+        defer {
+             self.dataToBeSentLock.unlock()
+        }
         while self.dataToBeSent.count > 0 && (timeout == 0 || expireDate > Date()) {
             if let _ = outputStream.streamError {
-                self.dataToBeSentLock.unlock()
                 return byteSent == 0 ? -1 : byteSent
             }
             
-            let bytesWritten = self.dataToBeSent.withUnsafeBytes {
-                outputStream.write($0, maxLength: self.dataToBeSent.count)
+            let count = self.dataToBeSent.count
+            let bytesWritten: Int = self.dataToBeSent.withUnsafeBytes {
+                outputStream.write($0, maxLength: count)
             }
-            print("written", bytesWritten)
             
             if bytesWritten > 0 {
                 self.dataToBeSent.removeFirst(bytesWritten)
@@ -651,20 +646,43 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 self._countOfBytesSent += Int64(bytesWritten)
             } else if bytesWritten < 0 {
                 self._error = outputStream.streamError
-                self.dataToBeSentLock.unlock()
                 return bytesWritten
             }
             if self.dataToBeSent.count == 0 {
                 break
             }
         }
-        self.dataToBeSentLock.unlock()
         
         if close {
-            outputStream.close()
+            DispatchQueue.main.sync {
+                shouldCloseWrite = true
+            }
             self.streamDelegate?.urlSession?(self._underlyingSession, writeClosedFor: self)
         }
         return byteSent
+    }
+    
+    fileprivate func finish() {
+        inputStream?.delegate = nil
+        outputStream?.delegate = nil
+        
+        while inputStream?.streamStatus != .atEnd {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        inputStream?.close()
+        inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        inputStream = nil
+        
+        while outputStream?.streamStatus != .atEnd {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        
+        while !(outputStream?.hasSpaceAvailable ?? true) {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        //outputStream?.close()
+        outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        outputStream = nil
     }
     
     /**
@@ -759,6 +777,13 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                     dataReceivedLock.unlock()
                     self._countOfBytesRecieved += Int64(len)
                 }
+            }
+        }
+        
+        if aStream == outputStream && eventCode.contains(.hasSpaceAvailable) {
+            if shouldCloseWrite {
+                outputStream?.close()
+                shouldCloseWrite = false
             }
         }
     }
