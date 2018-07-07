@@ -666,14 +666,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         inputStream?.delegate = nil
         outputStream?.delegate = nil
         
-        while inputStream?.streamStatus != .atEnd {
-            Thread.sleep(forTimeInterval: 0.1)
-        }
         inputStream?.close()
         inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
         inputStream = nil
         
-        while outputStream?.streamStatus != .atEnd {
+        while outputStream?.streamStatus == .writing {
             Thread.sleep(forTimeInterval: 0.1)
         }
         

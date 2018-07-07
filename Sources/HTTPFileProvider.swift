@@ -240,7 +240,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
         let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
-        return self.download_simple(path: path, request: request, operation: operation, completionHandler: { [weak self] (tempURL, error) in
+        return self.download_file(path: path, request: request, operation: operation, completionHandler: { [weak self] (tempURL, error) in
             do {
                 if let error = error {
                     throw error
@@ -322,22 +322,23 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         var request = self.request(for: operation)
         let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
         request.setValue(rangeWithOffset: offset, length: length)
-        return self.download_simple(path: path, request: request, operation: operation, completionHandler: { (tempURL, error) in
+        
+        let stream = OutputStream.toMemory()
+        return self.download(path: path, request: request, operation: operation, stream: stream) { (error) in
             do {
                 if let error = error {
                     throw error
                 }
                 
-                guard let tempURL = tempURL else {
+                guard let data = stream.property(forKey: .dataWrittenToMemoryStreamKey) as? Data else {
                     throw cantLoadError
                 }
-                
-                let data = try Data(contentsOf: tempURL)
                 completionHandler(data, nil)
             } catch {
                 completionHandler(nil, error)
             }
-        })
+            
+        }
     }
     
     @discardableResult
@@ -346,8 +347,10 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
+        let data = data ?? Data()
         let request = self.request(for: operation, overwrite: overwrite, attributes: [.contentModificationDateKey: Date()])
-        return upload_data(path, request: request, data: data ?? Data(), operation: operation, completionHandler: completionHandler)
+        let stream = InputStream(data: data)
+        return upload(path, request: request, stream: stream, size: Int64(data.count), operation: operation, completionHandler: completionHandler)
     }
     
     internal func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
@@ -358,8 +361,9 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    internal func multiStatusHandler(source: String, data: Data, completionHandler: SimpleCompletionHandler) -> Void {
+    internal func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
         // WebDAV will override this function
+        return nil
     }
     
     /**
@@ -385,25 +389,28 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         let request = self.request(for: operation, overwrite: overwrite)
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            var serverError: FileProviderHTTPError?
-            if let response = response as? HTTPURLResponse {
-                if response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
-                    serverError = self.serverError(with: code, path: operation.source, data: data)
+            do {
+                if let error = error {
+                    throw error
                 }
                 
-                if FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data {
-                    self.multiStatusHandler(source: operation.source, data: data, completionHandler: completionHandler)
+                if let response = response as? HTTPURLResponse {
+                    if response.statusCode >= 300, let code = FileProviderHTTPErrorCode(rawValue: response.statusCode) {
+                        throw self.serverError(with: code, path: operation.source, data: data)
+                    }
+                    
+                    if FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data,
+                        let ms_error = self.multiStatusError(operation: operation, data: data) {
+                        throw ms_error
+                    }
                 }
-            }
-            
-            if serverError == nil && error == nil {
                 progress.completedUnitCount = 1
-            } else {
-                progress.cancel()
+                completionHandler?(nil)
+                self.delegateNotify(operation)
+            } catch {
+                completionHandler?(error)
+                self.delegateNotify(operation, error: error)
             }
-            
-            completionHandler?(serverError ?? error)
-            self.delegateNotify(operation, error: serverError ?? error)
         })
         task.taskDescription = operation.json
         progress.cancellationHandler = { [weak task] in
@@ -456,28 +463,28 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         }
         
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
-            if let error = error {
+            do {
+                if let error = error {
+                    throw error
+                }
+                if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                    throw self.serverError(with: rCode, path: path, data: data)
+                }
+                
+                let (newFiles, err, newToken) = pageHandler(data, progress)
+                if let error = err {
+                    throw error
+                }
+                
+                let files = previousResult + newFiles
+                if let newToken = newToken, !progress.isCancelled {
+                    _ = self.paginated(path, startToken: newToken, currentProgress: progress, previousResult: files, requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
+                } else {
+                    completionHandler(files, nil)
+                }
+            } catch {
                 completionHandler(previousResult, error)
-                return
             }
-            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                let responseError = self.serverError(with: rCode, path: path, data: data)
-                completionHandler(previousResult, responseError)
-                return
-            }
-            
-            let (newFiles, err, newToken) = pageHandler(data, progress)
-            if let error = err {
-                completionHandler(previousResult, error)
-                return
-            }
-            let files = previousResult + newFiles
-            if let newToken = newToken, !progress.isCancelled {
-                _ = self.paginated(path, startToken: newToken, currentProgress: progress, previousResult: files, requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
-            } else {
-                completionHandler(files, nil)
-            }
-            
         })
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
@@ -518,9 +525,8 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         task.resume()
     }
     
-    func upload_data(_ targetPath: String, request: URLRequest, data: Data, operation: FileOperationType,
+    func upload(_ targetPath: String, request: URLRequest, stream: InputStream, size: Int64, operation: FileOperationType,
                      completionHandler: SimpleCompletionHandler) -> Progress? {
-        let size: Int64 = Int64(data.count)
         if size > maxUploadSimpleSupported {
             let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
             completionHandler?(error)
@@ -533,7 +539,9 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
-        let task = session.uploadTask(with: request, from: data)
+        var request = request
+        request.httpBodyStream = stream
+        let task = session.uploadTask(withStreamedRequest: request)
         self.upload_task(targetPath, progress: progress, task: task, operation: operation, completionHandler: completionHandler)
         
         return progress
@@ -568,6 +576,56 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         self.upload_task(targetPath, progress: progress, task: task, operation: operation, completionHandler: completionHandler)
         #endif
         
+        return progress
+    }
+    
+    internal func download(path: String, request: URLRequest, operation: FileOperationType,
+                           responseHandler: ((_ response: URLResponse) -> Void)? = nil,
+                           stream: OutputStream,
+                           completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
+        var progress = Progress(totalUnitCount: -1)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let task = session.dataTask(with: request)
+        if let responseHandler = responseHandler {
+            responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
+                responseHandler(response)
+            }
+        }
+        
+        stream.open()
+        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
+            guard !data.isEmpty else { return }
+            task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
+            let result = data.withUnsafeBytes {
+                stream.write($0, maxLength: data.count)
+            }
+            if result < 0 {
+                completionHandler(stream.streamError!)
+                self?.delegateNotify(operation, error: stream.streamError!)
+                task?.cancel()
+            }
+        }
+        
+        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
+            if error != nil {
+                progress.cancel()
+            }
+            stream.close()
+            completionHandler(error)
+            self.delegateNotify(operation, error: error)
+        }
+        
+        task.taskDescription = operation.json
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
+        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
         return progress
     }
     
@@ -611,7 +669,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return progress
     }
     
-    internal func download_simple(path: String, request: URLRequest, operation: FileOperationType,
+    internal func download_file(path: String, request: URLRequest, operation: FileOperationType,
                                   completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
         var progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
