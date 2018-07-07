@@ -76,7 +76,7 @@ internal extension URL {
     }
     
     var fileSize: Int64 {
-        return Int64((try? self.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1)
+        return (try? self.resourceValues(forKeys: [.fileSizeKey]))?.allValues[.fileSizeKey] as? Int64 ?? -1
     }
     
     var fileExists: Bool {

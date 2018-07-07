@@ -541,7 +541,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     
     func upload_file(_ targetPath: String, request: URLRequest, localFile: URL, operation: FileOperationType,
                      completionHandler: SimpleCompletionHandler) -> Progress? {
-        let fSize = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+        let fSize = (try? localFile.resourceValues(forKeys: [.fileSizeKey]))?.allValues[.fileSizeKey] as? Int64
         let size = Int64(fSize ?? -1)
         if size > maxUploadSimpleSupported {
             let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
