@@ -456,8 +456,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         inputStream.delegate = self
         outputStream.delegate = self
         
-        inputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
-        outputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
+        inputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         
         inputStream.open()
         outputStream.open()
@@ -555,6 +555,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         guard outputStream != nil else {
             return
         }
+        if data.count > 4096 {
+            isUploadTask = true
+        }
         
         self.dataToBeSentLock.lock()
         self.dataToBeSent.append(data)
@@ -588,7 +591,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         dispatch_queue.async {
             _=self.write(close: false)
-            while inputStream.streamStatus != .atEnd || outputStream.streamStatus == .writing {
+            while outputStream.streamStatus == .writing {
                 Thread.sleep(forTimeInterval: 0.1)
             }
             self.streamDelegate?.urlSession?(self._underlyingSession, streamTask: self, didBecome: inputStream, outputStream: outputStream)
@@ -662,23 +665,22 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return byteSent
     }
     
+    fileprivate var isUploadTask = false
     fileprivate func finish() {
         inputStream?.delegate = nil
         outputStream?.delegate = nil
         
         inputStream?.close()
-        inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        inputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         inputStream = nil
         
-        while outputStream?.streamStatus == .writing {
-            Thread.sleep(forTimeInterval: 0.1)
+        // TOFIX: This sleep is a workaround for truncated file uploading
+        if isUploadTask {
+            Thread.sleep(forTimeInterval: _underlyingSession.configuration.timeoutIntervalForRequest * 2)
         }
         
-        while !(outputStream?.hasSpaceAvailable ?? true) {
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-        //outputStream?.close()
-        outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        outputStream?.close()
+        outputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         outputStream = nil
     }
     
@@ -779,7 +781,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         
         if aStream == outputStream && eventCode.contains(.hasSpaceAvailable) {
             if shouldCloseWrite {
-                outputStream?.close()
+               // outputStream?.close()
                 shouldCloseWrite = false
             }
         }

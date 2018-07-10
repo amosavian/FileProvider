@@ -343,7 +343,6 @@ open class VolumeObject: NSObject {
     }
 }
 
-
 /// Sorting FileObject array by given criteria, **not thread-safe**
 public struct FileObjectSorting {
     
