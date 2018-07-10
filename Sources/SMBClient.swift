@@ -90,8 +90,8 @@ class SMBClient: NSObject, StreamDelegate {
         
         inputStream.delegate = self
         outputStream.delegate = self
-        inputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
-        outputStream.schedule(in: RunLoop.main, forMode: .defaultRunLoopMode)
+        inputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         inputStream.open()
         outputStream.open()
         
@@ -101,8 +101,8 @@ class SMBClient: NSObject, StreamDelegate {
     fileprivate func close() {
         self.inputStream?.close()
         self.outputStream?.close()
-        self.inputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
-        self.outputStream?.remove(from: RunLoop.main, forMode: .defaultRunLoopMode)
+        self.inputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        self.outputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         self.inputStream?.delegate = nil
         self.outputStream?.delegate = nil
         

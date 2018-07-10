@@ -509,7 +509,12 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 return
             }
             
-            self.ftpDownload(task, filePath: self.ftpPath(path), onTask: { task in
+            let tempURL = URL(fileURLWithPath: NSTemporaryDirectory().appendingPathComponent(UUID().uuidString))
+            guard let stream = OutputStream(url: tempURL, append: false) else {
+                completionHandler?(self.cocoaError(destURL.path, code: .fileWriteUnknown))
+                return
+            }
+            self.ftpDownload(task, filePath: self.ftpPath(path), to: stream, onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()
@@ -519,22 +524,24 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 progress.totalUnitCount = totalSize
                 progress.completedUnitCount = totalReceived
                 self.delegateNotify(operation, progress: progress.fractionCompleted)
-            }) { (tmpurl, error) in
-                if let error = error {
+            }) { (error) in
+                if error != nil {
                     progress.cancel()
+                }
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destURL)
+                } catch {
                     self.dispatch_queue.async {
                         completionHandler?(error)
                         self.delegateNotify(operation, error: error)
                     }
+                    try? FileManager.default.removeItem(at: tempURL)
                     return
                 }
                 
-                if let tmpurl = tmpurl {
-                    try? FileManager.default.moveItem(at: tmpurl, to: destURL)
-                    self.dispatch_queue.async {
-                        completionHandler?(nil)
-                        self.delegateNotify(operation)
-                    }
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
                 }
             }
         }
@@ -565,17 +572,18 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 return
             }
             
-            self.ftpFileData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
+            let stream = OutputStream.toMemory()
+            self.ftpDownload(task, filePath: self.ftpPath(path), from: offset, length: length, to: stream, onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()
                 }
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
-            }, onProgress: { _, recevied, totalReceived, totalSize in
+            }, onProgress: { recevied, totalReceived, totalSize in
                 progress.totalUnitCount = totalSize
                 progress.completedUnitCount = totalReceived
                 self.delegateNotify(operation, progress: progress.fractionCompleted)
-            }) { (data, error) in
+            }) { (error) in
                 if let error = error {
                     progress.cancel()
                     self.dispatch_queue.async {
@@ -585,7 +593,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     return
                 }
                 
-                if let data = data {
+                if let data = stream.property(forKey: .dataWrittenToMemoryStreamKey) as? Data {
                     self.dispatch_queue.async {
                         completionHandler(data, nil)
                         self.delegateNotify(operation)
@@ -680,7 +688,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 return
             }
             
-            self.ftpFileData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
+            self.ftpDownloadData(task, filePath: self.ftpPath(path), from: offset, length: length, onTask: { task in
                 weak var weakTask = task
                 progress.cancellationHandler = {
                     weakTask?.cancel()
