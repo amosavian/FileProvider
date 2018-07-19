@@ -137,8 +137,8 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL? else {
             if #available(macOS 10.11, iOS 9.0, tvOS 9.0, *) {
-                aDecoder.failWithError(CocoaError.error(.coderValueNotFound,
-                                                        userInfo: [NSLocalizedDescriptionKey: "Base URL is not set."]))
+                aDecoder.failWithError(CocoaError(.coderValueNotFound,
+                                                  userInfo: [NSLocalizedDescriptionKey: "Base URL is not set."]))
             }
             return nil
         }
@@ -445,7 +445,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             return nil
         }
         
-        let progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -495,7 +495,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
-        let progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -558,7 +558,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             }
             return nil
         }
-        let progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -612,7 +612,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             return nil
         }
         
-        let progress = Progress(totalUnitCount: Int64(data?.count ?? 0))
+        let progress = Progress(totalUnitCount: Int64(data?.count ?? -1))
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -674,7 +674,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             }
             return nil
         }
-        let progress = Progress(totalUnitCount: 0)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
