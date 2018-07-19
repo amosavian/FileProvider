@@ -123,8 +123,8 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
     public required convenience init?(coder aDecoder: NSCoder) {
         guard let baseURL = aDecoder.decodeObject(of: NSURL.self, forKey: "baseURL") as URL? else {
             if #available(macOS 10.11, iOS 9.0, tvOS 9.0, *) {
-                aDecoder.failWithError(CocoaError.error(.coderValueNotFound,
-                                                        userInfo: [NSLocalizedDescriptionKey: "Base URL is not set."]))
+                aDecoder.failWithError(CocoaError(.coderValueNotFound,
+                                                  userInfo: [NSLocalizedDescriptionKey: "Base URL is not set."]))
             }
             return nil
         }

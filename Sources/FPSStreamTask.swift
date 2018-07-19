@@ -34,13 +34,29 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     
+    fileprivate let dataToBeSentLock = NSLock()
+    fileprivate var dataToBeSent: Data = Data()
+    fileprivate let dataReceivedLock = NSLock()
+    fileprivate var dataReceived: Data = Data()
+    
+    fileprivate var _error: Error? = nil
+    fileprivate var isSecure = false
+    public var securityLevel: StreamSocketSecurityLevel = .negotiatedSSL
+    
     fileprivate var dispatch_queue: DispatchQueue!
     internal var _underlyingSession: URLSession
+    fileprivate var host: (hostname: String, port: Int)?
+    fileprivate var service: NetService?
     fileprivate var streamDelegate: FPSStreamDelegate? {
         return (_underlyingSession.delegate as? FPSStreamDelegate)
     }
+    
+    internal static let defaultUseURLSession = false
+    
     fileprivate var _taskIdentifier: Int
     fileprivate var _taskDescription: String?
+    
+    var observers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
     
     /// Force using `URLSessionStreamTask` for iOS 9 and later
     public let useURLSession: Bool
@@ -250,57 +266,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return Int64(dataReceived.count)
     }
     
-    var observers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
-    
-    public override func addObserver(_ observer: NSObject, forKeyPath keyPath: String, options: NSKeyValueObservingOptions = [], context: UnsafeMutableRawPointer?) {
-        if #available(iOS 9.0, macOS 10.11, *) {
-            if self.useURLSession {
-                self._underlyingTask?.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
-                return
-            }
-        }
-        
-        switch keyPath {
-        case #keyPath(countOfBytesSent):
-            fallthrough
-        case #keyPath(countOfBytesReceived):
-            fallthrough
-        case #keyPath(countOfBytesExpectedToSend):
-            fallthrough
-        case #keyPath(countOfBytesExpectedToReceive):
-            observers.append((keyPath: keyPath, observer: observer, context: context))
-        default:
-            break
-        }
-        super.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
-    }
-    
-    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String) {
-        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
-        for observer in observers where observer.keyPath != keyPath {
-            newObservers.append(observer)
-        }
-        self.observers = newObservers
-        super.removeObserver(observer, forKeyPath: keyPath)
-    }
-    
-    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String, context: UnsafeMutableRawPointer?) {
-        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
-        for observer in observers where observer.keyPath != keyPath || observer.context != context {
-            newObservers.append(observer)
-        }
-        self.observers = newObservers
-        super.removeObserver(observer, forKeyPath: keyPath, context: context)
-    }
-    
     override public init() {
         fatalError("Use NSURLSession.fpstreamTask() method")
     }
-    
-    fileprivate var host: (hostname: String, port: Int)?
-    fileprivate var service: NetService?
-    
-    internal static let defaultUseURLSession = false
     
     internal init(session: URLSession, host: String, port: Int, useURLSession: Bool = defaultUseURLSession) {
         self._underlyingSession = session
@@ -347,6 +315,21 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     }
     
     /**
+     * An error object that indicates why the task failed.
+     *
+     * This value is `NULL` if the task is still active or if the transfer completed successfully.
+     */
+    override open var error: Error? {
+        if #available(iOS 9.0, macOS 10.11, *) {
+            if useURLSession {
+                return _underlyingTask!.error
+            }
+        }
+        
+        return _error
+    }
+    
+    /**
      * Cancels the task.
      *
      * This method returns immediately, marking the task as being canceled. Once a task is marked as being canceled,
@@ -373,23 +356,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             self._countOfBytesSent = 0
             self._countOfBytesRecieved = 0
         }
-    }
-    
-    var _error: Error? = nil
-    
-    /**
-     * An error object that indicates why the task failed.
-     *
-     * This value is `NULL` if the task is still active or if the transfer completed successfully.
-     */
-    override open var error: Error? {
-        if #available(iOS 9.0, macOS 10.11, *) {
-            if useURLSession {
-                return _underlyingTask!.error
-            }
-        }
-        
-        return _error
     }
     
     /**
@@ -457,7 +423,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         outputStream.delegate = self
         
         inputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
-        outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        //outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         
         inputStream.open()
         outputStream.open()
@@ -467,11 +433,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             _state = .running
         }
     }
-    
-    fileprivate let dataToBeSentLock = NSLock()
-    fileprivate var dataToBeSent: Data = Data()
-    fileprivate let dataReceivedLock = NSLock()
-    fileprivate var dataReceived: Data = Data()
     
     /**
      * Asynchronously reads a number of bytes from the stream, and calls a handler upon completion.
@@ -621,68 +582,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    var shouldCloseWrite = false
-    fileprivate func write(timeout: TimeInterval = 0, close: Bool) -> Int {
-        guard let outputStream = outputStream else {
-            return -1
-        }
-        
-        var byteSent: Int = 0
-        let expireDate = Date(timeIntervalSinceNow: timeout)
-        self.dataToBeSentLock.lock()
-        defer {
-             self.dataToBeSentLock.unlock()
-        }
-        while self.dataToBeSent.count > 0 && (timeout == 0 || expireDate > Date()) {
-            if let _ = outputStream.streamError {
-                return byteSent == 0 ? -1 : byteSent
-            }
-            
-            let count = self.dataToBeSent.count
-            let bytesWritten: Int = self.dataToBeSent.withUnsafeBytes {
-                outputStream.write($0, maxLength: count)
-            }
-            
-            if bytesWritten > 0 {
-                self.dataToBeSent.removeFirst(bytesWritten)
-                byteSent += bytesWritten
-                self._countOfBytesSent += Int64(bytesWritten)
-            } else if bytesWritten < 0 {
-                self._error = outputStream.streamError
-                return bytesWritten
-            }
-            if self.dataToBeSent.count == 0 {
-                break
-            }
-        }
-        
-        if close {
-            DispatchQueue.main.sync {
-                shouldCloseWrite = true
-            }
-            self.streamDelegate?.urlSession?(self._underlyingSession, writeClosedFor: self)
-        }
-        return byteSent
-    }
+    fileprivate var shouldCloseWrite = false
     
     fileprivate var isUploadTask = false
-    fileprivate func finish() {
-        inputStream?.delegate = nil
-        outputStream?.delegate = nil
-        
-        inputStream?.close()
-        inputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
-        inputStream = nil
-        
-        // TOFIX: This sleep is a workaround for truncated file uploading
-        if isUploadTask {
-            Thread.sleep(forTimeInterval: _underlyingSession.configuration.timeoutIntervalForRequest * 2)
-        }
-        
-        outputStream?.close()
-        outputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
-        outputStream = nil
-    }
     
     /**
      * Completes any enqueued reads and writes, and then closes the read side of the underlying socket.
@@ -711,9 +613,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
     }
     
-    fileprivate var isSecure = false
-    
-    public var securityLevel: StreamSocketSecurityLevel = .negotiatedSSL
     /**
      * Completes any enqueued reads and writes, and establishes a secure connection.
      *
@@ -759,7 +658,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
         }
     }
-    
+}
+
+extension FileProviderStreamTask {
     open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         if eventCode.contains(.errorOccurred) {
             self._error = aStream.streamError
@@ -778,13 +679,111 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 }
             }
         }
+    }
+    
+    fileprivate func write(timeout: TimeInterval = 0, close: Bool) -> Int {
+        guard let outputStream = outputStream else {
+            return -1
+        }
         
-        if aStream == outputStream && eventCode.contains(.hasSpaceAvailable) {
-            if shouldCloseWrite {
-               // outputStream?.close()
-                shouldCloseWrite = false
+        var byteSent: Int = 0
+        let expireDate = Date(timeIntervalSinceNow: timeout)
+        self.dataToBeSentLock.lock()
+        defer {
+            self.dataToBeSentLock.unlock()
+        }
+        while self.dataToBeSent.count > 0 && (timeout == 0 || expireDate > Date()) {
+            if let _ = outputStream.streamError {
+                return byteSent == 0 ? -1 : byteSent
+            }
+            
+            let count = self.dataToBeSent.count
+            let bytesWritten: Int = self.dataToBeSent.withUnsafeBytes {
+                outputStream.write($0, maxLength: count)
+            }
+            
+            if bytesWritten > 0 {
+                self.dataToBeSent.removeFirst(bytesWritten)
+                byteSent += bytesWritten
+                self._countOfBytesSent += Int64(bytesWritten)
+            } else if bytesWritten < 0 {
+                self._error = outputStream.streamError
+                return bytesWritten
+            }
+            if self.dataToBeSent.count == 0 {
+                break
             }
         }
+        
+        if close {
+            DispatchQueue.main.sync {
+                shouldCloseWrite = true
+            }
+            self.streamDelegate?.urlSession?(self._underlyingSession, writeClosedFor: self)
+        }
+        return byteSent
+    }
+    
+    fileprivate func finish() {
+        inputStream?.delegate = nil
+        outputStream?.delegate = nil
+        
+        inputStream?.close()
+        inputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        inputStream = nil
+        
+        // TOFIX: This sleep is a workaround for truncated file uploading
+        if isUploadTask {
+            Thread.sleep(forTimeInterval: _underlyingSession.configuration.timeoutIntervalForRequest * 2)
+        }
+        
+        outputStream?.close()
+        outputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
+        outputStream = nil
+    }
+    
+}
+
+extension FileProviderStreamTask {
+    public override func addObserver(_ observer: NSObject, forKeyPath keyPath: String, options: NSKeyValueObservingOptions = [], context: UnsafeMutableRawPointer?) {
+        if #available(iOS 9.0, macOS 10.11, *) {
+            if self.useURLSession {
+                self._underlyingTask?.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
+                return
+            }
+        }
+        
+        switch keyPath {
+        case #keyPath(countOfBytesSent):
+            fallthrough
+        case #keyPath(countOfBytesReceived):
+            fallthrough
+        case #keyPath(countOfBytesExpectedToSend):
+            fallthrough
+        case #keyPath(countOfBytesExpectedToReceive):
+            observers.append((keyPath: keyPath, observer: observer, context: context))
+        default:
+            break
+        }
+        super.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
+    }
+    
+    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String) {
+        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
+        for observer in observers where observer.keyPath != keyPath {
+            newObservers.append(observer)
+        }
+        self.observers = newObservers
+        super.removeObserver(observer, forKeyPath: keyPath)
+    }
+    
+    public override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String, context: UnsafeMutableRawPointer?) {
+        var newObservers: [(keyPath: String, observer: NSObject, context: UnsafeMutableRawPointer?)] = []
+        for observer in observers where observer.keyPath != keyPath || observer.context != context {
+            newObservers.append(observer)
+        }
+        self.observers = newObservers
+        super.removeObserver(observer, forKeyPath: keyPath, context: context)
     }
 }
 

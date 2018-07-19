@@ -652,7 +652,7 @@ internal extension FTPFileProvider {
             return 65_536 // 256KB To 1MB, chunk size is 64KB
         case 1_048_576..<10_485_760:
             return 131_072 // 1MB To 10MB, chunk size is 128KB
-        case 0_048_576..<33_554_432:
+        case 10_485_760..<33_554_432:
             return 262_144 // 10MB To 32MB, chunk size is 256KB
         default:
             return 524_288 // Larger than 32MB, chunk size is 512KB
