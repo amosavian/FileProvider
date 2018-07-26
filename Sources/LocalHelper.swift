@@ -126,7 +126,10 @@ public final class LocalFileMonitor {
     /// Creates a folder monitor object with monitoring enabled.
     public init?(url: URL, handler: @escaping ()->Void) {
         self.url = url
-        descriptor = open((url.absoluteURL as NSURL).fileSystemRepresentation, O_EVTONLY)
+        descriptor = url.absoluteURL.withUnsafeFileSystemRepresentation { rep in
+            guard let rep = rep else { return -1 }
+            return open(rep, O_EVTONLY)
+        }
         guard descriptor >= 0 else { return nil }
         let event: DispatchSource.FileSystemEvent = url.fileIsDirectory ? [.write] : .all
         source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: event, queue: qq)

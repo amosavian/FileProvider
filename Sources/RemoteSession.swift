@@ -62,7 +62,9 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        if let progress = context?.load(as: Progress.self), let newVal = change?[.newKey] as? Int64 {
+        if let progress = context?.assumingMemoryBound(to: Progress.self).pointee,
+            progress.responds(to: #selector(Progress.becomeCurrent(withPendingUnitCount:))),
+            let newVal = change?[.newKey] as? Int64 {
             switch keyPath ?? "" {
             case #keyPath(URLSessionTask.countOfBytesReceived):
                 progress.completedUnitCount = newVal
