@@ -34,7 +34,10 @@ open class FileObject: NSObject {
             if let url = allValues[.fileURLKey] as? URL {
                 return url
             } else {
-                let path = self.path.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? self.path
+                var path = self.path.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? self.path
+                if path.hasPrefix("/") {
+                    path.remove(at: path.startIndex)
+                }
                 return URL(string: path) ?? URL(string: "/")!
             }
         }

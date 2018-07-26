@@ -786,7 +786,7 @@ public extension FileProviderBasic {
     public func url(of path: String) -> URL {
         var rpath: String = path
         rpath = rpath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? rpath
-        if let baseURL = baseURL {
+        if let baseURL = baseURL?.absoluteURL {
             if rpath.hasPrefix("/") {
                 rpath.remove(at: rpath.startIndex)
             }
