@@ -166,7 +166,7 @@ internal extension OneDriveFileProvider {
         
         return self.upload_multipart(targetPath, operation: operation, size: file.fileSize, overwrite: overwrite, dataProvider: { range in
             guard let handle = FileHandle(forReadingAtPath: file.path) else {
-                throw self.cocoaError(targetPath, code: .fileNoSuchFile)
+                throw CocoaError(.fileNoSuchFile, path: targetPath)
             }
             
             defer {
@@ -176,7 +176,7 @@ internal extension OneDriveFileProvider {
             let offset = range.lowerBound
             handle.seek(toFileOffset: UInt64(offset))
             guard Int64(handle.offsetInFile) == offset else {
-                throw self.cocoaError(targetPath, code: .fileReadTooLarge)
+                throw CocoaError(.fileReadTooLarge, path: targetPath)
             }
             
             return handle.readData(ofLength: range.count)

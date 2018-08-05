@@ -195,7 +195,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             guard let `self` = self else { return ([], nil, nil) }
             
             guard let json = data?.deserializeJSON(), let entries = json["value"] as? [Any] else {
-                let err = self.urlError(path, code: .badServerResponse)
+                let err = URLError(.badServerResponse, url: self.url(of: path))
                 return ([], err, nil)
             }
             
@@ -316,7 +316,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
             guard let json = data?.deserializeJSON(), let entries = json["value"] as? [Any] else {
-                let err = self.urlError(path, code: .badServerResponse)
+                let err = URLError(.badServerResponse, url: self.url(of: path))
                 return ([], err, nil)
             }
             
@@ -397,7 +397,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
-                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
+                completionHandler?(URLError(.fileIsDirectory, url: localFile))
             }
             return nil
         }

@@ -255,17 +255,3 @@ internal class LocalFileProviderManagerDelegate: NSObject, FileManagerDelegate {
         return delegate.fileProvider(provider, shouldProceedAfterError: error, operation: .link(link: srcPath, target: dstPath))
     }
 }
-
-#if os(macOS) || os(iOS) || os(tvOS)
-class UndoBox: NSObject {
-    weak var provider: FileProvideUndoable?
-    let operation: FileOperationType
-    let undoOperation: FileOperationType
-    
-    init(provider: FileProvideUndoable, operation: FileOperationType, undoOperation: FileOperationType) {
-        self.provider = provider
-        self.operation = operation
-        self.undoOperation = undoOperation
-    }
-}
-#endif

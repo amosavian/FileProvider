@@ -74,6 +74,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         }
     }
     
+    #if os(macOS) || os(iOS) || os(tvOS)
+    open var undoManager: UndoManager? = nil
+    #endif
+    
     /**
      Initializer for FTP provider with given username and password.
      
@@ -305,7 +309,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     }
                     
                     guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
-                        throw self.urlError(path, code: .badServerResponse)
+                        throw URLError(.badServerResponse, url: self.url(of: path))
                     }
                     
                     if response.hasPrefix("500") {
@@ -315,7 +319,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     
                     let lines = response.components(separatedBy: "\n").compactMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     guard lines.count > 2 else {
-                        throw self.urlError(path, code: .badServerResponse)
+                        throw URLError(.badServerResponse, url: self.url(of: path))
                     }
                     let dirPath = path.deletingLastPathComponent
                     let file: FileObject? = rfc3659enabled ?
@@ -432,10 +436,17 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     
     @discardableResult
     open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+        guard (try? localFile.checkResourceIsReachable()) ?? false else {
+            dispatch_queue.async {
+                completionHandler?(URLError(.fileDoesNotExist, url: localFile))
+            }
+            return nil
+        }
+        
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
-                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
+                completionHandler?(URLError(.fileIsDirectory, url: localFile))
             }
             return nil
         }
@@ -511,7 +522,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             
             let tempURL = URL(fileURLWithPath: NSTemporaryDirectory().appendingPathComponent(UUID().uuidString))
             guard let stream = OutputStream(url: tempURL, append: false) else {
-                completionHandler?(self.cocoaError(destURL.path, code: .fileWriteUnknown))
+                completionHandler?(CocoaError(.fileWriteUnknown, path: destURL.path))
                 return
             }
             self.ftpDownload(task, filePath: self.ftpPath(path), to: stream, onTask: { task in
@@ -777,7 +788,7 @@ extension FTPFileProvider {
                 
                 guard let response = response else {
                     completionHandler?(error)
-                    self.delegateNotify(operation, error: self.urlError(sourcePath, code: .badServerResponse))
+                    self.delegateNotify(operation, error: URLError(.badServerResponse, url: self.url(of: sourcePath)))
                     return
                 }
                 
@@ -802,13 +813,16 @@ extension FTPFileProvider {
                     case .link: errorCode = .cannotWriteToFile
                     default: errorCode = .cannotOpenFile
                     }
-                    let error = self.urlError(sourcePath, code: errorCode)
+                    let error = URLError(errorCode, url: self.url(of: sourcePath))
                     progress.cancel()
                     completionHandler?(error)
                     self.delegateNotify(operation, error: error)
                     return
                 }
                 
+                #if os(macOS) || os(iOS) || os(tvOS)
+                self._registerUndo(operation)
+                #endif
                 progress.completedUnitCount = progress.totalUnitCount
                 completionHandler?(nil)
                 self.delegateNotify(operation)
@@ -859,7 +873,7 @@ extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    throw  self.urlError(sourcePath, code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: sourcePath))
                 }
                 
                 if response.hasPrefix("50") {
@@ -868,7 +882,7 @@ extension FTPFileProvider {
                 }
                 
                 if !response.hasPrefix("2") {
-                    throw self.urlError(sourcePath, code: .cannotRemoveFile)
+                    throw  URLError(.cannotRemoveFile, url: self.url(of: sourcePath))
                 }
                 self.dispatch_queue.async {
                     completionHandler?(nil)
@@ -921,3 +935,7 @@ extension FTPFileProvider {
 }
 
 extension FTPFileProvider: FileProvider { }
+
+#if os(macOS) || os(iOS) || os(tvOS)
+extension FTPFileProvider: FileProvideUndoable { }
+#endif

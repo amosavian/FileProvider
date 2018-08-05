@@ -284,15 +284,6 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         return self.doOperation(operation, completionHandler: completionHandler)
     }
     
-    #if os(macOS) || os(iOS) || os(tvOS)
-    @objc dynamic func doSimpleOperation(_ box: UndoBox) {
-        guard let _ = self.undoManager else { return }
-        _ = self.doOperation(box.undoOperation) { (_) in
-            return
-        }
-    }
-    #endif
-    
     @discardableResult
     fileprivate func doOperation(_ operation: FileOperationType, data: Data? = nil, overwrite: Bool = true, atomically: Bool = false, forUploading: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
@@ -320,7 +311,7 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         
         if !overwrite, let dest = dest, /* fileExists */ ((try? dest.checkResourceIsReachable()) ?? false) ||
             ((try? dest.checkPromisedItemIsReachable()) ?? false) {
-            let e = self.cocoaError(destPath!, code: .fileWriteFileExists)
+            let e = CocoaError(.fileWriteFileExists, path: destPath!)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -329,14 +320,6 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         }
         
         #if os(macOS) || os(iOS) || os(tvOS)
-        if let undoManager = self.undoManager, let undoOp = self.undoOperation(for: operation) {
-            let undoBox = UndoBox(provider: self, operation: operation, undoOperation: undoOp)
-            undoManager.beginUndoGrouping()
-            undoManager.registerUndo(withTarget: self, selector: #selector(LocalFileProvider.doSimpleOperation(_:)), object: undoBox)
-            undoManager.setActionName(operation.actionDescription)
-            undoManager.endUndoGrouping()
-        }
-        
         var successfulSecurityScopedResourceAccess = false
         #endif
         
@@ -376,7 +359,10 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
                     source.stopAccessingSecurityScopedResource()
                 }
                 #endif
-
+                
+                #if os(macOS) || os(iOS) || os(tvOS)
+                self._registerUndo(operation)
+                #endif
                 progress.completedUnitCount = progress.totalUnitCount
                 self.dispatch_queue.async {
                     completionHandler?(nil)
@@ -514,7 +500,7 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         let operationHandler: (URL) -> Void = { url in
             do {
                 guard let handle = FileHandle(forReadingAtPath: url.path) else {
-                    throw self.cocoaError(path, code: .fileNoSuchFile)
+                    throw CocoaError(.fileNoSuchFile, path: path)
                 }
                 
                 defer {
@@ -525,13 +511,13 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
                 progress.totalUnitCount = size
                 guard size > offset else {
                     progress.cancel()
-                    throw self.cocoaError(path, code: .fileReadTooLarge)
+                    throw CocoaError(.fileReadTooLarge, path: path)
                 }
                 progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
                 handle.seek(toFileOffset: UInt64(offset))
                 guard Int64(handle.offsetInFile) == offset else {
                     progress.cancel()
-                    throw self.cocoaError(path, code: .fileReadTooLarge)
+                    throw CocoaError(.fileReadTooLarge, path: path)
                 }
                 
                 let data = handle.readData(ofLength: length)
@@ -574,7 +560,7 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         let fileExists = ((try? self.url(of: path).checkResourceIsReachable()) ?? false) ||
             ((try? self.url(of: path).checkPromisedItemIsReachable()) ?? false)
         if !overwrite && fileExists {
-            let e = self.cocoaError(path, code: .fileWriteFileExists)
+            let e = CocoaError(.fileWriteFileExists, path: path)
             dispatch_queue.async {
                 completionHandler?(e)
             }
@@ -650,7 +636,6 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
 }
 
 #if os(macOS) || os(iOS) || os(tvOS)
-    
 extension LocalFileProvider: FileProvideUndoable { }
 
 internal extension LocalFileProvider {

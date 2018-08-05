@@ -62,46 +62,47 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        if let progress = context?.assumingMemoryBound(to: Progress.self).pointee,
-            progress.responds(to: #selector(Progress.becomeCurrent(withPendingUnitCount:))),
-            let newVal = change?[.newKey] as? Int64 {
-            switch keyPath ?? "" {
-            case #keyPath(URLSessionTask.countOfBytesReceived):
-                progress.completedUnitCount = newVal
-                if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    let throughput = Double(newVal) / elapsed
-                    progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
-                    if task.countOfBytesExpectedToReceive > 0 {
-                        let remain = task.countOfBytesExpectedToReceive - task.countOfBytesReceived
-                        let estimatedTimeRemaining = Double(remain) / elapsed
-                        progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
-                    }
+        guard let context = context, let keyPath = keyPath else { return }
+        let progress = Unmanaged<Progress>.fromOpaque(context).takeRetainedValue()
+        guard progress.responds(to: #selector(Progress.becomeCurrent(withPendingUnitCount:))) else { return }
+        guard let newVal = change?[.newKey] as? Int64 else { return }
+        
+        switch keyPath {
+        case #keyPath(URLSessionTask.countOfBytesReceived):
+            progress.completedUnitCount = newVal
+            if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let throughput = Double(newVal) / elapsed
+                progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
+                if task.countOfBytesExpectedToReceive > 0 {
+                    let remain = task.countOfBytesExpectedToReceive - task.countOfBytesReceived
+                    let estimatedTimeRemaining = Double(remain) / elapsed
+                    progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
                 }
-            case #keyPath(URLSessionTask.countOfBytesSent):
-                if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    let throughput = Double(newVal) / elapsed
-                    progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
-                    
-                    // wokaround for multipart uploading
-                    let json = task.taskDescription?.deserializeJSON()
-                    let uploadedBytes = ((json?["uploadedBytes"] as? Int64) ?? 0) + newVal
-                    let totalBytes = (json?["totalBytes"] as? Int64) ?? task.countOfBytesExpectedToSend
-                    progress.completedUnitCount = uploadedBytes
-                    if totalBytes > 0 {
-                        let remain = totalBytes - uploadedBytes
-                        let estimatedTimeRemaining = Double(remain) / elapsed
-                        progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
-                    }
-                } else {
-                    progress.completedUnitCount = newVal
-                }
-            case #keyPath(URLSessionTask.countOfBytesExpectedToReceive), #keyPath(URLSessionTask.countOfBytesExpectedToSend):
-                progress.totalUnitCount = newVal
-            default:
-                super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
             }
+        case #keyPath(URLSessionTask.countOfBytesSent):
+            if let startTime = progress.userInfo[ProgressUserInfoKey.startingTimeKey] as? Date, let task = object as? URLSessionTask {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let throughput = Double(newVal) / elapsed
+                progress.setUserInfoObject(NSNumber(value: throughput), forKey: .throughputKey)
+                
+                // wokaround for multipart uploading
+                let json = task.taskDescription?.deserializeJSON()
+                let uploadedBytes = ((json?["uploadedBytes"] as? Int64) ?? 0) + newVal
+                let totalBytes = (json?["totalBytes"] as? Int64) ?? task.countOfBytesExpectedToSend
+                progress.completedUnitCount = uploadedBytes
+                if totalBytes > 0 {
+                    let remain = totalBytes - uploadedBytes
+                    let estimatedTimeRemaining = Double(remain) / elapsed
+                    progress.setUserInfoObject(NSNumber(value: estimatedTimeRemaining), forKey: .estimatedTimeRemainingKey)
+                }
+            } else {
+                progress.completedUnitCount = newVal
+            }
+        case #keyPath(URLSessionTask.countOfBytesExpectedToReceive), #keyPath(URLSessionTask.countOfBytesExpectedToSend):
+            progress.totalUnitCount = newVal
+        default:
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
     

@@ -44,6 +44,32 @@ public extension URLFileResourceType {
     }
 }
 
+extension CocoaError {
+    init(_ code: CocoaError.Code, path: String?) {
+        if let path = path {
+            let userInfo: [String: Any] = [NSFilePathErrorKey: path]
+            self.init(code, userInfo: userInfo)
+        } else {
+            self.init(code)
+        }
+        
+    }
+}
+
+extension URLError {
+    init(_ code: URLError.Code, url: URL?) {
+        if let url = url {
+            let userInfo: [String: Any] = [NSURLErrorKey: url,
+                                           NSURLErrorFailingURLErrorKey: url,
+                                           NSURLErrorFailingURLStringErrorKey: url.absoluteString,
+                                           ]
+            self.init(code, userInfo: userInfo)
+        } else {
+            self.init(code)
+        }
+    }
+}
+
 public extension URLResourceKey {
     /// **FileProvider** returns url of file object.
     public static let fileURLKey = URLResourceKey(rawValue: "NSURLFileURLKey")

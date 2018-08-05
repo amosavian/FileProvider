@@ -34,7 +34,7 @@ internal extension FTPFileProvider {
                 if let data = data, let response = String(data: data, encoding: .utf8) {
                     completionHandler(response.trimmingCharacters(in: .whitespacesAndNewlines), nil)
                 } else {
-                    completionHandler(nil, self.urlError("", code: .cannotParseResponse))
+                    completionHandler(nil, URLError(.cannotParseResponse, url: self.url(of: "")))
                 }
             }
         }
@@ -48,7 +48,7 @@ internal extension FTPFileProvider {
             }
             
             guard let response = response else {
-                completionHandler(self.urlError("", code: .badServerResponse))
+                completionHandler(URLError(.badServerResponse, url: self.url(of: "")))
                 return
             }
             
@@ -64,7 +64,7 @@ internal extension FTPFileProvider {
                     if response?.hasPrefix("23") ?? false {
                         completionHandler(nil)
                     } else {
-                        let error: Error = response.flatMap(FileProviderFTPError.init(message:)) ?? self.urlError("", code: .userAuthenticationRequired)
+                        let error: Error = response.flatMap(FileProviderFTPError.init(message:)) ?? URLError(.userAuthenticationRequired, url: self.url(of: ""))
                         completionHandler(error)
                     }
                 }
@@ -115,7 +115,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let data = data, let response = String(data: data, encoding: .utf8) else {
-                    throw self.urlError("", code: .cannotParseResponse)
+                    throw URLError(.cannotParseResponse, url: self.url(of: ""))
                 }
                 
                 guard response.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("22") else {
@@ -174,12 +174,12 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let response = response, let destString = response.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: " ").last else {
-                    throw self.urlError("", code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: ""))
                 }
                 
                 let destArray = destString.components(separatedBy: ",").compactMap({ UInt32(trimmedNumber($0)) })
                 guard destArray.count == 6 else {
-                    throw self.urlError("", code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: ""))
                 }
                 
                 // first 4 elements are ip, 2 next are port, as byte
@@ -219,7 +219,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let response = response, let destString = response.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: " ").last else {
-                    throw self.urlError("", code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: ""))
                 }
                 
                 if response.trimmingCharacters(in: .whitespaces).hasPrefix("50") {
@@ -228,7 +228,7 @@ internal extension FTPFileProvider {
                 
                 let destArray = destString.components(separatedBy: "|")
                 guard destArray.count >= 4, let port = Int(trimmedNumber(destArray[3])) else {
-                    throw self.urlError("", code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: ""))
                 }
                 var host = destArray[2]
                 if host.isEmpty {
@@ -269,11 +269,11 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    throw self.urlError("", code: .badServerResponse)
+                    throw URLError(.badServerResponse, url: self.url(of: ""))
                 }
                 
                 guard !response.hasPrefix("5") else {
-                    throw self.urlError("", code: .cannotConnectToHost)
+                    throw URLError(.cannotConnectToHost, url: self.url(of: ""))
                 }
                 
                 completionHandler(activeTask, nil)
@@ -313,7 +313,7 @@ internal extension FTPFileProvider {
             }
             
             guard let dataTask = dataTask else {
-                completionHandler([], self.urlError(path, code: .badServerResponse))
+                completionHandler([], URLError(.badServerResponse, url: self.url(of: path)))
                 return
             }
             
@@ -354,12 +354,12 @@ internal extension FTPFileProvider {
                         error_lock.unlock()
                         
                         if waitResult == .timedOut {
-                            throw self.urlError(path, code: .timedOut)
+                            throw URLError(.timedOut, url: self.url(of: path))
                         }
                     }
                     
                     guard let response = String(data: finalData, encoding: .utf8) else {
-                        throw self.urlError(path, code: .badServerResponse)
+                        throw URLError(.badServerResponse, url: self.url(of: path))
                     }
                     
                     let contents: [String] = response.components(separatedBy: "\n")
@@ -378,13 +378,13 @@ internal extension FTPFileProvider {
                     }
                     
                     guard let response = response else {
-                        throw self.urlError(path, code: .cannotParseResponse)
+                        throw URLError(.cannotParseResponse, url: self.url(of: path))
                     }
                     
                     if response.hasPrefix("500") && useMLST {
                         dataTask.cancel()
                         self.supportsRFC3659 = false
-                        throw self.urlError(path, code: .unsupportedURL)
+                        throw URLError(.unsupportedURL, url: self.url(of: path))
                     }
                     
                     success_lock.try()
@@ -472,7 +472,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let dataTask = dataTask else {
-                    completionHandler?(self.urlError(filePath, code: .badServerResponse))
+                    completionHandler?(URLError(.badServerResponse, url: self.url(of: filePath)))
                     return
                 }
                 
@@ -520,7 +520,7 @@ internal extension FTPFileProvider {
                                 })
                                 if result < 0 {
                                     error_lock.lock()
-                                    error = stream.streamError ?? self.urlError(filePath, code: .cannotWriteToFile)
+                                    error = stream.streamError ?? URLError(.cannotWriteToFile, url: self.url(of: filePath))
                                     error_lock.unlock()
                                     eof = true
                                     return
@@ -540,7 +540,7 @@ internal extension FTPFileProvider {
                         error_lock.unlock()
                         
                         if waitResult == .timedOut {
-                            completionHandler?(self.urlError(filePath, code: .timedOut))
+                            completionHandler?(URLError(.timedOut, url: self.url(of: filePath)))
                             return
                         }
                     }
@@ -553,7 +553,7 @@ internal extension FTPFileProvider {
                         }
                         
                         guard let response = response else {
-                            throw self.urlError(filePath, code: .cannotParseResponse)
+                            throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                         }
                         
                         if !(response.hasPrefix("1") || response.hasPrefix("2")) {
@@ -591,7 +591,7 @@ internal extension FTPFileProvider {
             }
             
             guard let finalData = stream.property(forKey: .dataWrittenToMemoryStreamKey) as? Data else {
-                completionHandler(nil, self.cocoaError(filePath, code: .fileReadUnknown))
+                completionHandler(nil, CocoaError(.fileReadUnknown, path: filePath))
                 return
             }
             
@@ -621,7 +621,7 @@ internal extension FTPFileProvider {
                 if result > 0 {
                     completionHandler?(nil)
                 } else {
-                    completionHandler?(stream.streamError ?? self.urlError(filePath, code: .cannotWriteToFile))
+                    completionHandler?(stream.streamError ?? URLError(.cannotWriteToFile, url: self.url(of: filePath)))
                 }
                 stream.close()
             }
@@ -669,7 +669,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    throw self.urlError(filePath, code: .cannotParseResponse)
+                    throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                 }
                 
                 if !response.hasPrefix("2") {
@@ -687,7 +687,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let dataTask = dataTask else {
-                    completionHandler(self.urlError(filePath, code: .badServerResponse))
+                    completionHandler(URLError(.badServerResponse, url: self.url(of: filePath)))
                     return
                 }
                 let success_lock = NSLock()
@@ -712,7 +712,7 @@ internal extension FTPFileProvider {
                         }
                         if count < 0 {
                             lock.unlock()
-                            completionHandler(stream.streamError ?? self.urlError(filePath, code: .requestBodyStreamExhausted))
+                            completionHandler(stream.streamError ?? URLError(.requestBodyStreamExhausted, url: self.url(of: filePath)))
                             return
                         }
                         subdata.count = count
@@ -746,7 +746,7 @@ internal extension FTPFileProvider {
                         
                         if waitResult == .timedOut {
                             lock.unlock()
-                            completionHandler(self.urlError(filePath, code: .timedOut))
+                            completionHandler(URLError(.timedOut, url: self.url(of: filePath)))
                             return
                         }
                         lock.unlock()
@@ -770,7 +770,7 @@ internal extension FTPFileProvider {
                         }
                         
                         guard let response = response else {
-                            throw self.urlError(filePath, code: .cannotParseResponse)
+                            throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                         }
                         
                         if !(response.hasPrefix("1") || response.hasPrefix("2")) {
@@ -806,7 +806,7 @@ internal extension FTPFileProvider {
                     stream.read(buffer, maxLength: chunkSize)
                 }
                 if count < 0 {
-                    completionHandler(stream.streamError ?? self.urlError(filePath, code: .requestBodyStreamExhausted))
+                    completionHandler(stream.streamError ?? URLError(.requestBodyStreamExhausted, url: self.url(of: filePath)))
                     return
                 }
                 subdata.count = count
@@ -831,7 +831,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if waitResult == .timedOut {
-                    completionHandler(self.urlError(filePath, code: .timedOut))
+                    completionHandler(URLError(.timedOut, url: self.url(of: filePath)))
                     return
                 }
             } while stream.streamStatus != .atEnd
@@ -849,7 +849,7 @@ internal extension FTPFileProvider {
                 }
                 
                 guard let response = response else {
-                    throw self.urlError(filePath, code: .cannotParseResponse)
+                    throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                 }
                 
                 if !response.hasPrefix("2") {
@@ -867,7 +867,7 @@ internal extension FTPFileProvider {
                     }
                     
                     guard let response = response else {
-                        throw self.urlError(filePath, code: .cannotParseResponse)
+                        throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                     }
                     
                     if !response.hasPrefix("35") {
@@ -885,7 +885,7 @@ internal extension FTPFileProvider {
                     }
                     
                     guard let dataTask = dataTask else {
-                        completionHandler(self.urlError(filePath, code: .badServerResponse))
+                        completionHandler(URLError(.badServerResponse, url: self.url(of: filePath)))
                         return
                     }
                     
@@ -924,7 +924,7 @@ internal extension FTPFileProvider {
                             }
                             
                             guard let response = response else {
-                                throw self.urlError(filePath, code: .cannotParseResponse)
+                                throw URLError(.cannotParseResponse, url: self.url(of: filePath))
                             }
                             
                             if !(response.hasPrefix("1") || response.hasPrefix("2")) {

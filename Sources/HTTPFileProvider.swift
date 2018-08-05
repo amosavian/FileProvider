@@ -72,6 +72,10 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return _longpollSession!
     }
     
+    #if os(macOS) || os(iOS) || os(tvOS)
+    open var undoManager: UndoManager? = nil
+    #endif
+    
     /**
      This is parent initializer for subclasses. Using this method on `HTTPFileProvider` will fail as `type` is not implemented.
      
@@ -222,7 +226,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
-                completionHandler?(self.urlError(localFile.path, code: .fileIsDirectory))
+                completionHandler?(URLError(.fileIsDirectory, url: localFile))
             }
             return nil
         }
@@ -239,7 +243,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
-        let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
+        let cantLoadError = URLError(.cannotLoadFromNetwork, url: self.url(of: path))
         return self.download_file(path: path, request: request, operation: operation, completionHandler: { [weak self] (tempURL, error) in
             do {
                 if let error = error {
@@ -320,7 +324,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
-        let cantLoadError = urlError(path, code: .cannotLoadFromNetwork)
+        let cantLoadError = URLError(.cannotLoadFromNetwork, url: self.url(of: path))
         request.setValue(rangeWithOffset: offset, length: length)
         
         let stream = OutputStream.toMemory()
@@ -404,6 +408,10 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                         throw ms_error
                     }
                 }
+                
+                #if os(macOS) || os(iOS) || os(tvOS)
+                self._registerUndo(operation)
+                #endif
                 progress.completedUnitCount = 1
                 completionHandler?(nil)
                 self.delegateNotify(operation)
@@ -712,3 +720,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
 }
 
 extension HTTPFileProvider: FileProvider { }
+
+#if os(macOS) || os(iOS) || os(tvOS)
+extension HTTPFileProvider: FileProvideUndoable { }
+#endif

@@ -724,6 +724,43 @@ public extension FileProvideUndoable {
         self.undoManager = UndoManager()
         self.undoManager?.levelsOfUndo = 10
     }
+    
+    public func _registerUndo(_ operation: FileOperationType) {
+        #if os(macOS) || os(iOS) || os(tvOS)
+        guard let undoManager = self.undoManager, let undoOp = self.undoOperation(for: operation) else {
+            return
+        }
+        
+        let undoBox = UndoBox(provider: self, operation: operation, undoOperation: undoOp)
+        undoManager.beginUndoGrouping()
+        undoManager.registerUndo(withTarget: undoBox, selector: #selector(UndoBox.doSimpleOperation(_:)), object: undoBox)
+        undoManager.setActionName(operation.actionDescription)
+        undoManager.endUndoGrouping()
+        #endif
+    }
+}
+
+class UndoBox: NSObject {
+    weak var provider: FileProvideUndoable?
+    let operation: FileOperationType
+    let undoOperation: FileOperationType
+    
+    init(provider: FileProvideUndoable, operation: FileOperationType, undoOperation: FileOperationType) {
+        self.provider = provider
+        self.operation = operation
+        self.undoOperation = undoOperation
+    }
+    
+    @objc internal func doSimpleOperation(_ box: UndoBox) {
+        switch self.undoOperation {
+        case .move(source: let source, destination: let dest):
+            _=provider?.moveItem(path: source, to: dest, completionHandler: nil)
+        case .remove(let path):
+            _=provider?.removeItem(path: path, completionHandler: nil)
+        default:
+            break
+        }
+    }
 }
 #endif
 
@@ -851,23 +888,6 @@ public extension FileProviderBasic {
         _ = group.wait(timeout: .now() + 5)
         let finalFile = result + (!fileExt.isEmpty ? "." + fileExt : "")
         return dirPath.appendingPathComponent(finalFile)
-    }
-    
-    internal func urlError(_ path: String, code: URLError.Code) -> Error {
-        let fileURL = self.url(of: path)
-        let userInfo: [String: Any] = [NSURLErrorKey: fileURL,
-                                       NSURLErrorFailingURLErrorKey: fileURL,
-                                       NSURLErrorFailingURLStringErrorKey: fileURL.absoluteString,
-                                       ]
-        return URLError(code, userInfo: userInfo)
-    }
-    
-    internal func cocoaError(_ path: String, code: CocoaError.Code) -> Error {
-        let fileURL = self.url(of: path)
-        let userInfo: [String: Any] = [NSFilePathErrorKey: path,
-                                       NSURLErrorKey: fileURL,
-                                       ]
-        return CocoaError(code, userInfo: userInfo)
     }
     
     internal func NotImplemented(_ fn: String = #function, file: StaticString = #file) {
