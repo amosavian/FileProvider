@@ -166,7 +166,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return paginated(path, requestHandler: requestHandler,
             pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let json = data?.deserializeJSON(), let entries = (json["entries"] ?? json["matches"]) as? [Any] else {
-                let err = self?.urlError(path, code: .badServerResponse)
+                let err = URLError(.badServerResponse, url: self?.url(of: path))
                 return ([], err, nil)
             }
             
@@ -334,7 +334,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     open func copyItem(remoteURL: URL, to toPath: String, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
         if remoteURL.isFileURL {
-            completionHandler(nil, nil, self.urlError(remoteURL.path, code: .badURL))
+            completionHandler(nil, nil, URLError(.badURL, url: remoteURL))
             return
         }
         let url = URL(string: "files/save_url", relativeTo: apiURL)!
@@ -485,7 +485,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
             var image: ImageClass? = nil
             if let r = response as? HTTPURLResponse, let result = r.allHeaderFields["Dropbox-API-Result"] as? String, let jsonResult = result.deserializeJSON() {
                 if jsonResult["error"] != nil {
-                    completionHandler(nil, self.urlError(path, code: .cannotDecodeRawData))
+                    completionHandler(nil, URLError(.cannotDecodeRawData, url: self.url(of: path)))
                 }
             }
             if let data = data {

@@ -275,7 +275,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
             progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
             if !mdquery.start() {
                 self.dispatch_queue.async {
-                    completionHandler([], self.cocoaError(path, code: .fileReadNoPermission))
+                    completionHandler([], CocoaError(.fileReadNoPermission, path: path))
                 }
             }
         }
@@ -362,7 +362,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
                     self.operation_queue.addOperation(moveblock)
                 })
             } else {
-                let e = self.cocoaError(dest.path, code: .fileWriteFileExists)
+                let e = CocoaError(.fileWriteFileExists, path: dest.path)
                 dispatch_queue.async {
                     completionHandler?(e)
                 }

@@ -293,7 +293,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
-                completionHandler(nil, nil, nil, self.urlError(path, code: .resourceUnavailable))
+                completionHandler(nil, nil, nil, URLError(.resourceUnavailable, url: self.url(of: path)))
             }
             return
         }
@@ -416,7 +416,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
-                completionHandler(nil, self.urlError(path, code: .resourceUnavailable))
+                completionHandler(nil, URLError(.resourceUnavailable, url: self.url(of: path)))
             }
             return nil
         }
@@ -448,7 +448,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     @discardableResult
     open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) -> Progress? {
         dispatch_queue.async {
-            completionHandler([:], [], self.urlError(path, code: .resourceUnavailable))
+            completionHandler([:], [], URLError(.resourceUnavailable, url: self.url(of: path)))
         }
         return nil
     }
