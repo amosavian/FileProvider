@@ -258,7 +258,7 @@ internal extension OneDriveFileProvider {
         dictionary["uploadedBytes"] = NSNumber(value: uploadedSoFar)
         dictionary["totalBytes"] = NSNumber(value: data.count)
         task.taskDescription = String(jsonDictionary: dictionary)
-        task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        sessionDelegate?.observerProgress(of: task, using: progress, kind: .upload)
         progress.cancellationHandler = { [weak task, weak self] in
             task?.cancel()
             var deleteRequest = URLRequest(url: url)

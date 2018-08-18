@@ -525,7 +525,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
             self?.delegateNotify(operation, error: responseError ?? error)
         }
         task.taskDescription = operation.json
-        task.addObserver(self.sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: &progress)
+        sessionDelegate?.observerProgress(of: task, using: progress, kind: .upload)
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
         }
@@ -627,8 +627,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         }
         
         task.taskDescription = operation.json
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        sessionDelegate?.observerProgress(of: task, using: progress, kind: .download)
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
         }
@@ -667,8 +666,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         }
         
         task.taskDescription = operation.json
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        sessionDelegate?.observerProgress(of: task, using: progress, kind: .download)
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
         }
@@ -708,8 +706,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
             completionHandler(tempURL, nil)
         }
         task.taskDescription = operation.json
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: &progress)
-        task.addObserver(sessionDelegate!, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: &progress)
+        sessionDelegate?.observerProgress(of: task, using: progress, kind: .download)
         progress.cancellationHandler = { [weak task] in
             task?.cancel()
         }

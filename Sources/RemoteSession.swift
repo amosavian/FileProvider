@@ -61,10 +61,49 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         self.credential = fileProvider.credential
     }
     
+    public enum ObserveKind {
+        case upload
+        case download
+    }
+    
+    private let observeProgressesLock = NSLock()
+    private var observeProgresses = [(task: URLSessionTask, progress: Progress, kind: ObserveKind)]()
+    
+    public func observerProgress(of task: URLSessionTask, using: Progress, kind: ObserveKind) {
+        switch kind {
+        case .upload:
+            task.addObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent), options: .new, context: nil)
+        case .download:
+            task.addObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived), options: .new, context: nil)
+            task.addObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive), options: .new, context: nil)
+        }
+        observeProgressesLock.lock()
+        observeProgresses.append((task, using, kind))
+        observeProgressesLock.unlock()
+    }
+    
+    func removeObservers(for task: URLSessionTask) {
+        observeProgressesLock.lock()
+        observeProgresses = observeProgresses.filter { (item) -> Bool in
+            if item.task == task {
+                switch item.kind {
+                case .upload:
+                    task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent))
+                case .download:
+                    task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
+                    task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
+                }
+                return false
+            } else {
+                return true
+            }
+        }
+        observeProgressesLock.unlock()
+    }
+    
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        guard let context = context, let keyPath = keyPath else { return }
-        let progress = Unmanaged<Progress>.fromOpaque(context).takeRetainedValue()
-        guard progress.responds(to: #selector(Progress.becomeCurrent(withPendingUnitCount:))) else { return }
+        guard let context = context, let keyPath = keyPath, keyPath.contains("countOfBytes") else { return }
+        let progress = context.assumingMemoryBound(to: Progress.self).pointee
         guard let newVal = change?[.newKey] as? Int64 else { return }
         
         switch keyPath {
@@ -108,43 +147,13 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     
     // codebeat:disable[ARITY]
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if task is URLSessionUploadTask {
-            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesSent))
-            //task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToSend))
-        } else if task is URLSessionDownloadTask {
-            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
-            task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
-        }
+        self.removeObservers(for: task)
         
         _ = dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
         if !(error == nil && task is URLSessionDownloadTask) {
             let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
             completionHandler?(error)
             _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
-        }
-        
-        guard let json = task.taskDescription?.deserializeJSON(),
-            let op = FileOperationType(json: json) else {
-                return
-        }
-        
-        switch op {
-        case .fetch:
-            if task is URLSessionDataTask {
-                task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesReceived))
-                task.removeObserver(self, forKeyPath: #keyPath(URLSessionTask.countOfBytesExpectedToReceive))
-            }
-        default:
-            break
-        }
-        
-        if !(task is URLSessionDownloadTask), case FileOperationType.fetch = op {
-            return
-        }
-        if #available(iOS 9.0, macOS 10.11, *) {
-            if task is URLSessionStreamTask {
-                return
-            }
         }
     }
     
