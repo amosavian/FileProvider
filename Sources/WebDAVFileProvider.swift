@@ -100,6 +100,22 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         _ = searchFiles(path: path, recursive: false, query: query, including: including, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
+    /**
+     Returns an Array of `WebDavFileObject`s identifying the the directory entries via asynchronous completion handler.
+     
+     If the directory contains no entries or an error is occured, this method will return the empty array.
+     
+     - Parameter path: path to target directory. If empty, root will be iterated.
+     - Parameter including: An array which determines which file properties should be considered to fetch.
+     - Parameter completionHandler: a closure with result of directory entries or error.
+     - Parameter contents: An array of `WebDavFileObject` identifying the the directory entries.
+     - Parameter error: Error returned by system.
+     */
+    open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping (_ contents: [WebDavFileObject], _ error: Error?) -> Void) {
+        let query = NSPredicate(format: "TRUEPREDICATE")
+        _ = searchFiles(path: path, recursive: false, query: query, including: including, foundItemHandler: nil, completionHandler: completionHandler)
+    }
+    
     override open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         self.attributesOfItem(path: path, including: [], completionHandler: completionHandler)
     }
@@ -199,6 +215,11 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
+    @discardableResult
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((WebDavFileObject) -> Void)?, completionHandler: @escaping ([WebDavFileObject], Error?) -> Void) -> Progress? {
+        return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
+    }
+    
     /**
      Search files inside directory using query asynchronously.
      
@@ -226,6 +247,53 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     @discardableResult
     open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+        let url = self.url(of: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PROPFIND"
+        // Depth infinity is disabled on some servers. Implement workaround?!
+        request.setValue(recursive ? "infinity" : "1", forHTTPHeaderField: "Depth")
+        request.setValue(authentication: credential, with: credentialType)
+        request.setValue(contentType: .xml, charset: .utf8)
+        request.httpBody = WebDavFileObject.xmlProp(including)
+        let progress = Progress(totalUnitCount: -1)
+        progress.setUserInfoObject(url, forKey: .fileURLKey)
+        
+        let queryIsTruePredicate = query.predicateFormat == "TRUEPREDICATE"
+        let task = session.dataTask(with: request) { (data, response, error) in
+            // FIXME: paginating results
+            var responseError: FileProviderHTTPError?
+            if let code = (response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                responseError = self.serverError(with: rCode, path: path, data: data)
+            }
+            guard let data = data else {
+                completionHandler([], responseError ?? error)
+                return
+            }
+            
+            let xresponse = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
+            var fileObjects = [WebDavFileObject]()
+            for attr in xresponse where attr.href.path != url.path {
+                let fileObject = WebDavFileObject(attr)
+                if !queryIsTruePredicate && !query.evaluate(with: fileObject.mapPredicate()) {
+                    continue
+                }
+                
+                fileObjects.append(fileObject)
+                progress.completedUnitCount = Int64(fileObjects.count)
+                foundItemHandler?(fileObject)
+            }
+            completionHandler(fileObjects, responseError ?? error)
+        }
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
+        progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+        task.resume()
+        return progress
+    }
+    
+    @discardableResult
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((WebDavFileObject) -> Void)?, completionHandler: @escaping (_ files: [WebDavFileObject], _ error: Error?) -> Void) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
