@@ -154,14 +154,18 @@ open class FileObject: NSObject {
 }
 
 extension FileObject {
-    open override var hashValue: Int {
+    open override var hash: Int {
+        #if swift(>=4.2)
+        var hasher = Hasher()
+        hasher.combine(url)
+        hasher.combine(size)
+        hasher.combine(modifiedDate)
+        return hasher.finalize()
+        #else
         let hashURL =  self.url.hashValue
         let hashSize = self.size.hashValue
         return (hashURL << 7) &+ hashURL &+ hashSize
-    }
-    
-    open override var hash: Int {
-        return self.hashValue
+        #endif
     }
     
     /// Check `FileObject` equality

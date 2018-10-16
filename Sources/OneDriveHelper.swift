@@ -221,7 +221,6 @@ internal extension OneDriveFileProvider {
     private func upload_multipart(url: URL, operation: FileOperationType, size: Int64, range: Range<Int64>? = nil, uploadedSoFar: Int64 = 0,
                                   progress: Progress, dataProvider: @escaping (Range<Int64>) throws -> Data, completionHandler: SimpleCompletionHandler) {
         guard !progress.isCancelled else { return }
-        var progress = progress
         
         let maximumSize: Int64 = 10_485_760 // Recommended by OneDrive documentations and divides evenly by 320 KiB, max 60MiB.
         var request = URLRequest(url: url)
