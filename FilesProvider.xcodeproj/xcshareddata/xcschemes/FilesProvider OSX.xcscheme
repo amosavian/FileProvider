@@ -28,7 +28,26 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "79D903501FAB647400D61D31"
+               BuildableName = "FilesProviderTests.xctest"
+               BlueprintName = "FilesProviderTests"
+               ReferencedContainer = "container:FilesProvider.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "799396741D48B80D00086753"
+            BuildableName = "FilesProvider.framework"
+            BlueprintName = "FilesProvider OSX"
+            ReferencedContainer = "container:FilesProvider.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>

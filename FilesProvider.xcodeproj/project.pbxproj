@@ -824,6 +824,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -854,6 +855,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-iOS";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -894,6 +896,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -927,6 +930,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -963,6 +967,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-tvOS";
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 10.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -996,6 +1001,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-tvOS";
 				SDKROOT = appletvos;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 10.0;
 				VALIDATE_PRODUCT = YES;
