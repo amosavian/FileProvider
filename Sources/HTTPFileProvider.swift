@@ -506,7 +506,6 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     
     func upload_task(_ targetPath: String, progress: Progress, task: URLSessionTask, operation: FileOperationType,
                      completionHandler: SimpleCompletionHandler) -> Void {
-        var progress = progress
         
         var allData = Data()
         dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
@@ -591,7 +590,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                            responseHandler: ((_ response: URLResponse) -> Void)? = nil,
                            stream: OutputStream,
                            completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
-        var progress = Progress(totalUnitCount: -1)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -640,7 +639,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                                        responseHandler: ((_ response: URLResponse) -> Void)? = nil,
                                        progressHandler: @escaping (_ data: Data) -> Void,
                                        completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
-        var progress = Progress(totalUnitCount: -1)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
@@ -677,7 +676,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     
     internal func download_file(path: String, request: URLRequest, operation: FileOperationType,
                                   completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
-        var progress = Progress(totalUnitCount: -1)
+        let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)

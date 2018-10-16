@@ -235,8 +235,9 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
     
     private func randomData(size: Int = 262144) -> Data {
         var keyData = Data(count: size)
+        let count = keyData.count
         let result = keyData.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, keyData.count, $0)
+            SecRandomCopyBytes(kSecRandomDefault, count, $0)
         }
         if result == errSecSuccess {
             return keyData
