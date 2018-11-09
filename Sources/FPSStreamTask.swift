@@ -68,6 +68,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return FileProviderStreamTask.streamTasks[_taskIdentifier]
     }
     
+    /// Trust all certificates if true, Otherwise validate certificate chain.
+    public var trustAllCertificates: Bool = false
+    
     /**
      * An identifier uniquely identifies the task within a given session.
      *
@@ -414,6 +417,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         if isSecure {
             inputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
             outputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+
+            if trustAllCertificates {
+                // ※ Called, After setProperty securityLevel
+                addTrustAllCertificatesSettings()
+            }
         } else {
             inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
             outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
@@ -628,11 +636,27 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         isSecure = true
-        dispatch_queue.async {
-            if let inputStream = self.inputStream, let outputStream = self.outputStream,
-                inputStream.property(forKey: .socketSecurityLevelKey) as? String == StreamSocketSecurityLevel.none.rawValue {
+        if let inputStream = self.inputStream, let outputStream = self.outputStream,
+            inputStream.property(forKey: .socketSecurityLevelKey) as? String == StreamSocketSecurityLevel.none.rawValue {
+            if self.trustAllCertificates {
+                // ※ Called, Before setProperty securityLevel
+                self.addTrustAllCertificatesSettings()
+            }
+            
+            dispatch_queue.async {
                 inputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
                 outputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
+            }
+            
+            var sslSessionState: SSLSessionState = .idle
+            if let sslContext = inputStream.property(forKey: kCFStreamPropertySSLContext as Stream.PropertyKey) {
+                while SSLGetSessionState(sslContext as! SSLContext, UnsafeMutablePointer(&sslSessionState)) == errSSLWouldBlock ||
+                    sslSessionState == .idle || sslSessionState == .handshake {
+                        guard inputStream.streamError == nil, outputStream.streamError == nil else {
+                            break
+                        }
+                        Thread.sleep(forTimeInterval: 0.1)
+                }
             }
         }
     }
@@ -657,6 +681,22 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
             }
         }
+    }
+    
+    /**
+     * Add TrustAllCertificates SSLSettings to Input/OutputStream.
+     *
+     * - note: Connects to a remote socket server using a self-signed certificate
+     */
+    func addTrustAllCertificatesSettings() {
+        // Define custom SSL/TLS settings
+        let sslSettings: [NSString: Any] = [
+            NSString(format: kCFStreamSSLValidatesCertificateChain): kCFBooleanFalse,
+            NSString(format: kCFStreamSSLPeerName): kCFNull
+        ]
+        // Set custom SSL/TLS settings
+        inputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
+        outputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
     }
 }
 
