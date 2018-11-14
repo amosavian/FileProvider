@@ -194,7 +194,7 @@ internal extension FTPFileProvider {
                 
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
-                    passiveTask.trustAllCertificates = task.trustAllCertificates
+                    passiveTask.serverTrustPolicy = task.serverTrustPolicy
                     passiveTask.startSecureConnection()
                 }
                 passiveTask.securityLevel = .tlSv1
@@ -238,7 +238,7 @@ internal extension FTPFileProvider {
                 
                 let passiveTask = self.session.fpstreamTask(withHostName: host, port: port)
                 if self.baseURL?.scheme == "ftps" || self.baseURL?.scheme == "ftpes" || self.baseURL?.port == 990 {
-                    passiveTask.trustAllCertificates = task.trustAllCertificates
+                    passiveTask.serverTrustPolicy = task.serverTrustPolicy
                     passiveTask.startSecureConnection()
                 }
                 passiveTask.securityLevel = .tlSv1
@@ -260,7 +260,7 @@ internal extension FTPFileProvider {
         }
         let activeTask = self.session.fpstreamTask(withNetService: service)
         if self.baseURL?.scheme == "ftps" || self.baseURL?.port == 990 {
-            activeTask.trustAllCertificates = task.trustAllCertificates
+            activeTask.serverTrustPolicy = task.serverTrustPolicy
             activeTask.startSecureConnection()
         }
         activeTask.resume()
