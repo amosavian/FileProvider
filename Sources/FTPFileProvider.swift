@@ -216,6 +216,12 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     */
     public var securedDataConnection: Bool = true
     
+    /**
+     Trust all certificates if `disableEvaluation`, Otherwise validate certificate chain.
+     Default is `performDefaultEvaluation`.
+     */
+    public var serverTrustPolicy: ServerTrustPolicy = .performDefaultEvaluation(validateHost: true)
+    
     open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
     }
@@ -235,6 +241,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -290,6 +297,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -462,6 +470,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -512,6 +521,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -575,6 +585,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -629,6 +640,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -691,6 +703,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -772,6 +785,7 @@ extension FTPFileProvider {
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        task.serverTrustPolicy = serverTrustPolicy
         self.ftpLogin(task) { (error) in
             if let error = error {
                 completionHandler?(error)
