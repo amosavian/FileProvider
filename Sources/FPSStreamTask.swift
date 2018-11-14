@@ -68,8 +68,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return FileProviderStreamTask.streamTasks[_taskIdentifier]
     }
     
-    /// Trust all certificates if true, Otherwise validate certificate chain.
-    public var trustAllCertificates: Bool = false
+    /// Trust all certificates if `disableEvaluation`, Otherwise validate certificate chain.
+    public var serverTrustPolicy: ServerTrustPolicy = .performDefaultEvaluation(validateHost: true)
     
     /**
      * An identifier uniquely identifies the task within a given session.
@@ -418,7 +418,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             inputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
             outputStream.setProperty(securityLevel.rawValue, forKey: .socketSecurityLevelKey)
 
-            if trustAllCertificates {
+            if serverTrustPolicy.evaluate() {
                 // ※ Called, After setProperty securityLevel
                 addTrustAllCertificatesSettings()
             }
@@ -638,7 +638,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         isSecure = true
         if let inputStream = self.inputStream, let outputStream = self.outputStream,
             inputStream.property(forKey: .socketSecurityLevelKey) as? String == StreamSocketSecurityLevel.none.rawValue {
-            if self.trustAllCertificates {
+            if serverTrustPolicy.evaluate() {
                 // ※ Called, Before setProperty securityLevel
                 self.addTrustAllCertificatesSettings()
             }

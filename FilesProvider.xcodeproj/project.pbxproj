@@ -132,6 +132,9 @@
 		79F5745B1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745C1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
 		79F5745D1DFDB10B00179ABF /* FileObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F5745A1DFDB10A00179ABF /* FileObject.swift */; };
+		CE27C49B219BFFA0000BE23C /* ServerTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE27C498219BFFA0000BE23C /* ServerTrustPolicy.swift */; };
+		CE27C49C219C041E000BE23C /* ServerTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE27C498219BFFA0000BE23C /* ServerTrustPolicy.swift */; };
+		CE27C49D219C041E000BE23C /* ServerTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE27C498219BFFA0000BE23C /* ServerTrustPolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -206,6 +209,7 @@
 		79D903531FAB647400D61D31 /* FilesProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesProviderTests.swift; sourceTree = "<group>"; };
 		79D903551FAB647400D61D31 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		79F5745A1DFDB10A00179ABF /* FileObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileObject.swift; sourceTree = "<group>"; };
+		CE27C498219BFFA0000BE23C /* ServerTrustPolicy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ServerTrustPolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -352,6 +356,7 @@
 				798654321E8874BC002FA550 /* FTPHelper.swift */,
 				799396971D48C02300086753 /* SMBClient.swift */,
 				799396981D48C02300086753 /* SMBFileProvider.swift */,
+				CE27C498219BFFA0000BE23C /* ServerTrustPolicy.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -575,6 +580,7 @@
 				799396B31D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D41D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A21D89DAE000589DB7 /* Options.swift in Sources */,
+				CE27C49D219C041E000BE23C /* ServerTrustPolicy.swift in Sources */,
 				792572411DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7936BC121E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF61E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
@@ -619,6 +625,7 @@
 				799396B41D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D51D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A31D89DAE000589DB7 /* Options.swift in Sources */,
+				CE27C49C219C041E000BE23C /* ServerTrustPolicy.swift in Sources */,
 				792572421DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7936BC131E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF71E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
@@ -663,6 +670,7 @@
 				799396B51D48C02300086753 /* LocalFileProvider.swift in Sources */,
 				799396D61D48C02300086753 /* SMB2Tree.swift in Sources */,
 				7924B1A41D89DAE000589DB7 /* Options.swift in Sources */,
+				CE27C49B219BFFA0000BE23C /* ServerTrustPolicy.swift in Sources */,
 				792572431DF23BDA006A1526 /* LocalHelper.swift in Sources */,
 				7936BC141E880F5700A6C81C /* FTPFileProvider.swift in Sources */,
 				79480FF81E3ABDD0007E7275 /* CloudFileProvider.swift in Sources */,
