@@ -90,7 +90,7 @@ internal extension FTPFileProvider {
                     return
                 }
                 
-                self.ftpUserPass(task, completionHandler: completionHandler)
+                completionHandler(nil)
             })
         })
     }
