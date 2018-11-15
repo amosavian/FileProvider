@@ -225,6 +225,7 @@ internal extension FTPFileProvider {
                 
                 if response.trimmingCharacters(in: .whitespaces).hasPrefix("50") {
                     self.ftpPassive(task, completionHandler: completionHandler)
+                    return
                 }
                 
                 let destArray = destString.components(separatedBy: "|")
