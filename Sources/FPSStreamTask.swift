@@ -522,6 +522,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         }
         
         guard outputStream != nil else {
+            if self.state == .canceling || self.state == .completed {
+                completionHandler(URLError(.cancelled))
+            }
             return
         }
         if data.count > 4096 {
@@ -613,8 +616,10 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             return
         }
         dispatch_queue.async {
-            while inputStream.streamStatus != .atEnd {
-                Thread.sleep(forTimeInterval: 0.1)
+            if !self.isUploadTask {
+                while inputStream.streamStatus != .atEnd {
+                    Thread.sleep(forTimeInterval: 0.1)
+                }
             }
             inputStream.close()
             self.streamDelegate?.urlSession?(self._underlyingSession, readClosedFor: self)
@@ -679,6 +684,16 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 
                 inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
                 outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
+                
+                if let sslContext = inputStream.property(forKey: kCFStreamPropertySSLContext as Stream.PropertyKey) {
+                    while SSLClose(sslContext as! SSLContext) == errSSLWouldBlock {
+                        guard inputStream.streamError == nil || inputStream.streamError?._code == Int(errSSLClosedGraceful),
+                            outputStream.streamError == nil || outputStream.streamError?._code == Int(errSSLClosedGraceful) else {
+                                break
+                        }
+                        Thread.sleep(forTimeInterval: 0.1)
+                    }
+                }
             }
         }
     }
@@ -757,6 +772,7 @@ extension FileProviderStreamTask {
         
         if close {
             DispatchQueue.main.sync {
+                outputStream.close()
                 shouldCloseWrite = true
             }
             self.streamDelegate?.urlSession?(self._underlyingSession, writeClosedFor: self)
@@ -771,11 +787,6 @@ extension FileProviderStreamTask {
         inputStream?.close()
         inputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         inputStream = nil
-        
-        // TOFIX: This sleep is a workaround for truncated file uploading
-        if isUploadTask {
-            Thread.sleep(forTimeInterval: _underlyingSession.configuration.timeoutIntervalForRequest * 2)
-        }
         
         outputStream?.close()
         outputStream?.remove(from: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
