@@ -494,7 +494,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
             let isEOF = inputStream.streamStatus == .atEnd && self.dataReceived.count == 0
             self.dataReceivedLock.unlock()
-            completionHandler(dR, isEOF, dR == nil ? inputStream.streamError : nil)
+            completionHandler(dR, isEOF, dR == nil ? (timedOut ? URLError(.timedOut) : inputStream.streamError) : nil)
         }
     }
     
