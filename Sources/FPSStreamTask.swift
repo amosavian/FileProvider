@@ -546,7 +546,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         dispatch_queue.async {
             let result = self.write(timeout: timeout, close: false)
             if result < 0 {
-                let error = self.outputStream?.streamError ?? URLError(.cannotWriteToFile)
+                let error = self.outputStream?.streamError ??
+                    URLError((self.state == .canceling || self.state == .completed) ? .cancelled : .cannotWriteToFile)
                 completionHandler(error)
             } else {
                 completionHandler(nil)
