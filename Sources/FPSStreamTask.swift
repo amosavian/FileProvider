@@ -430,7 +430,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         inputStream.delegate = self
         outputStream.delegate = self
         
-        inputStream.schedule(in: .main, forMode: .common)
+        #if swift(>=4.2)
+        inputStream.schedule(in: RunLoop.main, forMode: RunLoop.Mode.common)
+        #else
+        inputStream.schedule(in: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        #endif
         //outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         
         inputStream.open()
@@ -769,7 +773,11 @@ extension FileProviderStreamTask {
         outputStream?.delegate = nil
         
         inputStream?.close()
-        inputStream?.remove(from: .main, forMode: .common)
+        #if swift(>=4.2)
+        inputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.common)
+        #else
+        inputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        #endif
         inputStream = nil
         
         // TOFIX: This sleep is a workaround for truncated file uploading
@@ -778,7 +786,11 @@ extension FileProviderStreamTask {
         }
         
         outputStream?.close()
-        outputStream?.remove(from: .main, forMode: .common)
+        #if swift(>=4.2)
+        outputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.common)
+        #else
+        outputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        #endif
         outputStream = nil
     }
     
