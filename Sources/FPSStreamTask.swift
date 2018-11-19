@@ -68,6 +68,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         return FileProviderStreamTask.streamTasks[_taskIdentifier]
     }
     
+    /// The end of the stream has been reached.
+    private var endEncountered: Bool = false
+    
     /// Trust all certificates if `disableEvaluation`, Otherwise validate certificate chain.
     public var serverTrustPolicy: ServerTrustPolicy = .performDefaultEvaluation(validateHost: true)
     
@@ -471,7 +474,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         dispatch_queue.async {
             var timedOut: Bool = false
             self.dataReceivedLock.lock()
-            while (self.dataReceived.count == 0 || self.dataReceived.count < minBytes) && !timedOut {
+            while (self.dataReceived.count == 0 || self.dataReceived.count < minBytes) && !timedOut && !self.endEncountered {
                 self.dataReceivedLock.unlock()
                 Thread.sleep(forTimeInterval: 0.1)
                 if let error = inputStream.streamError {
@@ -481,6 +484,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 timedOut = expireDate < Date()
                 self.dataReceivedLock.lock()
             }
+            self.endEncountered = false
             var dR: Data?
             if self.dataReceived.count > maxBytes {
                 let range: Range = 0..<maxBytes
@@ -720,6 +724,10 @@ extension FileProviderStreamTask {
         if eventCode.contains(.errorOccurred) {
             self._error = aStream.streamError
             streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)
+        }
+        
+        if aStream == inputStream && eventCode.contains(.endEncountered) {
+            endEncountered = true
         }
         
         if aStream == inputStream && eventCode.contains(.hasBytesAvailable) {
