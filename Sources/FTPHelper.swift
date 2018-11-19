@@ -20,6 +20,10 @@ internal extension FTPFileProvider {
                 return
             }
             
+            if task.state == .suspended {
+                task.resume()
+            }
+            
             self.readData(on: task, minLength: minLength, maxLength: 4096, timeout: timeout, afterSend: afterSend, completionHandler: completionHandler)
         }
     }
