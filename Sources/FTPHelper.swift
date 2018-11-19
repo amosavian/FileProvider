@@ -689,7 +689,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if !response.hasPrefix("2") {
-                    throw FileProviderFTPError(message: response)
+                    throw FileProviderFTPError(message: response, path: filePath)
                 }
             } catch {
                 completionHandler(error)
@@ -818,7 +818,7 @@ internal extension FTPFileProvider {
                             for line in lines {
                                 if !(line.hasPrefix("1") || line.hasPrefix("2")) {
                                     // FTP Error Response
-                                    throw FileProviderFTPError(message: response)
+                                    throw FileProviderFTPError(message: response, path: filePath)
                                 }
                             }
                         }
