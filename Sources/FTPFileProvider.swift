@@ -242,6 +242,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = FileOperationType.fetch(path: path).json
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -298,6 +299,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = FileOperationType.fetch(path: path).json
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -471,6 +473,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -522,6 +528,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -586,6 +596,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -641,6 +655,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -704,6 +722,10 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 self.dispatch_queue.async {
@@ -786,6 +808,10 @@ extension FTPFileProvider {
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
         task.serverTrustPolicy = serverTrustPolicy
+        task.taskDescription = operation.json
+        progress.cancellationHandler = { [weak task] in
+            task?.cancel()
+        }
         self.ftpLogin(task) { (error) in
             if let error = error {
                 completionHandler?(error)

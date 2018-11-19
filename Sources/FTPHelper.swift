@@ -20,6 +20,10 @@ internal extension FTPFileProvider {
                 return
             }
             
+            if task.state == .suspended {
+                task.resume()
+            }
+            
             self.readData(on: task, minLength: minLength, maxLength: 4096, timeout: timeout, afterSend: afterSend, completionHandler: completionHandler)
         }
     }
@@ -422,13 +426,12 @@ internal extension FTPFileProvider {
         let group = DispatchGroup()
         queue.async {
             var result = [FileObject]()
-            var success = true
+            var errorInfo:Error?
             group.enter()
             self.contentsOfDirectory(path: path, completionHandler: { (files, error) in
-                success = success && (error == nil)
                 if let error = error {
+                    errorInfo = error
                     group.leave()
-                    completionHandler([], error)
                     return
                 }
                 
@@ -442,9 +445,8 @@ internal extension FTPFileProvider {
                     group.enter()
                     _=self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler) {
                         (contents, error) in
-                        success = success && (error == nil)
                         if let error = error {
-                            completionHandler([], error)
+                            errorInfo = error
                             group.leave()
                             return
                         }
@@ -460,7 +462,9 @@ internal extension FTPFileProvider {
             })
             group.wait()
             
-            if success {
+            if let error = errorInfo {
+                completionHandler([], error)
+            } else {
                 self.dispatch_queue.async {
                     completionHandler(result, nil)
                 }
@@ -685,7 +689,7 @@ internal extension FTPFileProvider {
                 }
                 
                 if !response.hasPrefix("2") {
-                    throw FileProviderFTPError(message: response)
+                    throw FileProviderFTPError(message: response, path: filePath)
                 }
             } catch {
                 completionHandler(error)
@@ -814,7 +818,7 @@ internal extension FTPFileProvider {
                             for line in lines {
                                 if !(line.hasPrefix("1") || line.hasPrefix("2")) {
                                     // FTP Error Response
-                                    throw FileProviderFTPError(message: response)
+                                    throw FileProviderFTPError(message: response, path: filePath)
                                 }
                             }
                         }
