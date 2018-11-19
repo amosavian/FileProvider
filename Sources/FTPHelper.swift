@@ -426,13 +426,12 @@ internal extension FTPFileProvider {
         let group = DispatchGroup()
         queue.async {
             var result = [FileObject]()
-            var success = true
+            var errorInfo:Error?
             group.enter()
             self.contentsOfDirectory(path: path, completionHandler: { (files, error) in
-                success = success && (error == nil)
                 if let error = error {
+                    errorInfo = error
                     group.leave()
-                    completionHandler([], error)
                     return
                 }
                 
@@ -446,9 +445,8 @@ internal extension FTPFileProvider {
                     group.enter()
                     _=self.recursiveList(path: dir.path, useMLST: useMLST, foundItemsHandler: foundItemsHandler) {
                         (contents, error) in
-                        success = success && (error == nil)
                         if let error = error {
-                            completionHandler([], error)
+                            errorInfo = error
                             group.leave()
                             return
                         }
@@ -464,7 +462,9 @@ internal extension FTPFileProvider {
             })
             group.wait()
             
-            if success {
+            if let error = errorInfo {
+                completionHandler([], error)
+            } else {
                 self.dispatch_queue.async {
                     completionHandler(result, nil)
                 }
