@@ -74,6 +74,11 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     /// Trust all certificates if `disableEvaluation`, Otherwise validate certificate chain.
     public var serverTrustPolicy: ServerTrustPolicy = .performDefaultEvaluation(validateHost: true)
     
+    /// A pointer to a buffer containing the peer ID data to set.
+    var peerID: UnsafeRawPointer? = nil
+    /// The length of the peer ID data buffer.
+    var peerIDLen: Int = 0
+    
     /**
      * An identifier uniquely identifies the task within a given session.
      *
@@ -425,6 +430,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 // ※ Called, After setProperty securityLevel
                 addTrustAllCertificatesSettings()
             }
+            
+            inputStream.setSSLPeerID(peerID: peerID, peerIDLen: peerIDLen)
         } else {
             inputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
             outputStream.setProperty(StreamSocketSecurityLevel.none.rawValue, forKey: .socketSecurityLevelKey)
@@ -657,6 +664,8 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
                 self.addTrustAllCertificatesSettings()
             }
             
+            inputStream.setSSLPeerID(peerID: peerID, peerIDLen: peerIDLen)
+            
             dispatch_queue.async {
                 inputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
                 outputStream.setProperty(self.securityLevel.rawValue, forKey: .socketSecurityLevelKey)
@@ -722,6 +731,54 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         inputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
         outputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
     }
+    
+    /**
+     * Reuse SSL/TLS session used for the SSL/TLS session cache.
+     *
+     * - Parameter task: The task authenticated connection FTP over SSL/TLS.
+     */
+    func reuseSSLSession(task: FileProviderStreamTask) {
+        let sslPeerID = task.inputStream?.getSSLPeerID()
+        peerID = sslPeerID?.peerID
+        peerIDLen = sslPeerID?.peerIDLen ?? 0
+    }
+}
+
+extension Stream {
+    /**
+     * Retrieves the current peer ID data.
+     *
+     * - Returns:
+     *   - peerID: On return, points to a buffer containing the peer ID data.
+     *   - peerIDLen: On return, the length of the peer ID data buffer.
+     */
+    public func getSSLPeerID() -> (peerID: UnsafeRawPointer?, peerIDLen: Int) {
+        var peerID: UnsafeRawPointer? = nil
+        var peerIDLen: Int = 0
+        
+        if let sslContext = self.property(forKey: kCFStreamPropertySSLContext as Stream.PropertyKey) {
+            let _ = SSLGetPeerID(sslContext as! SSLContext, UnsafeMutablePointer(&peerID), UnsafeMutablePointer(&peerIDLen))
+        }
+        
+        return (peerID, peerIDLen)
+    }
+    
+    /**
+     * Specifies data that is sufficient to uniquely identify the peer of the current session.
+     * This peerID is used for the TLS session cache.
+     *
+     * - Parameter peerID: A pointer to a buffer containing the peer ID data to set.
+     * - Parameter peerIDLen: The length of the peer ID data buffer.
+     */
+    fileprivate func setSSLPeerID(peerID: UnsafeRawPointer?, peerIDLen: Int) {
+        guard peerID != nil, peerIDLen > 0 else {
+            return
+        }
+        
+        if let sslContext = self.property(forKey: kCFStreamPropertySSLContext as Stream.PropertyKey) {
+            let _ = SSLSetPeerID(sslContext as! SSLContext, peerID, peerIDLen)
+        }
+    }
 }
 
 extension FileProviderStreamTask {
@@ -732,7 +789,7 @@ extension FileProviderStreamTask {
         }
         
         if aStream == inputStream && eventCode.contains(.endEncountered) {
-            endEncountered = true
+            self.endEncountered = true
         }
         
         if aStream == inputStream && eventCode.contains(.hasBytesAvailable) {
@@ -794,6 +851,8 @@ extension FileProviderStreamTask {
     }
     
     fileprivate func finish() {
+        peerID = nil
+        
         inputStream?.delegate = nil
         outputStream?.delegate = nil
         
