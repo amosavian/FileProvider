@@ -542,9 +542,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             }
             return
         }
-        if data.count > 4096 {
-            isUploadTask = true
-        }
         
         self.dataToBeSentLock.lock()
         self.dataToBeSent.append(data)
@@ -611,8 +608,6 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
     
     fileprivate var shouldCloseWrite = false
     
-    fileprivate var isUploadTask = false
-    
     /**
      * Completes any enqueued reads and writes, and then closes the read side of the underlying socket.
      *
@@ -621,6 +616,19 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      * after calling this method will result in an error.
      */
     open func closeRead() {
+        closeRead(immediate: false)
+    }
+    
+    /**
+     * Completes any enqueued reads and writes, and then closes the read side of the underlying socket.
+     *
+     * You may continue to write data using the `write(_:timeout:completionHandler:)` method after
+     * calling this method. Any calls to `readData(ofMinLength:maxLength:timeout:completionHandler:)`
+     * after calling this method will result in an error.
+     *
+     * - Parameter immediate: close immediatly if true.
+     */
+    open func closeRead(immediate: Bool) {
         if #available(iOS 9.0, macOS 10.11, *) {
             if self.useURLSession {
                 _underlyingTask!.closeRead()
@@ -632,7 +640,7 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
             return
         }
         dispatch_queue.async {
-            if !self.isUploadTask {
+            if !immediate {
                 while inputStream.streamStatus != .atEnd {
                     Thread.sleep(forTimeInterval: 0.1)
                 }

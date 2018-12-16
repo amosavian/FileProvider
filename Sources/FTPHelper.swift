@@ -804,7 +804,7 @@ internal extension FTPFileProvider {
                         dataTask.stopSecureConnection()
                     }
                     // TOFIX: Close read/write stream for receive a FTP response from the server
-                    dataTask.closeRead()
+                    dataTask.closeRead(immediate: true)
                     dataTask.closeWrite()
                 }) { (response, error) in
                     do {
