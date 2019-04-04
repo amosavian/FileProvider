@@ -192,7 +192,7 @@ internal class AEXMLElement {
     }
     
     fileprivate func removeChild(_ child: AEXMLElement) {
-        if let childIndex = children.index(where: { $0 === child }) {
+        if let childIndex = children.firstIndex(where: { $0 === child }) {
             children.remove(at: childIndex)
         }
     }
@@ -266,7 +266,7 @@ internal class AEXMLElement {
     
 }
 
-public extension String {
+extension String {
     
     /// String representation of self with XML special characters escaped.
     public var xmlEscaped: String {

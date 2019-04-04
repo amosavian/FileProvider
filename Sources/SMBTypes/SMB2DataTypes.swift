@@ -31,11 +31,7 @@ protocol SMBRequestBody {
 
 extension SMBRequestBody {
     var command: SMB2.Command {
-        #if swift(>=3.1)
-            return Swift.type(of: self).command
-        #else
-            return type(of: self).command
-        #endif
+        return Swift.type(of: self).command
     }
     
     func data() -> Data {

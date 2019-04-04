@@ -21,7 +21,7 @@ public typealias ImageClass = NSImage
 public typealias SimpleCompletionHandler = ((_ error: Error?) -> Void)?
 
 /// This protocol defines FileProvider neccesary functions and properties to connect and get contents list
-public protocol FileProviderBasic: class, NSSecureCoding {
+public protocol FileProviderBasic: class, NSSecureCoding, CustomDebugStringConvertible {
     /// An string to identify type of provider.
     static var type: String { get }
     
@@ -202,6 +202,13 @@ extension FileProviderBasic {
         set {
             operation_queue.maxConcurrentOperationCount = newValue
         }
+    }
+    
+    public var debugDescription: String {
+        let typeDesc = "\(Self.type) provider"
+        let urlDesc = self.baseURL.map({ " - " + $0.absoluteString }) ?? ""
+        let credentialDesc = self.credential?.user.map({ " - " + $0.debugDescription }) ?? ""
+        return typeDesc + urlDesc + credentialDesc
     }
 }
 
@@ -425,7 +432,7 @@ public protocol FileProviderOperations: FileProviderBasic {
     func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress?
 }
 
-public extension FileProviderOperations {
+extension FileProviderOperations {
     @discardableResult
     public func moveItem(path: String, to: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return self.moveItem(path: path, to: to, overwrite: false, completionHandler: completionHandler)
@@ -442,7 +449,7 @@ public extension FileProviderOperations {
     }
 }
 
-internal extension FileProviderOperations {
+extension FileProviderOperations {
     internal func delegateNotify(_ operation: FileOperationType, error: Error? = nil) {
         DispatchQueue.main.async(execute: {
             if let error = error {
@@ -625,7 +632,7 @@ public protocol FileProviderReadWriteProgressive {
     func contents(path: String, offset: Int64, length: Int, responseHandler: ((_ response: URLResponse) -> Void)?, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress?
 }
 
-public extension FileProviderReadWriteProgressive {
+extension FileProviderReadWriteProgressive {
     @discardableResult
     public func contents(path: String, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
         return contents(path: path, offset: 0, length: -1, responseHandler: nil, progressHandler: progressHandler, completionHandler: completionHandler)
@@ -686,7 +693,7 @@ public protocol FileProvideUndoable: FileProviderOperations {
     func canUndo(operation: FileOperationType) -> Bool
 }
 
-public extension FileProvideUndoable {
+extension FileProvideUndoable {
     public func canUndo(operation: FileOperationType) -> Bool {
         return undoOperation(for: operation) != nil
     }
@@ -811,13 +818,9 @@ public protocol FileProvider: FileProviderOperations, FileProviderReadWrite, NSC
 }
 
 internal let pathTrimSet = CharacterSet(charactersIn: " /")
-public extension FileProviderBasic {
+extension FileProviderBasic {
     public var type: String {
-        #if swift(>=3.1)
         return Swift.type(of: self).type
-        #else
-        return type(of: self).type
-        #endif
     }
     
     public func url(of path: String) -> URL {
@@ -994,15 +997,7 @@ extension ExtendedFileProvider {
             scale = min(maxSize.width / frame.width, maxSize.height / frame.height)
         } else {
             #if os(macOS)
-            #if swift(>=4.0)
             scale = NSScreen.main?.backingScaleFactor ?? 1.0 // fetch device is retina or not
-            #elseif swift(>=3.3)
-            scale = NSScreen.main()?.backingScaleFactor ?? 1.0 // fetch device is retina or not
-            #elseif swift(>=3.2)
-            scale = NSScreen.main?.backingScaleFactor ?? 1.0 // fetch device is retina or not
-            #else
-            scale = NSScreen.main()?.backingScaleFactor ?? 1.0 // fetch device is retina or not
-            #endif
             #else
             scale = UIScreen.main.scale // fetch device is retina or not
             #endif
@@ -1012,34 +1007,16 @@ extension ExtendedFileProvider {
         let transform = pdfPage.getDrawingTransform(CGPDFBox.mediaBox, rect: rect, rotate: 0, preserveAspectRatio: true)
 
         #if os(macOS)
-        #if swift(>=4.0)
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
-                                    bytesPerRow: 0, bitsPerPixel: 0)
-        #elseif swift(>=3.3)
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                    colorSpaceName: NSCalibratedRGBColorSpace, bytesPerRow: 0, bitsPerPixel: 0)
-        #elseif swift(>=3.2)
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                    colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)
-        #else
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                    colorSpaceName: NSCalibratedRGBColorSpace,  bytesPerRow: 0, bitsPerPixel: 0)
-        #endif
+                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB,
+                                   bytesPerRow: 0, bitsPerPixel: 0)
         
         guard let context = NSGraphicsContext(bitmapImageRep: rep!) else {
             return nil
         }
             
         NSGraphicsContext.saveGraphicsState()
-        #if swift(>=4.0)
         NSGraphicsContext.current = context
-        #else
-        NSGraphicsContext.setCurrent(context)
-        #endif
         
         context.cgContext.concatenate(transform)
         context.cgContext.translateBy(x: 0, y: size.height)

@@ -168,30 +168,19 @@ extension FileObject {
         #endif
     }
     
-    /// Check `FileObject` equality
-    public static func ==(lhs: FileObject, rhs: FileObject) -> Bool {
-        if rhs === lhs  {
-            return true
-        }
-        #if swift(>=3.1)
-        if Swift.type(of: lhs) != Swift.type(of: rhs) {
-            return false
-        }
-        #else
-        if type(of: lhs) != type(of: rhs) {
-        return false
-        }
-        #endif
-        
-        if let rurl = rhs.allValues[.fileURLKey] as? URL, let lurl = lhs.allValues[.fileURLKey] as? URL {
-            return rurl == lurl && rhs.size == lhs.size
-        }
-        return rhs.path == lhs.path && rhs.size == lhs.size && rhs.modifiedDate == lhs.modifiedDate
-    }
-    
     open override func isEqual(_ object: Any?) -> Bool {
         guard let object = object as? FileObject else { return false }
-        return self == object
+        if self === object  {
+            return true
+        }
+        if Swift.type(of: self) != Swift.type(of: object) {
+            return false
+        }
+        
+        if let rurl = self.allValues[.fileURLKey] as? URL, let lurl = object.allValues[.fileURLKey] as? URL {
+            return rurl == lurl && self.size == object.size
+        }
+        return self.path == object.path && self.size == object.size && self.modifiedDate == object.modifiedDate
     }
 }
 
@@ -234,6 +223,7 @@ extension FileObject {
             case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
             case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub[0])
             case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+            @unknown default: fatalError()
             }
         } else if let cQuery = query as? NSComparisonPredicate {
             var newLeft = cQuery.leftExpression

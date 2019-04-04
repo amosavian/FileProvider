@@ -28,12 +28,8 @@ public final class OneDriveFileObject: FileObject {
         let path: String
         if let refpath = (json["parentReference"] as? [String: Any])?["path"] as? String {
             let parentPath: String
-            if let colonIndex = refpath.index(of: ":") {
-                #if swift(>=4.0)
+            if let colonIndex = refpath.firstIndex(of: ":") {
                 parentPath = String(refpath[refpath.index(after: colonIndex)...])
-                #else
-                parentPath = refpath.substring(from: refpath.index(after: colonIndex))
-                #endif
             } else {
                 parentPath = refpath
             }
@@ -151,8 +147,8 @@ public final class OneDriveFileObject: FileObject {
     }
 }
 
-internal extension OneDriveFileProvider {
-    internal func upload_multipart_data(_ targetPath: String, data: Data, operation: FileOperationType,
+extension OneDriveFileProvider {
+    func upload_multipart_data(_ targetPath: String, data: Data, operation: FileOperationType,
                                         overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return self.upload_multipart(targetPath, operation: operation, size: Int64(data.count), overwrite: overwrite, dataProvider: {
             let range = $0.clamped(to: 0..<Int64(data.count))
@@ -160,7 +156,7 @@ internal extension OneDriveFileProvider {
         }, completionHandler: completionHandler)
     }
     
-    internal func upload_multipart_file(_ targetPath: String, file: URL, operation: FileOperationType,
+    func upload_multipart_file(_ targetPath: String, file: URL, operation: FileOperationType,
                                         overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // upload task can't handle uploading file
         

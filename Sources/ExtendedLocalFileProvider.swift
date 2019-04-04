@@ -199,11 +199,7 @@ public struct LocalFileInformationGenerator {
     static public var audioThumbnail: (_ fileURL: URL, _ dimension: CGSize?) -> ImageClass? = { fileURL, dimension in
         let playerItem = AVPlayerItem(url: fileURL)
         let metadataList = playerItem.asset.commonMetadata
-        #if swift(>=4.0)
         let commonKeyArtwork = AVMetadataKey.commonKeyArtwork
-        #else
-        let commonKeyArtwork = AVMetadataCommonKeyArtwork
-        #endif
         for item in metadataList {
             if item.commonKey == commonKeyArtwork {
                 if let data = item.dataValue {
@@ -356,11 +352,7 @@ public struct LocalFileInformationGenerator {
         let playerItem = AVPlayerItem(url: fileURL)
         let metadataList = playerItem.asset.commonMetadata
         for item in metadataList {
-            #if swift(>=4.0)
-                let commonKey = item.commonKey?.rawValue
-            #else
-                let commonKey = item.commonKey
-            #endif
+            let commonKey = item.commonKey?.rawValue
             if let key = makeKeyDescription(commonKey) {
                 if commonKey == "location", let value = item.stringValue, let loc = parseLocationData(value) {
                     keys.append(key)
@@ -401,16 +393,12 @@ public struct LocalFileInformationGenerator {
             dic = audioprops.prop
             keys = audioprops.keys
             dic.removeValue(forKey: "Duration")
-            if let index = keys.index(of: "Duration") {
+            if let index = keys.firstIndex(of: "Duration") {
                 keys.remove(at: index)
             }
         }
         let asset = AVURLAsset(url: fileURL, options: nil)
-        #if swift(>=4.0)
         let videoTracks = asset.tracks(withMediaType: AVMediaType.video)
-        #else
-        let videoTracks = asset.tracks(withMediaType: AVMediaTypeVideo)
-        #endif
         if let videoTrack = videoTracks.first {
             var bitrate: Float = 0
             let width = Int(videoTrack.naturalSize.width)
@@ -424,11 +412,7 @@ public struct LocalFileInformationGenerator {
             add(key: "Duration", value: TimeInterval(duration).formatshort)
             add(key: "Video Bitrate", value: "\(Int(ceil(bitrate / 1000))) kbps")
         }
-        #if swift(>=4.0)
         let audioTracks = asset.tracks(withMediaType: AVMediaType.audio)
-        #else
-        let audioTracks = asset.tracks(withMediaType: AVMediaTypeAudio)
-        #endif
         // dic["Audio channels"] = audioTracks.count
         var bitrate: Float = 0
         for track in audioTracks {

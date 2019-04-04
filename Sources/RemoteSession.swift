@@ -26,8 +26,8 @@ extension FileProviderHTTPError {
         return "Status \(code.rawValue): \(code.description)"
     }
     
-    public var errorDescription: String? {
-        return "Status \(code.rawValue): \(code.description)"
+    public var localizedDescription: String {
+        return description
     }
 }
 

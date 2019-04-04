@@ -8,7 +8,7 @@
 
 import Foundation
 
-public extension Array where Element: FileObject {
+extension Array where Element: FileObject {
     /// Returns a sorted array of `FileObject`s by criterias set in attributes.
     public func sort(by type: FileObjectSorting.SortType, ascending: Bool = true, isDirectoriesFirst: Bool = false) -> [Element] {
         let sorting = FileObjectSorting(type: type, ascending: ascending, isDirectoriesFirst: isDirectoriesFirst)
@@ -28,7 +28,7 @@ public extension Sequence where Iterator.Element == UInt8 {
     }
 }
 
-public extension URLFileResourceType {
+extension URLFileResourceType {
     /// **FileProvider** returns corresponding `URLFileResourceType` of a `FileAttributeType` value
     public init(fileTypeValue: FileAttributeType) {
         switch fileTypeValue {
@@ -70,7 +70,7 @@ extension URLError {
     }
 }
 
-public extension URLResourceKey {
+extension URLResourceKey {
     /// **FileProvider** returns url of file object.
     public static let fileURLKey = URLResourceKey(rawValue: "NSURLFileURLKey")
     /// **FileProvider** returns modification date of file in server
@@ -85,7 +85,7 @@ public extension URLResourceKey {
     public static let childrensCount = URLResourceKey(rawValue: "MFPURLChildrensCount")
 }
 
-public extension ProgressUserInfoKey {
+extension ProgressUserInfoKey {
     /// **FileProvider** returns associated `FileProviderOperationType`
     public static let fileProvderOperationTypeKey = ProgressUserInfoKey("MFPOperationTypeKey")
     /// **FileProvider** returns start date/time of operation
@@ -117,7 +117,7 @@ internal extension URL {
     #endif
 }
 
-public extension URLRequest {
+extension URLRequest {
     /// Defines HTTP Authentication method required to access
     public enum AuthenticationType {
         /// Basic method for authentication
@@ -399,8 +399,8 @@ internal extension CharacterSet {
     static let filePathAllowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))
 }
 
-internal extension Data {
-    internal var isPDF: Bool {
+extension Data {
+    var isPDF: Bool {
         return self.count > 4 && self.scanString(length: 4, using: .ascii) == "%PDF"
     }
     
@@ -423,13 +423,22 @@ internal extension Data {
     
     func scanValue<T>() -> T? {
         guard MemoryLayout<T>.size <= self.count else { return nil }
+        #if swift(>=5.0)
+        return self.withUnsafeBytes { $0.load(as: T.self) }
+        #else
         return self.withUnsafeBytes { $0.pointee }
+        #endif
     }
     
     func scanValue<T>(start: Int) -> T? {
         let length = MemoryLayout<T>.size
         guard self.count >= start + length else { return nil }
-        return self.subdata(in: start..<start+length).withUnsafeBytes { $0.pointee }
+        let subdata = self.subdata(in: start..<start+length)
+        #if swift(>=5.0)
+        return subdata.withUnsafeBytes { $0.load(as: T.self) }
+        #else
+        return subdata.withUnsafeBytes { $0.pointee }
+        #endif
     }
     
     func scanString(start: Int = 0, length: Int, using encoding: String.Encoding = .utf8) -> String? {
@@ -467,7 +476,7 @@ internal extension String {
     }
 }
 
-internal extension NSNumber {
+extension NSNumber {
     internal func format(precision: Int = 2, style: NumberFormatter.Style = .decimal) -> String {
         let formatter = NumberFormatter()
         formatter.maximumFractionDigits = precision
@@ -476,7 +485,7 @@ internal extension NSNumber {
     }
 }
 
-internal extension String {
+extension String {
     internal var pathExtension: String {
         return (self as NSString).pathExtension
     }
@@ -494,8 +503,8 @@ internal extension String {
     }
 }
 
-internal extension TimeInterval {
-    internal var formatshort: String {
+extension TimeInterval {
+    var formatshort: String {
         var result = "0:00"
         if self < TimeInterval(Int32.max) {
             result = ""
@@ -520,7 +529,7 @@ internal extension TimeInterval {
     }
 }
 
-public extension Date {
+extension Date {
     /// Date formats used commonly in internet messaging defined by various RFCs.
     public enum RFCStandards: String {
         /// Obsolete (2-digit year) date format defined by RFC 822 for http.
@@ -587,6 +596,51 @@ public extension Date {
         return fm.string(from: self)
     }
 }
+
+extension InputStream {
+    func readData(ofLength length: Int) throws -> Data {
+        var data = Data(count: length)
+        #if swift(>=5.0)
+        let result = data.withUnsafeMutableBytes { (buf) -> Int in
+            let p = buf.bindMemory(to: UInt8.self).baseAddress!
+            return self.read(p, maxLength: buf.count)
+        }
+        #else
+        let bufcount = data.count
+        let result = data.withUnsafeMutableBytes { (p) -> Int in
+            return self.read(p, maxLength: bufcount)
+        }
+        #endif
+        if result < 0 {
+            throw self.streamError ?? POSIXError(.EIO)
+        } else {
+            data.count = result
+            return data
+        }
+    }
+}
+
+extension OutputStream {
+    func write(data: Data) throws -> Int {
+        #if swift(>=5.0)
+        let result = data.withUnsafeBytes { (buf) -> Int in
+            let p = buf.bindMemory(to: UInt8.self).baseAddress!
+            return self.write(p, maxLength: buf.count)
+        }
+        #else
+        let bufcount = data.count
+        let result = data.withUnsafeBytes { (p) -> Int in
+            return self.write(p, maxLength: bufcount)
+        }
+        #endif
+        if result < 0 {
+            throw self.streamError ?? POSIXError(.EIO)
+        } else {
+            return result
+        }
+    }
+}
+
 
 internal extension NSPredicate {
     func findValue(forKey key: String?, operator op: NSComparisonPredicate.Operator? = nil) -> Any? {

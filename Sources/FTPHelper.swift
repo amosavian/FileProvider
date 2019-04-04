@@ -533,10 +533,7 @@ internal extension FTPFileProvider {
                                     data.count = Int(Int64(length) - totalReceived)
                                 }
                                 totalReceived += Int64(data.count)
-                                let dataCount = data.count
-                                let result = data.withUnsafeBytes({ p in
-                                    stream.write(p, maxLength: dataCount)
-                                })
+                                let result = (try? stream.write(data: data)) ?? -1
                                 if result < 0 {
                                     error_lock.lock()
                                     error = stream.streamError ?? URLError(.cannotWriteToFile, url: self.url(of: filePath))
@@ -632,11 +629,8 @@ internal extension FTPFileProvider {
         if useCache, let url = URL(string: filePath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? filePath, relativeTo: self.baseURL!)?.absoluteURL, let cachedResponse = self.cache?.cachedResponse(for: URLRequest(url: url)), cachedResponse.data.count > 0 {
             dispatch_queue.async {
                 let data = cachedResponse.data
-                let dataCount = data.count
                 stream.open()
-                let result = data.withUnsafeBytes({ p in
-                    stream.write(p, maxLength: dataCount)
-                })
+                let result = (try? stream.write(data: data)) ?? -1
                 if result > 0 {
                     completionHandler?(nil)
                 } else {
@@ -743,20 +737,16 @@ internal extension FTPFileProvider {
                         }
                         
                         lock.lock()
-                        var subdata = Data.init(count: chunkSize)
-                        let count = subdata.withUnsafeMutableBytes { buffer in
-                            stream.read(buffer, maxLength: chunkSize)
-                        }
-                        if count < 0 {
+                        
+                        guard var subdata = try? stream.readData(ofLength: chunkSize) else {
                             lock.unlock()
                             completionOnce {
                                 completionHandler(stream.streamError ?? URLError(.requestBodyStreamExhausted, url: self.url(of: filePath)))
                             }
                             return
                         }
-                        subdata.count = count
                         lock.unlock()
-                        if count == 0 { break }
+                        if subdata.isEmpty { break }
                         
                         let group = DispatchGroup()
                         group.enter()
@@ -871,25 +861,20 @@ internal extension FTPFileProvider {
             }
             var sent: Int64 = position
             repeat {
-                var subdata = Data.init(count: chunkSize)
-                let count = subdata.withUnsafeMutableBytes { buffer in
-                    stream.read(buffer, maxLength: chunkSize)
-                }
-                if count < 0 {
+                guard let subdata = try? stream.readData(ofLength: chunkSize) else {
                     completionHandler(stream.streamError ?? URLError(.requestBodyStreamExhausted, url: self.url(of: filePath)))
                     return
                 }
-                subdata.count = count
-                if count == 0 { break }
+                if subdata.isEmpty { break }
                 
                 let group = DispatchGroup()
                 group.enter()
                 self.ftpStore(task, data: subdata, to: filePath, from: sent, onTask: onTask, completionHandler: { (serror) in
                     error = serror
                     if serror == nil {
-                        sent += Int64(count)
+                        sent += Int64(subdata.count)
                         group.leave()
-                        onProgress?(Int64(count), sent, size)
+                        onProgress?(Int64(subdata.count), sent, size)
                     }
                 })
                 let waitResult = group.wait(timeout: .now() + timeout)
@@ -1059,11 +1044,7 @@ internal extension FTPFileProvider {
         let path = path.appendingPathComponent(name).replacingOccurrences(of: "/", with: "", options: .anchored)
         
         let file = FileObject(url: url(of: path), name: name, path: "/" + path)
-        #if swift(>=4.0)
         let typeChar = posixPermission.first ?? Character(" ")
-        #else
-        let typeChar = posixPermission.characters.first ?? Character(" ")
-        #endif
         switch String(typeChar) {
         case "d": file.type = .directory
         case "l": file.type = .symbolicLink
@@ -1202,20 +1183,11 @@ public struct FileProviderFTPError: LocalizedError {
     
     init(message response: String, path: String) {
         let message = response.components(separatedBy: .newlines).last ?? "No Response"
-        #if swift(>=4.0)
-        let startIndex = (message.index(of: "-") ?? message.index(of: " ")) ?? message.startIndex
+        let startIndex = (message.firstIndex(of: "-") ?? message.firstIndex(of: " ")) ?? message.startIndex
         self.code = Int(message[..<startIndex].trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-        #else
-        let startIndex = (message.characters.index(of: "-") ?? message.characters.index(of: " ")) ?? message.startIndex
-        self.code = Int(message.substring(to: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
-        #endif
         self.path = path
         if code > 0 {
-            #if swift(>=4.0)
             self.serverDescription = message[startIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
-            #else
-            self.serverDescription = message.substring(from: startIndex).trimmingCharacters(in: .whitespacesAndNewlines)
-            #endif
         } else {
             self.serverDescription = message
         }

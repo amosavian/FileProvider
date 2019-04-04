@@ -72,8 +72,8 @@ public final class DropboxFileObject: FileObject {
     }
 }
 
-internal extension DropboxFileProvider {
-    internal func correctPath(_ path: String?) -> String? {
+extension DropboxFileProvider {
+    func correctPath(_ path: String?) -> String? {
         guard let path = path else { return nil }
         if path.hasPrefix("id:") || path.hasPrefix("rev:") {
             return path
@@ -85,7 +85,7 @@ internal extension DropboxFileProvider {
         return p
     }
     
-    internal func listRequest(path: String, queryStr: String? = nil, recursive: Bool = false) -> ((_ token: String?) -> URLRequest?) {
+    func listRequest(path: String, queryStr: String? = nil, recursive: Bool = false) -> ((_ token: String?) -> URLRequest?) {
         if let queryStr = queryStr {
             return { [weak self] (token) -> URLRequest? in
                 guard let `self` = self else { return nil }

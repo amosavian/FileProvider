@@ -65,6 +65,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
     }
     
     func testFTPPassive() {
+        /*
         guard let urlStr = ProcessInfo.processInfo.environment["ftp_url"] else { return }
         let url = URL(string: urlStr)!
         let cred: URLCredential?
@@ -73,6 +74,11 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         } else {
             cred = nil
         }
+        */
+        let url = URL(string: "ftp://ftp.edmapplication.com")!
+        let cred = URLCredential(user: "abbas@edmapplication.com", password: "baTsivWZ4", persistence: .forSession)
+        //let url = URL(string: "ftpes://ftp.adidas-group.com:21")!
+        //let cred = URLCredential(user: "ecomwe-reversals-full", password: "rNeUj726Xqk2k", persistence: .forSession)
         let provider = FTPFileProvider(baseURL: url, mode: .extendedPassive, credential: cred)!
         provider.delegate = self
         testArchiving(provider)

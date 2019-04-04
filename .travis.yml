@@ -1,5 +1,5 @@
 language: objective-c
-osx_image: xcode10
+osx_image: xcode10.2
 xcode_project: $PROJECTNAME.xcodeproj
 env:
   global: 
@@ -13,14 +13,14 @@ env:
   - MACOS_SDK=macosx
   - TVOS_SDK=appletvsimulator
   matrix:
-    - DESTINATION="OS=11.0,name=iPad Pro (10.5-inch)"  SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     CARTHAGEDEPLOY="YES"
-    - DESTINATION="OS=11.0,name=iPhone 8"              SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     POD="YES"
+    - DESTINATION="OS=12.2,name=iPad Pro (10.5-inch)"  SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     CARTHAGEDEPLOY="YES"
+    - DESTINATION="OS=12.2,name=iPhone 8"              SCHEME="$IOS_FRAMEWORK_SCHEME"     SDK="$IOS_SDK"     POD="YES"
     - DESTINATION="arch=x86_64"                        SCHEME="$MACOS_FRAMEWORK_SCHEME"   SDK="$MACOS_SDK"
     - DESTINATION="arch=x86_64"                        SCHEME="FilesProviderTests"        SDK="$MACOS_SDK"   RUN_TESTS="YES"
-    - DESTINATION="OS=11.0,name=Apple TV 1080p"        SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"
+    - DESTINATION="OS=12.2,name=Apple TV 1080p"        SCHEME="$TVOS_FRAMEWORK_SCHEME"    SDK="$TVOS_SDK"
 before_install:
-  - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
-  - gem install cocoapods --no-rdoc --no-ri --no-document --quiet
+  - gem install xcpretty --no-document --quiet
+  - gem install cocoapods --no-document --quiet
   # - gem install xcpretty-travis-formatter
 
 script:

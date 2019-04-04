@@ -105,11 +105,7 @@ open class LocalFileProvider: NSObject, FileProvider, FileProviderMonitor, FileP
         self.credential = nil
         self.isCoorinating = false
         
-        #if swift(>=3.1)
         let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-        let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"

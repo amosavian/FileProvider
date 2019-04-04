@@ -511,22 +511,25 @@
 					};
 					799396741D48B80D00086753 = {
 						CreatedOnToolsVersion = 7.3.1;
+						LastSwiftMigration = 1020;
 					};
 					799396811D48B82700086753 = {
 						CreatedOnToolsVersion = 7.3.1;
 					};
 					79D903501FAB647400D61D31 = {
 						CreatedOnToolsVersion = 9.1;
+						LastSwiftMigration = 1020;
 						ProvisioningStyle = Automatic;
 					};
 				};
 			};
 			buildConfigurationList = 7993965F1D48B7BF00086753 /* Build configuration list for PBXProject "FilesProvider" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = 7993965B1D48B7BF00086753;
 			productRefGroup = 799396681D48B7F600086753 /* Products */;
@@ -904,7 +907,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -938,7 +941,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mousavian.FilesProvider-OSX";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1051,6 +1054,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -1083,6 +1087,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.mousavian.FilesProviderTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
