@@ -119,9 +119,7 @@ class SMBClient: NSObject, StreamDelegate {
         var data = data
         var byteSent: Int = 0
         while data.count > 0 {
-            let bytesWritten = data.withUnsafeBytes {
-                outputStream.write($0, maxLength: data.count)
-            }
+            let bytesWritten: Int = (try? outputStream.write(data: data)) ?? -1
             
             if bytesWritten > 0 {
                 let range = 0..<bytesWritten

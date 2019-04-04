@@ -379,6 +379,33 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         task.resume()
     }
     
+    /*internal var cachedDriveID: String?
+    
+    override func doOperation(_ operation: FileOperationType, overwrite: Bool, progress: Progress?, completionHandler: SimpleCompletionHandler) -> Progress? {
+        switch operation {
+        case .copy(source: let source, destination: let dest) where !source.hasPrefix("file://") && !dest.hasPrefix("file://"):
+            fallthrough
+        case .move:
+            if self.cachedDriveID != nil {
+                return super.doOperation(operation, overwrite: overwrite, progress: progress, completionHandler: completionHandler)
+            } else {
+                let progress = Progress(totalUnitCount: 1)
+                self.storageProperties(completionHandler: { (volume) in
+                    if let volumeId = volume?.uuid {
+                        self.cachedDriveID = volumeId
+                        _ = super.doOperation(operation, overwrite: overwrite, progress: progress, completionHandler: completionHandler)
+                    } else {
+                        let error = self.urlError(operation.source, code: .badServerResponse)
+                        completionHandler?(error)
+                    }
+                })
+                return progress
+            }
+        default:
+            return super.doOperation(operation, overwrite: overwrite, progress: progress, completionHandler: completionHandler)
+        }
+    }*/
+    
     /**
      Uploads a file from local file url to designated path asynchronously.
      Method will fail if source is not a local url with `file://` scheme.
@@ -624,6 +651,11 @@ extension OneDriveFileProvider: ExtendedFileProvider {
         case 97...176: thumbQuery = "medium"
         default:       thumbQuery = "large"
         }
+        /*if let dimension = dimension {
+            thumbQuery = "c\(Int(dimension.width))x\(Int(dimension.height))"
+        } else {
+            thumbQuery = "small"
+        }*/
         let url = self.url(of: path, modifier: "thumbnails")
             .appendingPathComponent("0").appendingPathComponent(thumbQuery)
             .appendingPathComponent("content")

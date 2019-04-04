@@ -93,11 +93,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         self.cache = cache
         self.credential = credential
         
-        #if swift(>=3.1)
-            let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-            let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
+        let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"
@@ -606,9 +602,8 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
             guard !data.isEmpty else { return }
             task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
-            let result = data.withUnsafeBytes {
-                stream.write($0, maxLength: data.count)
-            }
+            
+            let result = (try? stream.write(data: data)) ?? -1
             if result < 0 {
                 completionHandler(stream.streamError!)
                 self?.delegateNotify(operation, error: stream.streamError!)

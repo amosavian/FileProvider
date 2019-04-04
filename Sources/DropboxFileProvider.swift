@@ -436,11 +436,11 @@ extension DropboxFileProvider: ExtendedFileProvider {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             return true
         case "doc", "docx", "docm", "xls", "xlsx", "xlsm":
-            return true
+            return false
         case  "ppt", "pps", "ppsx", "ppsm", "pptx", "pptm":
-            return true
+            return false
         case "rtf":
-            return true
+            return false
         default:
             return false
         }

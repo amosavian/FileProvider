@@ -323,11 +323,19 @@ final class HMAC<Variant: SHA2Variant> {
     }
     
     static func authenticate(message: Data, withKey key: Data) -> Data {
+        #if swift(>=5.0)
+        return Data(authenticate(message: Array(message), withKey: Array(key)))
+        #else
         return Data(bytes: authenticate(message: Array(message), withKey: Array(key)))
+        #endif
     }
     
     static func authenticate(message: String, withKey key: Data) -> Data {
+        #if swift(>=5.0)
+        return Data(authenticate(message: [UInt8](message.utf8), withKey: Array(key)))
+        #else
         return Data(bytes: authenticate(message: [UInt8](message.utf8), withKey: Array(key)))
+        #endif
     }
 }
 
@@ -397,29 +405,18 @@ fileprivate func toUInt64Array(_ slice: ArraySlice<UInt8>) -> Array<UInt64> {
     return result
 }
 
-fileprivate func arrayOfBytes<T>(_ value:T, length:Int? = nil) -> [UInt8] {
-    let totalBytes = length ?? MemoryLayout<T>.size
-    
-    let valuePointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
-    
-    valuePointer.pointee = value
-    
-    let bytesPointer = UnsafeMutableRawPointer(valuePointer).assumingMemoryBound(to: UInt8.self)
-    var bytes = [UInt8](repeating: 0, count: totalBytes)
-    for j in 0..<min(MemoryLayout<T>.size,totalBytes) {
-        bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
+fileprivate func arrayOfBytes<T>(_ value: T, length: Int? = nil) -> [UInt8] {
+    var value = value
+    return Swift.withUnsafeBytes(of: &value) { (buffer: UnsafeRawBufferPointer) -> [UInt8] in
+        if let length = length {
+            return Array(buffer.prefix(length))
+        } else {
+            return Array(buffer)
+        }
     }
-    
-    valuePointer.deinitialize(count: 1)
-    #if swift(>=4.1)
-    valuePointer.deallocate()
-    #else
-    valuePointer.deallocate(capacity: 1)
-    #endif
-    return bytes
 }
 
-public extension String {
+extension String {
     public func fp_sha256() -> [UInt8] {
         return SHA2<SHA256>.calculate([UInt8](self.utf8))
     }
@@ -433,7 +430,7 @@ public extension String {
     }
 }
 
-public extension Data {
+extension Data {
     public func fp_sha256() -> [UInt8] {
         return SHA2<SHA256>.calculate(Array(self))
     }

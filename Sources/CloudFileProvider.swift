@@ -82,11 +82,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         super.init(baseURL: baseURL)
         self.isCoorinating = true
         
-        #if swift(>=3.1)
-            let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
-        #else
-            let queueLabel = "FileProvider.\(type(of: self).type)"
-        #endif
+        let queueLabel = "FileProvider.\(Swift.type(of: self).type)"
         dispatch_queue = DispatchQueue(label: queueLabel, attributes: .concurrent)
         operation_queue = OperationQueue()
         operation_queue.name = "\(queueLabel).Operation"
@@ -570,6 +566,7 @@ extension CloudFileProvider {
             case .and: return NSCompoundPredicate(andPredicateWithSubpredicates: newSub)
             case .not: return NSCompoundPredicate(notPredicateWithSubpredicate: newSub.first!)
             case .or:  return NSCompoundPredicate(orPredicateWithSubpredicates: newSub)
+            @unknown default: fatalError()
             }
         } else if let cQuery = queryComponent as? NSComparisonPredicate {
             var newLeft = cQuery.leftExpression
@@ -599,11 +596,7 @@ extension CloudFileProvider {
         }
         
         let path = self.relativePathOf(url: url)
-        #if swift(>=4.0)
         let rpath = path.hasPrefix("/") ? String(path[path.index(after: path.startIndex)...]) : path
-        #else
-        let rpath = path.hasPrefix("/") ? path.substring(from: path.index(after: path.startIndex)) : path
-        #endif
         let relativeUrl = URL(string: rpath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rpath, relativeTo: self.baseURL)
         let file = FileObject(url: relativeUrl ?? url, name: name, path: path)
         

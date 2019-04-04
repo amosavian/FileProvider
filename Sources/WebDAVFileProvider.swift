@@ -467,11 +467,7 @@ struct DavResponse {
     init? (_ node: AEXMLElement, baseURL: URL?) {
         
         func standardizePath(_ str: String) -> String {
-            #if swift(>=4.0)
             let trimmedStr = str.hasPrefix("/") ? String(str[str.index(after: str.startIndex)...]) : str
-            #else
-            let trimmedStr = str.hasPrefix("/") ? str.substring(from: str.index(after: str.startIndex)) : str
-            #endif
             return trimmedStr.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? str
         }
         

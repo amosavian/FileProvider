@@ -441,9 +441,9 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
         outputStream.delegate = self
         
         #if swift(>=4.2)
-        inputStream.schedule(in: RunLoop.main, forMode: RunLoop.Mode.common)
+        inputStream.schedule(in: RunLoop.main, forMode: .common)
         #else
-        inputStream.schedule(in: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        inputStream.schedule(in: RunLoop.main, forMode: .commonModes)
         #endif
         //outputStream.schedule(in: RunLoop.main, forMode: .init("kCFRunLoopDefaultMode"))
         
@@ -731,10 +731,17 @@ public class FileProviderStreamTask: URLSessionTask, StreamDelegate {
      */
     func addTrustAllCertificatesSettings() {
         // Define custom SSL/TLS settings
+        #if swift(>=5.0)
+        let sslSettings: [NSString: Any] = [
+            NSString(format: kCFStreamSSLValidatesCertificateChain): kCFBooleanFalse!,
+            NSString(format: kCFStreamSSLPeerName): kCFNull!
+        ]
+        #else
         let sslSettings: [NSString: Any] = [
             NSString(format: kCFStreamSSLValidatesCertificateChain): kCFBooleanFalse,
             NSString(format: kCFStreamSSLPeerName): kCFNull
         ]
+        #endif
         // Set custom SSL/TLS settings
         inputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
         outputStream?.setProperty(sslSettings, forKey: kCFStreamPropertySSLSettings as Stream.PropertyKey)
@@ -830,10 +837,7 @@ extension FileProviderStreamTask {
                 return byteSent == 0 ? -1 : byteSent
             }
             
-            let count = self.dataToBeSent.count
-            let bytesWritten: Int = self.dataToBeSent.withUnsafeBytes {
-                outputStream.write($0, maxLength: count)
-            }
+            let bytesWritten: Int = (try? outputStream.write(data: self.dataToBeSent)) ?? -1
             
             if bytesWritten > 0 {
                 self.dataToBeSent.removeFirst(bytesWritten)
@@ -866,17 +870,17 @@ extension FileProviderStreamTask {
         
         inputStream?.close()
         #if swift(>=4.2)
-        inputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.common)
+        inputStream?.remove(from: RunLoop.main, forMode: .common)
         #else
-        inputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        inputStream?.remove(from: RunLoop.main, forMode: .commonModes)
         #endif
         inputStream = nil
         
         outputStream?.close()
         #if swift(>=4.2)
-        outputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.common)
+        outputStream?.remove(from: RunLoop.main, forMode: .common)
         #else
-        outputStream?.remove(from: RunLoop.main, forMode: RunLoop.Mode.commonModes)
+        outputStream?.remove(from: RunLoop.main, forMode: .commonModes)
         #endif
         outputStream = nil
     }
