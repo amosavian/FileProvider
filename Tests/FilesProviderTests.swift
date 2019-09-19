@@ -2,7 +2,7 @@
 //  FilesProviderTests.swift
 //  FilesProviderTests
 //
-//  Created by Amir Abbas on 8/11/1396 AP.
+//  Created by Faizz Jamaludin on 02/08/2017 AP.
 //
 
 import XCTest
@@ -117,7 +117,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
     let textFilePath = "/Test/file.txt"
     let renamedFilePath = "/Test/renamed.txt"
     let uploadFilePath = "/Test/uploaded.dat"
-    let sampleText = "Hello world!"
+    let sampleText = "Hello FJ!"
     
     fileprivate func testCreateFolder(_ provider: FileProvider, folderName: String) {
         let desc = "Creating folder at root in \(provider.type)"
