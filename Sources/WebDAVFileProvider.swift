@@ -404,8 +404,38 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
 
 extension WebDAVFileProvider: ExtendedFileProvider {
     #if os(macOS) || os(iOS) || os(tvOS)
+    private func nextcloudPreviewURL(of path: String) -> URL? {
+        // Check that this is a Nextcloud server
+        guard self.baseURL?.absoluteString.lowercased().contains("remote.php/dav/files/") ?? false else {
+            return nil
+        }
+        
+        var rpath = path.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? path
+        if let baseURL = baseURL,
+           let index = baseURL.pathComponents.firstIndex(of: "remote.php") {
+            if rpath.hasPrefix("/") {
+                rpath.remove(at: rpath.startIndex)
+            }
+            
+            // Remove Nextcloud files path components
+            var previewURL = baseURL
+            for _ in 0 ..< baseURL.pathComponents.count - index {
+                previewURL.deleteLastPathComponent()
+            }
+            
+            previewURL.appendPathComponent("index.php")
+            previewURL.appendPathComponent("core")
+            previewURL.appendPathComponent("preview.png")
+            
+            return URL(string: previewURL.absoluteString + "?file=\(rpath)")!
+        }
+        
+        return nil
+    }
+    
     open func thumbnailOfFileSupported(path: String) -> Bool {
-        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+        guard self.baseURL?.host?.contains("dav.yandex.") ?? false
+            || nextcloudPreviewURL(of: path) != nil else {
             return false
         }
         let supportedExt: [String] = ["jpg", "jpeg", "png", "gif"]
@@ -414,15 +444,26 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     
     @discardableResult
     open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
-        guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
-            dispatch_queue.async {
-                completionHandler(nil, URLError(.resourceUnavailable, url: self.url(of: path)))
+        let url: URL
+        
+        if let nextcloudURL = self.nextcloudPreviewURL(of: path) {
+            if let dimension = dimension {
+                url = URL(string: nextcloudURL.absoluteString + "&x=\(dimension.width)&y=\(dimension.height)&a=1&mode=cover")!
+            } else {
+                url = URL(string: nextcloudURL.absoluteString + "&a=1&mode=cover")!
             }
-            return nil
+        } else {
+            guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
+                dispatch_queue.async {
+                    completionHandler(nil, URLError(.resourceUnavailable, url: self.url(of: path)))
+                }
+                return nil
+            }
+            
+            let dimension = dimension ?? CGSize(width: 64, height: 64)
+            url = URL(string: self.url(of: path).absoluteString + "?preview&size=\(dimension.width)x\(dimension.height)")!
         }
         
-        let dimension = dimension ?? CGSize(width: 64, height: 64)
-        let url = URL(string: self.url(of: path).absoluteString + "?preview&size=\(dimension.width)x\(dimension.height)")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(authentication: credential, with: credentialType)
