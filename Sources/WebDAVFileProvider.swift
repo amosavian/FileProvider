@@ -439,7 +439,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
             return false
         }
         let supportedExt: [String] = ["jpg", "jpeg", "png", "gif"]
-        return supportedExt.contains(path.pathExtension)
+        return supportedExt.contains(path.pathExtension.lowercased())
     }
     
     @discardableResult
