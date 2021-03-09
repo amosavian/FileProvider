@@ -226,7 +226,7 @@ extension OneDriveFileProvider {
         let finalRange: Range<Int64>
         if let range = range {
             if range.count > maximumSize {
-                finalRange = range.lowerBound..<(range.upperBound + maximumSize)
+                finalRange = range.lowerBound..<(range.lowerBound + maximumSize)
             } else {
                 finalRange = range
             }
@@ -295,7 +295,7 @@ extension OneDriveFileProvider {
                 let comp = firstRange.components(separatedBy: "-")
                 let lower = comp.first.flatMap(Int64.init) ?? uploaded
                 let upper = comp.dropFirst().first.flatMap(Int64.init) ?? Int64.max
-                let range = Range<Int64>(uncheckedBounds: (lower: lower, upper: upper))
+                let range = Range<Int64>(uncheckedBounds: (lower: lower, upper: upper + 1))
                 self.upload_multipart(url: url, operation: operation, size: size, range: range, uploadedSoFar: uploaded, progress: progress,
                                       dataProvider: dataProvider, completionHandler: completionHandler)
                 return
