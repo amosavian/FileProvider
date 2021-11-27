@@ -32,22 +32,42 @@ extension FileProviderHTTPError {
 }
 
 internal var completionHandlersForTasks = [String: [Int: SimpleCompletionHandler]]()
+internal var completionHandlersForTasksQueue = DispatchQueue(label: "completionHandlersForTasksQueue", attributes: .concurrent)
 internal var downloadCompletionHandlersForTasks = [String: [Int: (URL) -> Void]]()
+internal var downloadCompletionHandlersForTasksQueue = DispatchQueue(label: "downloadCompletionHandlersForTasks", attributes: .concurrent)
 internal var dataCompletionHandlersForTasks = [String: [Int: (Data) -> Void]]()
+internal var dataCompletionHandlersForTasksQueue = DispatchQueue(label: "dataCompletionHandlersForTasks", attributes: .concurrent)
 internal var responseCompletionHandlersForTasks = [String: [Int: (URLResponse) -> Void]]()
+internal var responseCompletionHandlersForTasksQueue = DispatchQueue(label: "responseCompletionHandlersForTasks", attributes: .concurrent)
 
 internal func initEmptySessionHandler(_ uuid: String) {
-    completionHandlersForTasks[uuid] = [:]
-    downloadCompletionHandlersForTasks[uuid] = [:]
-    dataCompletionHandlersForTasks[uuid] = [:]
-    responseCompletionHandlersForTasks[uuid] = [:]
+    completionHandlersForTasksQueue.async(flags: .barrier) {
+        completionHandlersForTasks[uuid] = [:]
+    }
+    downloadCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        downloadCompletionHandlersForTasks[uuid] = [:]
+    }
+    dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        dataCompletionHandlersForTasks[uuid] = [:]
+    }
+    responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        responseCompletionHandlersForTasks[uuid] = [:]
+    }
 }
 
 internal func removeSessionHandler(for uuid: String) {
-    _ = completionHandlersForTasks.removeValue(forKey: uuid)
-    _ = downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
-    _ = dataCompletionHandlersForTasks.removeValue(forKey: uuid)
-    _ = responseCompletionHandlersForTasks.removeValue(forKey: uuid)
+    completionHandlersForTasksQueue.async(flags: .barrier) {
+        _ = completionHandlersForTasks.removeValue(forKey: uuid)
+    }
+    downloadCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        _ = downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
+    }
+    dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        _ = dataCompletionHandlersForTasks.removeValue(forKey: uuid)
+    }
+    responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        _ = responseCompletionHandlersForTasks.removeValue(forKey: uuid)
+    }
 }
 
 /// All objects set to `FileProviderRemote.session` must be an instance of this class
@@ -149,37 +169,64 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         self.removeObservers(for: task)
         
-        _ = dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+        dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            _ = dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+        }
         if !(error == nil && task is URLSessionDownloadTask) {
-            let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
-            completionHandler?(error)
-            _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+            completionHandlersForTasksQueue.async { [weak self] in
+                guard let self = self else { return }
+                
+                let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
+                completionHandler?(error)
+            }
+            
+            completionHandlersForTasksQueue.async(flags: .barrier) { [weak self] in
+                guard let self = self else { return }
+                
+                _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
+            }
         }
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
-        dcompletionHandler?(location)
-        _ = downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
-        _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        downloadCompletionHandlersForTasksQueue.async {
+            let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
+            dcompletionHandler?(location)
+        }
+
+        downloadCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            _ = downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        }
+            
+        completionHandlersForTasksQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            
+            _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
+        }
     }
     
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-        let handler = responseCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] ?? nil
-        handler?(response)
+        responseCompletionHandlersForTasksQueue.async{
+            let handler = responseCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] ?? nil
+            handler?(response)
+        }
+        
         completionHandler(.allow)
-        _ = responseCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
+        responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            _ = responseCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
+        }
     }
     
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        if let completionHandler = dataCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] {
-            /*if let json = dataTask.taskDescription?.deserializeJSON(),
-               let op = FileOperationType(json: json), let fileProvider = fileProvider {
-                fileProvider.delegateNotify(op, progress: Double(dataTask.countOfBytesReceived) / Double(dataTask.countOfBytesExpectedToReceive))
-            }*/
-            completionHandler(data)
+        dataCompletionHandlersForTasksQueue.async {
+            if let completionHandler = dataCompletionHandlersForTasks[session.sessionDescription!]?[dataTask.taskIdentifier] {
+                /*if let json = dataTask.taskDescription?.deserializeJSON(),
+                   let op = FileOperationType(json: json), let fileProvider = fileProvider {
+                    fileProvider.delegateNotify(op, progress: Double(dataTask.countOfBytesReceived) / Double(dataTask.countOfBytesExpectedToReceive))
+                }*/
+                completionHandler(data)
+            }
         }
-        
     }
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
