@@ -169,18 +169,18 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         self.removeObservers(for: task)
         
-        dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        dataCompletionHandlersForTasksQueue.sync(flags: .barrier) {
             _ = dataCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
         }
         if !(error == nil && task is URLSessionDownloadTask) {
-            completionHandlersForTasksQueue.async { [weak self] in
+            completionHandlersForTasksQueue.sync { [weak self] in
                 guard let self = self else { return }
                 
                 let completionHandler = completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] ?? nil
                 completionHandler?(error)
             }
             
-            completionHandlersForTasksQueue.async(flags: .barrier) { [weak self] in
+            completionHandlersForTasksQueue.sync(flags: .barrier) { [weak self] in
                 guard let self = self else { return }
                 
                 _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: task.taskIdentifier)
@@ -189,16 +189,16 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
     }
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        downloadCompletionHandlersForTasksQueue.async {
+        downloadCompletionHandlersForTasksQueue.sync {
             let dcompletionHandler = downloadCompletionHandlersForTasks[session.sessionDescription!]?[downloadTask.taskIdentifier]
             dcompletionHandler?(location)
         }
 
-        downloadCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        downloadCompletionHandlersForTasksQueue.sync(flags: .barrier) {
             _ = downloadCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
         }
             
-        completionHandlersForTasksQueue.async(flags: .barrier) { [weak self] in
+        completionHandlersForTasksQueue.sync(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             
             _ = completionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: downloadTask.taskIdentifier)
@@ -212,7 +212,7 @@ final public class SessionDelegate: NSObject, URLSessionDataDelegate, URLSession
         }
         
         completionHandler(.allow)
-        responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+        responseCompletionHandlersForTasksQueue.sync(flags: .barrier) {
             _ = responseCompletionHandlersForTasks[session.sessionDescription!]?.removeValue(forKey: dataTask.taskIdentifier)
         }
     }
