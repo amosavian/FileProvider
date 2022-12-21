@@ -101,6 +101,8 @@ public final class OneDriveFileObject: FileObject {
         //url.appendPathComponent("v1.0")
         url.appendPathComponent(route.drivePath)
         
+        rpath = rpath.trimmingCharacters(in: pathTrimSet)
+        
         if rpath.isEmpty {
             url.appendPathComponent("root")
         } else if isId {
@@ -109,7 +111,7 @@ public final class OneDriveFileObject: FileObject {
             url.appendPathComponent("root:")
         }
         
-        rpath = rpath.trimmingCharacters(in: pathTrimSet)
+        
         
         switch (modifier == nil, rpath.isEmpty, isId) {
         case (true, false, _):
@@ -140,7 +142,7 @@ public final class OneDriveFileObject: FileObject {
             let components = crudePath.components(separatedBy: "/")
             return components.dropFirst().first.map { "id:\($0)" } ?? ""
         case hasPrefix("root:"):
-            return crudePath.components(separatedBy: ":").dropFirst().first ?? ""
+            return crudePath.components(separatedBy: ":").dropFirst().first?.trimmingCharacters(in: pathTrimSet) ?? ""
         default:
             return ""
         }
