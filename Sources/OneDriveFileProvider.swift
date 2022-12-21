@@ -312,6 +312,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            request.setValue(authentication: self.credential, with: .oAuth2)
             return request
         }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
