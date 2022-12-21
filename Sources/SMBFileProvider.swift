@@ -44,7 +44,7 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
                   credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"))
     }
     
-    open func encode(with aCoder: NSCoder) {
+    public func encode(with aCoder: NSCoder) {
         aCoder.encode(self.baseURL, forKey: "baseURL")
         aCoder.encode(self.credential, forKey: "credential")
     }
@@ -53,15 +53,15 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
         return true
     }
     
-    open func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObjectClass], _ error: Error?) -> Void) {
+    public func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObjectClass], _ error: Error?) -> Void) {
         NotImplemented()
     }
     
-    open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObjectClass?, _ error: Error?) -> Void) {
+    public func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObjectClass?, _ error: Error?) -> Void) {
         NotImplemented()
     }
     
-    open func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
+    public func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
         NotImplemented()
     }
     
@@ -71,69 +71,69 @@ class SMBFileProvider: FileProvider, FileProviderMonitor {
     
     open weak var fileOperationDelegate: FileOperationDelegate?
     
-    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func moveItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func copyItem(path: String, to toPath: String, overwrite: Bool = false, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    public func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) -> Progress? {
+    public func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler:((FileObjectClass) -> Void)?, completionHandler: @escaping ((_ files: [FileObjectClass], _ error: Error?) -> Void)) -> Progress? {
         NotImplemented()
         return nil
     }
     
-    open func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
+    public func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         NotImplemented()
     }
     
-    open func unregisterNotifcation(path: String) {
+    public func unregisterNotifcation(path: String) {
         NotImplemented()
     }
     
-    open func isRegisteredForNotification(path: String) -> Bool {
+    public func isRegisteredForNotification(path: String) -> Bool {
         return false
     }
     
-    open func copy(with zone: NSZone? = nil) -> Any {
+    public func copy(with zone: NSZone? = nil) -> Any {
         let copy = SMBFileProvider(baseURL: self.baseURL!, credential: self.credential!)!
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate

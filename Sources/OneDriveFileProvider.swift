@@ -158,12 +158,12 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
-    open override func encode(with aCoder: NSCoder) {
+    public override func encode(with aCoder: NSCoder) {
         super.encode(with: aCoder)
         aCoder.encode(self.route.rawValue, forKey: "route")
     }
     
-    open override func copy(with zone: NSZone? = nil) -> Any {
+    public override func copy(with zone: NSZone? = nil) -> Any {
         let copy = OneDriveFileProvider(credential: self.credential, serverURL: self.baseURL, route: self.route, cache: self.cache)
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
@@ -183,7 +183,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - contents: An array of `FileObject` identifying the the directory entries.
        - error: Error returned by system.
      */
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    public override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         _ = paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
             guard let `self` = self else { return nil }
             let url = token.flatMap(URL.init(string:)) ?? self.url(of: path, modifier: "children")
@@ -220,7 +220,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
        - attributes: A `FileObject` containing the attributes of the item.
        - error: Error returned by system.
      */
-    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    public override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.setValue(authentication: self.credential, with: .oAuth2)
@@ -241,7 +241,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     
     /// Returns volume/provider information asynchronously.
     /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
-    open override func storageProperties(completionHandler: @escaping  (_ volumeInfo: VolumeObject?) -> Void) {
+    public override func storageProperties(completionHandler: @escaping  (_ volumeInfo: VolumeObject?) -> Void) {
         let url = URL(string: route.drivePath, relativeTo: baseURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -290,7 +290,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     @discardableResult
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    public override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).compactMap { $0.value as? String }.first
         
         return paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
@@ -339,7 +339,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter path: Relative path of file or directory.
      - Returns: An url, can be used to access to file directly.
      */
-    open override func url(of path: String) -> URL {
+    public override func url(of path: String) -> URL {
         return OneDriveFileObject.url(of: path, modifier: nil, baseURL: baseURL!, route: route)
     }
     
@@ -350,11 +350,11 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter modifier: Added to end of url to indicate what it can used for, e.g. `contents` to fetch data.
      - Returns: An url, can be used to access to file directly.
      */
-    open func url(of path: String, modifier: String? = nil) -> URL {
+    public func url(of path: String, modifier: String? = nil) -> URL {
         return OneDriveFileObject.url(of: path, modifier: modifier, baseURL: baseURL!, route: route)
     }
     
-    open override func relativePathOf(url: URL) -> String {
+    public override func relativePathOf(url: URL) -> String {
         return OneDriveFileObject.relativePathOf(url: url, baseURL: baseURL, route: route)
     }
     
@@ -363,9 +363,9 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     /// - Note: To prevent race condition, use this method wisely and avoid it as far possible.
     ///
     /// - Parameter success: indicated server is reachable or not.
-    open override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         var request = URLRequest(url: url(of: ""))
         request.httpMethod = "HEAD"
+    public override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         request.setValue(authentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
@@ -421,7 +421,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress.
      */
     @discardableResult
-    open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
@@ -449,7 +449,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
-    open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
@@ -576,7 +576,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         NotImplemented()
     }
     
-    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+    public func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         var request = URLRequest(url: self.url(of: path, modifier: "createLink"))
         request.httpMethod = "POST"
         let requestDictionary: [String: Any] = ["type": "view"]
@@ -601,12 +601,12 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
 
 
 extension OneDriveFileProvider: ExtendedFileProvider {
-    open func propertiesOfFileSupported(path: String) -> Bool {
+    public func propertiesOfFileSupported(path: String) -> Bool {
         return true
     }
     
     @discardableResult
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
+    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         var request = URLRequest(url: url(of: path))
         request.httpMethod = "GET"
         request.setValue(authentication: credential, with: .oAuth2)
@@ -628,7 +628,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     }
     
     #if os(macOS) || os(iOS) || os(tvOS)
-    open func thumbnailOfFileSupported(path: String) -> Bool {
+    public func thumbnailOfFileSupported(path: String) -> Bool {
         let fileExt = path.pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
@@ -645,7 +645,7 @@ extension OneDriveFileProvider: ExtendedFileProvider {
     }
     
     @discardableResult
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
+    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let thumbQuery: String
         switch dimension.map( {max($0.width, $0.height) } ) ?? 0 {
         case 0...96:   thumbQuery = "small"

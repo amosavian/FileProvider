@@ -59,7 +59,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
-    override open func copy(with zone: NSZone? = nil) -> Any {
+    override public func copy(with zone: NSZone? = nil) -> Any {
         let copy = WebDAVFileProvider(baseURL: self.baseURL!, credential: self.credential, cache: self.cache)!
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
@@ -79,7 +79,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
        - contents: An array of `FileObject` identifying the the directory entries.
        - error: Error returned by system.
      */
-    override open func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
+    override public func contentsOfDirectory(path: String, completionHandler: @escaping (([FileObject], Error?) -> Void)) {
         let query = NSPredicate(format: "TRUEPREDICATE")
         _ = searchFiles(path: path, recursive: false, query: query, including: [], foundItemHandler: nil, completionHandler: completionHandler)
     }
@@ -95,12 +95,12 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Parameter contents: An array of `FileObject` identifying the the directory entries.
      - Parameter error: Error returned by system.
      */
-    open func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    public func contentsOfDirectory(path: String, including: [URLResourceKey], completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let query = NSPredicate(format: "TRUEPREDICATE")
         _ = searchFiles(path: path, recursive: false, query: query, including: including, foundItemHandler: nil, completionHandler: completionHandler)
     }
     
-    override open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    override public func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         self.attributesOfItem(path: path, including: [], completionHandler: completionHandler)
     }
     
@@ -115,7 +115,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
        - attributes: A `FileObject` containing the attributes of the item.
        - error: Error returned by system.
      */
-    open func attributesOfItem(path: String, including: [URLResourceKey], completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    public func attributesOfItem(path: String, including: [URLResourceKey], completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -141,7 +141,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     
     /// Returns volume/provider information asynchronously.
     /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
-    override open func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
+    override public func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         // Not all WebDAV clients implements RFC2518 which allows geting storage quota.
         // In this case you won't get error. totalSize is NSURLSessionTransferSizeUnknown
         // and used space is zero.
@@ -195,7 +195,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     @discardableResult
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ([FileObject], Error?) -> Void) -> Progress? {
+    public override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping ([FileObject], Error?) -> Void) -> Progress? {
         return searchFiles(path: path, recursive: recursive, query: query, including: [], foundItemHandler: foundItemHandler, completionHandler: completionHandler)
     }
     
@@ -225,7 +225,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     @discardableResult
-    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    public func searchFiles(path: String, recursive: Bool, query: NSPredicate, including: [URLResourceKey], foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let url = self.url(of: path)
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
@@ -271,7 +271,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return progress
     }
     
-    override open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
+    override public func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         var request = URLRequest(url: baseURL!)
         request.httpMethod = "PROPFIND"
         request.setValue("0", forHTTPHeaderField: "Depth")
@@ -290,7 +290,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         })
     }
     
-    open func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
+    public func publicLink(to path: String, completionHandler: @escaping ((URL?, FileObject?, Date?, Error?) -> Void)) {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
                 completionHandler(nil, nil, nil, URLError(.resourceUnavailable, url: self.url(of: path)))
@@ -404,7 +404,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
 
 extension WebDAVFileProvider: ExtendedFileProvider {
     #if os(macOS) || os(iOS) || os(tvOS)
-    open func thumbnailOfFileSupported(path: String) -> Bool {
+    public func thumbnailOfFileSupported(path: String) -> Bool {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             return false
         }
@@ -413,7 +413,7 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     }
     
     @discardableResult
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
+    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((ImageClass?, Error?) -> Void)) -> Progress? {
         guard self.baseURL?.host?.contains("dav.yandex.") ?? false else {
             dispatch_queue.async {
                 completionHandler(nil, URLError(.resourceUnavailable, url: self.url(of: path)))
@@ -441,12 +441,12 @@ extension WebDAVFileProvider: ExtendedFileProvider {
     }
     #endif
     
-    open func propertiesOfFileSupported(path: String) -> Bool {
+    public func propertiesOfFileSupported(path: String) -> Bool {
         return false
     }
     
     @discardableResult
-    open func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) -> Progress? {
+    public func propertiesOfFile(path: String, completionHandler: @escaping (([String : Any], [String], Error?) -> Void)) -> Progress? {
         dispatch_queue.async {
             completionHandler([:], [], URLError(.resourceUnavailable, url: self.url(of: path)))
         }

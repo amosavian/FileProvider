@@ -738,7 +738,7 @@ internal extension FTPFileProvider {
                         
                         lock.lock()
                         
-                        guard var subdata = try? stream.readData(ofLength: chunkSize) else {
+                        guard let subdata = try? stream.readData(ofLength: chunkSize) else {
                             lock.unlock()
                             completionOnce {
                                 completionHandler(stream.streamError ?? URLError(.requestBodyStreamExhausted, url: self.url(of: filePath)))

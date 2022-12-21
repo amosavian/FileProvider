@@ -92,7 +92,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         guard let pass = ProcessInfo.processInfo.environment["onedrive_token"] else {
             return
         }
-        let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
+        let cred = URLCredential(user: "anonymous", password: pass, persistence: .forSession)
         let provider = OneDriveFileProvider(credential: cred)
         provider.delegate = self
         testBasic(provider)

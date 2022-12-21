@@ -108,7 +108,7 @@ internal class AEXMLDocument: AEXMLElement {
     
         - parameter data: XML which should be parsed.
     */
-    open func loadXML(_ data: Data) throws {
+    public func loadXML(_ data: Data) throws {
         children.removeAll(keepingCapacity: false)
         let xmlParser = AEXMLParser(document: self, data: data)
         try xmlParser.parse()
@@ -117,7 +117,7 @@ internal class AEXMLDocument: AEXMLElement {
     // MARK: - Override
     
     /// Override of `xml` property of `AEXMLElement` - it just inserts XML Document header at the beginning.
-    open override var xml: String {
+    public override var xml: String {
         var xml =  "\(options.documentHeader.xmlString)\n"
         for child in children {
             xml += child.xml

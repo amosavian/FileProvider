@@ -17,7 +17,7 @@ import Foundation
  */
 open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     /// An string to identify type of provider.
-    open override class var type: String { return "iCloudDrive" }
+    public override class var type: String { return "iCloudDrive" }
     
     /// Forces file operations to use `NSFileCoordinating`,
     /// Actually this is readonly, and value is always true.
@@ -110,13 +110,13 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         }
     }
     
-    open override func encode(with aCoder: NSCoder) {
+    public override func encode(with aCoder: NSCoder) {
         super.encode(with: aCoder)
         aCoder.encode(self.containerId, forKey: "containerId")
         aCoder.encode(self.scope.rawValue, forKey: "scope")
     }
     
-    open override func copy(with zone: NSZone? = nil) -> Any {
+    public override func copy(with zone: NSZone? = nil) -> Any {
         let copy = CloudFileProvider(containerId: self.containerId, scope: self.scope)
         copy?.delegate = self.delegate
         copy?.fileOperationDelegate = self.fileOperationDelegate
@@ -134,7 +134,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
        - contents: An array of `FileObject` identifying the the directory entries.
        - error: Error returned by system.
      */
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    public override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         // FIXME: create runloop for dispatch_queue, start query on it
         let query = NSPredicate(format: "TRUEPREDICATE")
         _ = searchFiles(path: path, recursive: false, query: query, completionHandler: completionHandler)
@@ -142,7 +142,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     
     /// Please don't rely this function to get iCloud drive total and remaining capacity
     /// - Important: iCloud Storage size and free space is unavailable, it returns local space
-    open override func storageProperties(completionHandler: @escaping (VolumeObject?) -> Void) {
+    public override func storageProperties(completionHandler: @escaping (VolumeObject?) -> Void) {
         super.storageProperties(completionHandler: completionHandler)
     }
     
@@ -157,7 +157,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
        - attributes: A `FileObject` containing the attributes of the item.
        - error: Error returned by system.
      */
-    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    public override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let query = NSPredicate(format: "%K LIKE[CD] %@", NSMetadataItemPathKey, path)
         _ = searchFiles(path: path, recursive: false, query: query, completionHandler: { (files, error) in
             completionHandler(files.first, error)
@@ -189,7 +189,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     @discardableResult
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    public override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         
         let pathURL = self.url(of: path)
@@ -279,7 +279,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
         return progress
     }
     
-    open override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
+    public override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         dispatch_queue.async {
             completionHandler(self.fileManager.ubiquityIdentityToken != nil, nil)
         }
@@ -298,7 +298,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `CloudFileProvider`.
      */
     @discardableResult
-    open override func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return super.removeItem(path: path, completionHandler: completionHandler)
     }
     
@@ -314,7 +314,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress.
      */
     @discardableResult
-    open override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // TODO: Make use of overwrite parameter
         let operation = FileOperationType.copy(source: localFile.absoluteString, destination: toPath)
         let progress = Progress(totalUnitCount: -1)
@@ -383,7 +383,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress.
      */
     @discardableResult
-    open override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func copyItem(path: String, toLocalURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: toLocalURL.absoluteString)
         let progress = super.copyItem(path: path, toLocalURL: toLocalURL, completionHandler: completionHandler)
         monitorTransmissionProgress(path: path, operation: operation, progress: progress)
@@ -409,7 +409,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress.
      */
     @discardableResult
-    open override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    public override func contents(path: String, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         let progress = super.contents(path: path, completionHandler: completionHandler)
         monitorTransmissionProgress(path: path, operation: operation, progress: progress)
@@ -430,7 +430,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress.
      */
     @discardableResult
-    open override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    public override func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         let progress = super.contents(path: path, offset: offset, length: length, completionHandler: completionHandler)
         monitorTransmissionProgress(path: path, operation: operation, progress: progress)
@@ -449,7 +449,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Returns: A `Progress` object to get progress or cancel progress. Doesn't work on `LocalFileProvider`.
      */
     @discardableResult
-    open override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    public override func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
@@ -478,7 +478,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
        - path: path of directory.
        - eventHandler: Closure executed after change, on a secondary thread.
      */
-    open override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
+    public override func registerNotifcation(path: String, eventHandler: @escaping (() -> Void)) {
         self.unregisterNotifcation(path: path)
         let pathURL = self.url(of: path)
         let query = NSMetadataQuery()
@@ -505,7 +505,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     /// Stops monitoring the path.
     ///
     /// - Parameter path: path of directory.
-    open override func unregisterNotifcation(path: String) {
+    public override func unregisterNotifcation(path: String) {
         guard let (query, observer) = monitors[path] else {
             return
         }
@@ -519,11 +519,11 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
     ///
     /// - Parameter path: path of directory.
     /// - Returns: Directory is being monitored or not.
-    open override func isRegisteredForNotification(path: String) -> Bool {
+    public override func isRegisteredForNotification(path: String) -> Bool {
         return monitors[path] != nil
     }
     
-    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+    public func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         operation_queue.addOperation {
             do {
                 var expiration: NSDate?
@@ -544,7 +544,7 @@ open class CloudFileProvider: LocalFileProvider, FileProviderSharing {
      - Parameter path: Path of file or directory to be removed from local.
      - Parameter completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
     */
-    open func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
+    public func evictItem(path: String, completionHandler: SimpleCompletionHandler) {
         operation_queue.addOperation {
             do {
                 try self.opFileManager.evictUbiquitousItem(at: self.url(of: path))

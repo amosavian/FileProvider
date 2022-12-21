@@ -49,7 +49,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
     }
     
-    override open func copy(with zone: NSZone? = nil) -> Any {
+    override public func copy(with zone: NSZone? = nil) -> Any {
         let copy = DropboxFileProvider(credential: self.credential, cache: self.cache)
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
@@ -69,7 +69,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
        - contents: An array of `FileObject` identifying the the directory entries.
        - error: Error returned by system.
      */
-    open override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    public override func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let query = NSPredicate(format: "TRUEPREDICATE")
         _ = searchFiles(path: path, recursive: false, query: query, foundItemHandler: nil, completionHandler: completionHandler)
     }
@@ -85,7 +85,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
        - attributes: A `FileObject` containing the attributes of the item.
        - error: Error returned by system.
      */
-    open override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    public override func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -110,7 +110,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     
     /// Returns volume/provider information asynchronously.
     /// - Parameter volumeInfo: Information of filesystem/Provider returned by system/server.
-    open override func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
+    public override func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         let url = URL(string: "users/get_space_usage", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -154,7 +154,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
      - Returns: An `Progress` to get progress or cancel progress. Use `completedUnitCount` to iterate count of found items.
      */
     @discardableResult
-    open override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    public override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr: String?
         if query.predicateFormat == "TRUEPREDICATE" {
             queryStr = nil
@@ -294,7 +294,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
     */
     // TODO: Implement /get_account & /get_current_account
 
-    open func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
+    public func publicLink(to path: String, completionHandler: @escaping ((_ link: URL?, _ attribute: FileObject?, _ expiration: Date?, _ error: Error?) -> Void)) {
         let url = URL(string: "files/get_temporary_link", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -332,7 +332,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
          - `attribute`: A `FileObject` containing the attributes of the item.
          - `error`: Error returned by Dropbox.
      */
-    open func copyItem(remoteURL: URL, to toPath: String, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
+    public func copyItem(remoteURL: URL, to toPath: String, completionHandler: @escaping ((_ jobId: String?, _ attribute: DropboxFileObject?, _ error: Error?) -> Void)) {
         if remoteURL.isFileURL {
             completionHandler(nil, nil, URLError(.badURL, url: remoteURL))
             return
@@ -369,7 +369,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
        - to: Destination path of file, including file/directory name.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      */
-    open func copyItem(reference: String, to toPath: String, completionHandler: SimpleCompletionHandler) {
+    public func copyItem(reference: String, to toPath: String, completionHandler: SimpleCompletionHandler) {
         let url = URL(string: "files/copy_reference/save", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -390,7 +390,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
 }
 
 extension DropboxFileProvider: ExtendedFileProvider {
-    open func propertiesOfFileSupported(path: String) -> Bool {
+    public func propertiesOfFileSupported(path: String) -> Bool {
         let fileExt = path.pathExtension.lowercased()
         switch fileExt {
         case "jpg", "jpeg", "bmp", "gif", "png", "tif", "tiff":
@@ -405,7 +405,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
     
     @discardableResult
-    open func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
+    public func propertiesOfFile(path: String, completionHandler: @escaping ((_ propertiesDictionary: [String : Any], _ keys: [String], _ error: Error?) -> Void)) -> Progress? {
         let url = URL(string: "files/get_metadata", relativeTo: apiURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -431,7 +431,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     }
     
     #if os(macOS) || os(iOS) || os(tvOS)
-    open func thumbnailOfFileSupported(path: String) -> Bool {
+    public func thumbnailOfFileSupported(path: String) -> Bool {
         switch path.pathExtension.lowercased() {
         case "jpg", "jpeg", "gif", "bmp", "png", "tif", "tiff":
             return true
@@ -448,7 +448,7 @@ extension DropboxFileProvider: ExtendedFileProvider {
     
     /// Default value for dimension is 64x64, according to Dropbox documentation
     @discardableResult
-    open func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
+    public func thumbnailOfFile(path: String, dimension: CGSize?, completionHandler: @escaping ((_ image: ImageClass?, _ error: Error?) -> Void)) -> Progress? {
         let url: URL
         let thumbAPI: Bool
         switch path.pathExtension.lowercased() {
