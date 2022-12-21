@@ -138,10 +138,10 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
      */
     public init(credential: URLCredential?, serverURL: URL? = nil, route: Route = .me, cache: URLCache? = nil) {
         let baseURL = (serverURL?.absoluteURL ?? OneDriveFileProvider.graphURL)
-            .appendingPathComponent(OneDriveFileProvider.graphVersion, isDirectory: true)
         let refinedBaseURL = baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("")
+        let baseUrlWithVersion = refinedBaseURL.absoluteString.hasSuffix("\(OneDriveFileProvider.graphVersion)/") ? refinedBaseURL : baseURL.appendingPathComponent(OneDriveFileProvider.graphVersion, isDirectory: true)
         self.route = route
-        super.init(baseURL: refinedBaseURL, credential: credential, cache: cache)
+        super.init(baseURL: baseUrlWithVersion, credential: credential, cache: cache)
     }
     
     public required convenience init?(coder aDecoder: NSCoder) {
@@ -293,26 +293,32 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     public override func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let queryStr = query.findValue(forKey: "name") as? String ?? query.findAllValues(forKey: nil).compactMap { $0.value as? String }.first
         
+        // No need to search as oneDrive won't return anything
+        guard queryStr != nil, !queryStr!.isEmpty else {
+            completionHandler([], nil)
+            return nil
+        }
+        
         return paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
             guard let `self` = self else { return nil }
             
-            let url: URL
-            if let next = token.flatMap(URL.init(string:)) {
-                url = next
-            } else {
-                let bURL = self.baseURL!.appendingPathComponent(self.route.drivePath).appendingPathComponent("root/search")
-                var components = URLComponents(url: bURL, resolvingAgainstBaseURL: false)!
-                let qItem = URLQueryItem(name: "q", value: (queryStr ?? "*"))
-                components.queryItems = [qItem]
-                if recursive {
-                    components.queryItems?.append(URLQueryItem(name: "expand", value: "children"))
-                }
-                url = components.url!
+            var startAt = 0
+            if token != nil, let next = Int(token!) {
+                startAt = next
             }
-            
+            let url = self.baseURL!.appendingPathComponent("search/query")
             var request = URLRequest(url: url)
-            request.httpMethod = "GET"
+            request.httpMethod = "POST"
             request.setValue(authentication: self.credential, with: .oAuth2)
+            request.setValue(contentType: .json)
+            
+            var queryDictionary = [String: Any]()
+            queryDictionary["queryString"] = "\(queryStr!) AND ParentLink:/\(path)"
+            var requestDictionary = [String: Any]()
+            requestDictionary["entityTypes"] = ["driveItem"]
+            requestDictionary["query"] = queryDictionary
+            requestDictionary["from"] = startAt
+            request.httpBody = Data(jsonDictionary: requestDictionary)
             return request
         }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
@@ -363,9 +369,10 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
     /// - Note: To prevent race condition, use this method wisely and avoid it as far possible.
     ///
     /// - Parameter success: indicated server is reachable or not.
-        var request = URLRequest(url: url(of: ""))
-        request.httpMethod = "HEAD"
     public override func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
+        let requestUrl = url(of: "")
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "GET"
         request.setValue(authentication: credential, with: .oAuth2)
         let task = session.dataTask(with: request, completionHandler: { (data, response, error) in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 400
