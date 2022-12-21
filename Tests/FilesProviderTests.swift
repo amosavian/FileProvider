@@ -92,7 +92,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         guard let pass = ProcessInfo.processInfo.environment["onedrive_token"] else {
             return
         }
-        let cred = URLCredential(user: "anonymous", password: pass, persistence: .forSession)
+        let cred = URLCredential(user: "testuser", password: pass, persistence: .forSession)
         let provider = OneDriveFileProvider(credential: cred)
         provider.delegate = self
         testBasic(provider)
@@ -243,7 +243,7 @@ class FilesProviderTests: XCTestCase, FileProviderDelegate {
         var keyData = Data(count: size)
         let count = keyData.count
         let result = keyData.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, count, $0)
+            SecRandomCopyBytes(kSecRandomDefault, $0.count, $0.baseAddress!)
         }
         if result == errSecSuccess {
             return keyData

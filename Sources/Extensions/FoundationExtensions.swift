@@ -418,7 +418,9 @@ extension Data {
     
     init<T>(value: T) {
         var value = value
-        self = Data(buffer: UnsafeBufferPointer(start: &value, count: 1))
+        self = withUnsafePointer(to: &value) {
+            return Data(buffer: UnsafeBufferPointer(start: $0, count: 1))
+        }
     }
     
     func scanValue<T>() -> T? {
