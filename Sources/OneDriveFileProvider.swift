@@ -298,11 +298,10 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             completionHandler([], nil)
             return nil
         }
-        
+        var startAt = 0
         return paginated(path, requestHandler: { [weak self] (token) -> URLRequest? in
             guard let `self` = self else { return nil }
             
-            var startAt = 0
             if token != nil, let next = Int(token!) {
                 startAt = next
             }
@@ -342,7 +341,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
                 }
                 if let hasMoreResults = hitsContainer["moreResultsAvailable"] as? Bool, hasMoreResults {
                     //TODO: calculate correct page
-                    let nextStartAt = 0 + foundFiles.count
+                    let nextStartAt = startAt + foundFiles.count
                     nextStartToken = "\(nextStartAt)"
                 }
             }
