@@ -313,29 +313,44 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
             request.setValue(contentType: .json)
             
             var queryDictionary = [String: Any]()
-            queryDictionary["queryString"] = "\(queryStr!) AND ParentLink:/\(path)"
+            queryDictionary["queryString"] = "\(queryStr!) AND ParentLink:\(path)"
             var requestDictionary = [String: Any]()
             requestDictionary["entityTypes"] = ["driveItem"]
             requestDictionary["query"] = queryDictionary
             requestDictionary["from"] = startAt
-            request.httpBody = Data(jsonDictionary: requestDictionary)
+            var rootDictionary = [String: Any]()
+            rootDictionary["requests"] = [requestDictionary]
+            request.httpBody = Data(jsonDictionary: rootDictionary)
             return request
         }, pageHandler: { [weak self] (data, progress) -> (files: [FileObject], error: Error?, newToken: String?) in
             guard let `self` = self else { return ([], nil, nil) }
-            guard let json = data?.deserializeJSON(), let entries = json["value"] as? [Any] else {
+            guard let json = data?.deserializeJSON(), let hitsContainers = json["hitsContainers"] as? [[String:Any]] else {
                 let err = URLError(.badServerResponse, url: self.url(of: path))
                 return ([], err, nil)
             }
             
+            var nextStartToken: String? = nil
             var foundFiles = [FileObject]()
-            for entry in entries {
-                if let entry = entry as? [String: Any], let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry), query.evaluate(with: file.mapPredicate()) {
-                    foundFiles.append(file)
-                    foundItemHandler?(file)
+            for hitsContainer in hitsContainers {
+                if let entries = hitsContainer["hits"] as? [[String:Any]] {
+                    for entry in entries {
+                        if let file = OneDriveFileObject(baseURL: self.baseURL, route: self.route, json: entry), query.evaluate(with: file.mapPredicate()) {
+                            foundFiles.append(file)
+                            foundItemHandler?(file)
+                        }
+                    }
+                }
+                if let hasMoreResults = hitsContainer["moreResultsAvailable"] as? Bool, hasMoreResults {
+                    //TODO: calculate correct page
+                    let nextStartAt = 0 + foundFiles.count
+                    nextStartToken = "\(nextStartAt)"
                 }
             }
             
-            return (foundFiles, nil, json["@odata.nextLink"] as? String)
+            
+            
+            
+            return (foundFiles, nil, nextStartToken)
         }, completionHandler: completionHandler)
     }
     
