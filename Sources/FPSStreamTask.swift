@@ -772,11 +772,7 @@ extension Stream {
         var peerIDLen: Int = 0
         
         if let sslContext = self.property(forKey: kCFStreamPropertySSLContext as Stream.PropertyKey) {
-            withUnsafeMutablePointer(to: &peerID) { peerIdPointer in
-                withUnsafeMutablePointer(to: &peerIDLen) { peerIdLenPointer in
-                    let _ = SSLGetPeerID(sslContext as! SSLContext, UnsafeMutablePointer(peerIdPointer), UnsafeMutablePointer(peerIdLenPointer))
-                }
-            }
+            let _ = SSLGetPeerID(sslContext as! SSLContext, UnsafeMutablePointer(&peerID), UnsafeMutablePointer(&peerIDLen))
         }
         
         return (peerID, peerIDLen)

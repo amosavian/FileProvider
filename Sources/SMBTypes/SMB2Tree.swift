@@ -95,7 +95,7 @@ extension SMB2 {
             
             static let DFS                          = ShareFlags(rawValue: 0x00000001)
             static let DFS_ROOT                     = ShareFlags(rawValue: 0x00000002)
-            static let MANUAL_CACHING               = ShareFlags([])
+            static let MANUAL_CACHING               = ShareFlags(rawValue: 0x00000000)
             static let AUTO_CACHING                 = ShareFlags(rawValue: 0x00000010)
             static let VDO_CACHING                  = ShareFlags(rawValue: 0x00000020)
             static let NO_CACHING                   = ShareFlags(rawValue: 0x00000030)
