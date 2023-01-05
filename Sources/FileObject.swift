@@ -154,7 +154,7 @@ open class FileObject: NSObject {
 }
 
 extension FileObject {
-    public override var hash: Int {
+    open override var hash: Int {
         #if swift(>=4.2)
         var hasher = Hasher()
         hasher.combine(url)
@@ -168,7 +168,7 @@ extension FileObject {
         #endif
     }
     
-    public override func isEqual(_ object: Any?) -> Bool {
+    open override func isEqual(_ object: Any?) -> Bool {
         guard let object = object as? FileObject else { return false }
         if self === object  {
             return true

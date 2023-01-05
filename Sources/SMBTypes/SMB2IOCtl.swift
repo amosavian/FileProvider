@@ -57,7 +57,7 @@ extension SMB2 {
                 self.rawValue = rawValue
             }
             
-            static let IOCTL = Flags([])
+            static let IOCTL = Flags(rawValue: 0x00000000)
             static let FSCTL = Flags(rawValue: 0x00000001)
         }
     }

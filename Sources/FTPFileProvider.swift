@@ -170,7 +170,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         return true
     }
     
-    public func copy(with zone: NSZone? = nil) -> Any {
+    open func copy(with zone: NSZone? = nil) -> Any {
         let copy = FTPFileProvider(baseURL: self.baseURL!, mode: self.mode, credential: self.credential, cache: self.cache)!
         copy.delegate = self.delegate
         copy.fileOperationDelegate = self.fileOperationDelegate
@@ -218,7 +218,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
      */
     public var serverTrustPolicy: ServerTrustPolicy = .performDefaultEvaluation(validateHost: true)
     
-    public func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping ([FileObject], Error?) -> Void) {
         self.contentsOfDirectory(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
     }
     
@@ -233,7 +233,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
      - Parameter contents: An array of `FileObject` identifying the the directory entries.
      - Parameter error: Error returned by system.
      */
-    public func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -275,7 +275,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         }
     }
     
-    public func attributesOfItem(path: String, completionHandler: @escaping (FileObject?, Error?) -> Void) {
+    open func attributesOfItem(path: String, completionHandler: @escaping (FileObject?, Error?) -> Void) {
         self.attributesOfItem(path: path, rfc3659enabled: supportsRFC3659, completionHandler: completionHandler)
     }
     
@@ -290,7 +290,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
          `attributes`: A `FileObject` containing the attributes of the item.
          `error`: Error returned by system.
      */
-    public func attributesOfItem(path apath: String, rfc3659enabled: Bool, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    open func attributesOfItem(path apath: String, rfc3659enabled: Bool, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -343,14 +343,14 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         }
     }
     
-    public func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
+    open func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
         dispatch_queue.async {
             completionHandler(nil)
         }
     }
     
     @discardableResult
-    public func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         if recursive {
             return self.recursiveList(path: path, useMLST: true, foundItemsHandler: { items in
@@ -388,7 +388,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         return progress
     }
     
-    public func url(of path: String?) -> URL {
+    open func url(of path: String?) -> URL {
         let path = path?.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? (path ?? "")
         
         var baseUrlComponent = URLComponents(url: self.baseURL!, resolvingAgainstBaseURL: true)
@@ -397,7 +397,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         return URL(string: path, relativeTo: baseUrlComponent?.url ?? baseURL) ?? baseUrlComponent?.url ?? baseURL!
     }
     
-    public func relativePathOf(url: URL) -> String {
+    open func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
         let relativePath = url.relativePath
         if !relativePath.isEmpty, url.baseURL == self.baseURL {
@@ -411,7 +411,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         return relativePath.replacingOccurrences(of: "/", with: "", options: .anchored)
     }
     
-    public func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         self.attributesOfItem(path: "/") { (file, error) in
             completionHandler(file != nil, error)
         }
@@ -420,28 +420,28 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     open weak var fileOperationDelegate: FileOperationDelegate?
     
     @discardableResult
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = atPath.appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.move(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.copy(source: path, destination: toPath), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         guard (try? localFile.checkResourceIsReachable()) ?? false else {
             dispatch_queue.async {
                 completionHandler?(URLError(.fileDoesNotExist, url: localFile))
@@ -512,7 +512,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     }
     
     @discardableResult
-    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
@@ -576,7 +576,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     }
     
     @discardableResult
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         if length == 0 || offset < 0 {
             dispatch_queue.async {
@@ -638,7 +638,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
     }
     
     @discardableResult
-    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
@@ -774,7 +774,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
        - withDestinationPath: The path that contains the item to be pointed to by the link. In other words, this is the destination of the link.
        - completionHandler: If an error parameter was provided, a presentable `Error` will be returned.
      */
-    public func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
+    open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         let operation = FileOperationType.link(link: path, target: destPath)
         _=self.doOperation(operation, completionHandler: completionHandler)
     }

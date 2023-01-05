@@ -145,7 +145,7 @@ class SMBClient: NSObject, StreamDelegate {
     var currentHandlingData: Data = Data()
     var expectedBytes = 0
     
-    public func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+    open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         if eventCode.contains(.errorOccurred) {
             /*self._error = aStream.streamError
             streamDelegate?.urlSession?(_underlyingSession, task: self, didCompleteWithError: error)*/

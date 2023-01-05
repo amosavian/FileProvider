@@ -127,7 +127,7 @@ internal class AEXMLElement {
         
         - returns: Optional Array of found XML elements.
     */
-    public func all(withValue value: String) -> [AEXMLElement]? {
+    open func all(withValue value: String) -> [AEXMLElement]? {
         let found = filter { (element) -> Bool in
             return element.value == value
         }
@@ -141,7 +141,7 @@ internal class AEXMLElement {
     
         - returns: Optional Array of found XML elements.
     */
-    public func all(withAttributes attributes: [String : String]) -> [AEXMLElement]? {
+    open func all(withAttributes attributes: [String : String]) -> [AEXMLElement]? {
         let found = filter { (element) -> Bool in
             var countAttributes = 0
             for (key, value) in attributes {
@@ -163,7 +163,7 @@ internal class AEXMLElement {
     
         - returns: Child XML element with `self` as `parent`.
     */
-    @discardableResult public func addChild(_ child: AEXMLElement) -> AEXMLElement {
+    @discardableResult open func addChild(_ child: AEXMLElement) -> AEXMLElement {
         child.parent = self
         children.append(child)
         return child
@@ -178,7 +178,7 @@ internal class AEXMLElement {
         
         - returns: Child XML element with `self` as `parent`.
     */
-    @discardableResult public func addChild(name: String,
+    @discardableResult open func addChild(name: String,
                        value: String? = nil,
                        attributes: [String : String] = [String : String]()) -> AEXMLElement
     {
@@ -187,7 +187,7 @@ internal class AEXMLElement {
     }
     
     /// Removes `self` from `parent` XML element.
-    public func removeFromParent() {
+    open func removeFromParent() {
         parent?.removeChild(self)
     }
     

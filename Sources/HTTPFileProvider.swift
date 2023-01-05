@@ -129,28 +129,28 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return true
     }
     
-    public func copy(with zone: NSZone? = nil) -> Any {
+    open func copy(with zone: NSZone? = nil) -> Any {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    public func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    open func contentsOfDirectory(path: String, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    public func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
+    open func attributesOfItem(path: String, completionHandler: @escaping (_ attributes: FileObject?, _ error: Error?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    public func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
+    open func storageProperties(completionHandler: @escaping (_ volumeInfo: VolumeObject?) -> Void) {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
     @discardableResult
-    public func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
+    open func searchFiles(path: String, recursive: Bool, query: NSPredicate, foundItemHandler: ((FileObject) -> Void)?, completionHandler: @escaping (_ files: [FileObject], _ error: Error?) -> Void) -> Progress? {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    public func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
+    open func isReachable(completionHandler: @escaping (_ success: Bool, _ error: Error?) -> Void) {
         self.storageProperties { volume in
             if volume != nil {
                 completionHandler(volume != nil, nil)
@@ -164,7 +164,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     // Nothing special for these two funcs, just reimplemented to workaround a bug in swift to allow override in subclasses!
-    public func url(of path: String) -> URL {
+    open func url(of path: String) -> URL {
         var rpath: String = path
         rpath = rpath.addingPercentEncoding(withAllowedCharacters: .filePathAllowed) ?? rpath
         if let baseURL = baseURL {
@@ -177,7 +177,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         }
     }
     
-    public func relativePathOf(url: URL) -> String {
+    open func relativePathOf(url: URL) -> String {
         // check if url derieved from current base url
         let relativePath = url.relativePath
         if !relativePath.isEmpty, url.baseURL == self.baseURL {
@@ -197,28 +197,28 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     open weak var fileOperationDelegate: FileOperationDelegate?
     
     @discardableResult
-    public func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func create(folder folderName: String, at atPath: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         let path = atPath.appendingPathComponent(folderName) + "/"
         return doOperation(.create(path: path), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func moveItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.move(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(path: String, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.copy(source: path, destination: toPath), overwrite: overwrite, completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func removeItem(path: String, completionHandler: SimpleCompletionHandler) -> Progress? {
         return doOperation(.remove(path: path), completionHandler: completionHandler)
     }
     
     @discardableResult
-    public func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(localFile: URL, to toPath: String, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         // check file is not a folder
         guard (try? localFile.resourceValues(forKeys: [.fileResourceTypeKey]))?.fileResourceType ?? .unknown == .regular else {
             dispatch_queue.async {
@@ -236,7 +236,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     @discardableResult
-    public func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func copyItem(path: String, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.copy(source: path, destination: destURL.absoluteString)
         let request = self.request(for: operation)
         let cantLoadError = URLError(.cannotLoadFromNetwork, url: self.url(of: path))
@@ -298,7 +298,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
      - Returns: An `Progress` to get progress or cancel progress.
      */
     @discardableResult
-    public func contents(path: String, offset: Int64 = 0, length: Int = -1, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func contents(path: String, offset: Int64 = 0, length: Int = -1, responseHandler: ((_ response: URLResponse) -> Void)? = nil, progressHandler: @escaping (_ position: Int64, _ data: Data) -> Void, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.fetch(path: path)
         var request = self.request(for: operation)
         request.setValue(rangeWithOffset: offset, length: length)
@@ -310,7 +310,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     @discardableResult
-    public func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
+    open func contents(path: String, offset: Int64, length: Int, completionHandler: @escaping ((_ contents: Data?, _ error: Error?) -> Void)) -> Progress? {
         if length == 0 || offset < 0 {
             dispatch_queue.async {
                 completionHandler(Data(), nil)
@@ -342,7 +342,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     @discardableResult
-    public func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
+    open func writeContents(path: String, contents data: Data?, atomically: Bool, overwrite: Bool, completionHandler: SimpleCompletionHandler) -> Progress? {
         let operation = FileOperationType.modify(path: path)
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
@@ -482,7 +482,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                 
                 let files = previousResult + newFiles
                 if let newToken = newToken, !progress.isCancelled {
-                    self.paginated(path, startToken: newToken, currentProgress: progress, previousResult: files, requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
+                    _ = self.paginated(path, startToken: newToken, currentProgress: progress, previousResult: files, requestHandler: requestHandler, pageHandler: pageHandler, completionHandler: completionHandler)
                 } else {
                     completionHandler(files, nil)
                 }
