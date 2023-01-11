@@ -265,47 +265,51 @@ extension OneDriveFileProvider {
         progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
         
         var allData = Data()
-        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
-            allData.append(data)
+        dataCompletionHandlersForTasksQueue.sync(flags: .barrier) {
+            dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
+                allData.append(data)
+            }
         }
-        // We retain self here intentionally to allow resuming upload, This behavior may change anytime!
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task] error in
-            if let error = error {
-                progress.cancel()
-                completionHandler?(error)
-                self.delegateNotify(operation, error: error)
-                return
-            }
-            
-            guard let json = allData.deserializeJSON() else {
-                let error = URLError(.badServerResponse, userInfo: [NSURLErrorKey: url, NSURLErrorFailingURLErrorKey: url, NSURLErrorFailingURLStringErrorKey: url.absoluteString])
-                completionHandler?(error)
-                self.delegateNotify(operation, error: error)
-                return
-            }
-            
-            if let _ = json["error"] {
-                let code = ((task?.response as? HTTPURLResponse)?.statusCode).flatMap(FileProviderHTTPErrorCode.init(rawValue:)) ?? .badRequest
-                let error = self.serverError(with: code, path: self.relativePathOf(url: url), data: allData)
-                completionHandler?(error)
-                self.delegateNotify(operation, error: error)
-                return
-            }
-            
-            if let ranges = json["nextExpectedRanges"] as? [String], let firstRange = ranges.first {
-                let uploaded = uploadedSoFar + Int64(finalRange.count)
-                let comp = firstRange.components(separatedBy: "-")
-                let lower = comp.first.flatMap(Int64.init) ?? uploaded
-                let upper = comp.dropFirst().first.flatMap(Int64.init) ?? Int64.max
-                let range = Range<Int64>(uncheckedBounds: (lower: lower, upper: upper))
-                self.upload_multipart(url: url, operation: operation, size: size, range: range, uploadedSoFar: uploaded, progress: progress,
-                                      dataProvider: dataProvider, completionHandler: completionHandler)
-                return
-            }
-            
-            if let _ = json["id"] as? String {
-                completionHandler?(nil)
-                self.delegateNotify(operation)
+        completionHandlersForTasksQueue.async(flags: .barrier) {
+            // We retain self here intentionally to allow resuming upload, This behavior may change anytime!
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak task] error in
+                if let error = error {
+                    progress.cancel()
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
+                    return
+                }
+                
+                guard let json = allData.deserializeJSON() else {
+                    let error = URLError(.badServerResponse, userInfo: [NSURLErrorKey: url, NSURLErrorFailingURLErrorKey: url, NSURLErrorFailingURLStringErrorKey: url.absoluteString])
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
+                    return
+                }
+                
+                if let _ = json["error"] {
+                    let code = ((task?.response as? HTTPURLResponse)?.statusCode).flatMap(FileProviderHTTPErrorCode.init(rawValue:)) ?? .badRequest
+                    let error = self.serverError(with: code, path: self.relativePathOf(url: url), data: allData)
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
+                    return
+                }
+                
+                if let ranges = json["nextExpectedRanges"] as? [String], let firstRange = ranges.first {
+                    let uploaded = uploadedSoFar + Int64(finalRange.count)
+                    let comp = firstRange.components(separatedBy: "-")
+                    let lower = comp.first.flatMap(Int64.init) ?? uploaded
+                    let upper = comp.dropFirst().first.flatMap(Int64.init) ?? Int64.max
+                    let range = Range<Int64>(uncheckedBounds: (lower: lower, upper: upper))
+                    self.upload_multipart(url: url, operation: operation, size: size, range: range, uploadedSoFar: uploaded, progress: progress,
+                                          dataProvider: dataProvider, completionHandler: completionHandler)
+                    return
+                }
+                
+                if let _ = json["id"] as? String {
+                    completionHandler?(nil)
+                    self.delegateNotify(operation)
+                }
             }
         }
         

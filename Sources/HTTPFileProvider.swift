@@ -504,20 +504,23 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                      completionHandler: SimpleCompletionHandler) -> Void {
         
         var allData = Data()
-        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { data in
-            allData.append(data)
+        dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            dataCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { data in
+                allData.append(data)
+            }
         }
-        
-        completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
-            var responseError: FileProviderHTTPError?
-            if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
-                responseError = self?.serverError(with: rCode, path: targetPath, data: allData)
+        completionHandlersForTasksQueue.async(flags: .barrier) {
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak self] error in
+                var responseError: FileProviderHTTPError?
+                if let code = (task.response as? HTTPURLResponse)?.statusCode , code >= 300, let rCode = FileProviderHTTPErrorCode(rawValue: code) {
+                    responseError = self?.serverError(with: rCode, path: targetPath, data: allData)
+                }
+                if !(responseError == nil && error == nil) {
+                    progress.cancel()
+                }
+                completionHandler?(responseError ?? error)
+                self?.delegateNotify(operation, error: responseError ?? error)
             }
-            if !(responseError == nil && error == nil) {
-                progress.cancel()
-            }
-            completionHandler?(responseError ?? error)
-            self?.delegateNotify(operation, error: responseError ?? error)
         }
         task.taskDescription = operation.json
         sessionDelegate?.observerProgress(of: task, using: progress, kind: .upload)
@@ -593,31 +596,37 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         
         let task = session.dataTask(with: request)
         if let responseHandler = responseHandler {
-            responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
-                responseHandler(response)
+            responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+                responseCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { response in
+                    responseHandler(response)
+                }
             }
         }
         
         stream.open()
-        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
-            guard !data.isEmpty else { return }
-            task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
-            
-            let result = (try? stream.write(data: data)) ?? -1
-            if result < 0 {
-                completionHandler(stream.streamError!)
-                self?.delegateNotify(operation, error: stream.streamError!)
-                task?.cancel()
+        dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            dataCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
+                guard !data.isEmpty else { return }
+                task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
+                
+                let result = (try? stream.write(data: data)) ?? -1
+                if result < 0 {
+                    completionHandler(stream.streamError!)
+                    self?.delegateNotify(operation, error: stream.streamError!)
+                    task?.cancel()
+                }
             }
         }
         
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            if error != nil {
-                progress.cancel()
+        completionHandlersForTasksQueue.async(flags: .barrier) {
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { error in
+                if error != nil {
+                    progress.cancel()
+                }
+                stream.close()
+                completionHandler(error)
+                self.delegateNotify(operation, error: error)
             }
-            stream.close()
-            completionHandler(error)
-            self.delegateNotify(operation, error: error)
         }
         
         task.taskDescription = operation.json
@@ -641,22 +650,28 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         
         let task = session.dataTask(with: request)
         if let responseHandler = responseHandler {
-            responseCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { response in
-                responseHandler(response)
+            responseCompletionHandlersForTasksQueue.async(flags: .barrier) {
+                responseCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { response in
+                    responseHandler(response)
+                }
             }
         }
         
-        dataCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
-            task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
-            progressHandler(data)
+        dataCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            dataCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { [weak task, weak self] data in
+                task.flatMap { self?.delegateNotify(operation, progress: Double($0.countOfBytesReceived) / Double($0.countOfBytesExpectedToReceive)) }
+                progressHandler(data)
+            }
         }
         
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            if error != nil {
-                progress.cancel()
+        completionHandlersForTasksQueue.async(flags: .barrier) {
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { error in
+                if error != nil {
+                    progress.cancel()
+                }
+                completionHandler(error)
+                self.delegateNotify(operation, error: error)
             }
-            completionHandler(error)
-            self.delegateNotify(operation, error: error)
         }
         
         task.taskDescription = operation.json
@@ -677,27 +692,31 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         
         let task = session.downloadTask(with: request)
-        completionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { error in
-            if let error = error {
-                progress.cancel()
-                completionHandler(nil, error)
-                self.delegateNotify(operation, error: error)
+        completionHandlersForTasksQueue.async(flags: .barrier) {
+            completionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { error in
+                if let error = error {
+                    progress.cancel()
+                    completionHandler(nil, error)
+                    self.delegateNotify(operation, error: error)
+                }
             }
         }
-        downloadCompletionHandlersForTasks[session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
-            guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
-                let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
-                let errorData : Data? = try? Data(contentsOf: tempURL)
-                let serverError = code.flatMap { self.serverError(with: $0, path: path, data: errorData) }
-                if serverError != nil {
-                    progress.cancel()
+        downloadCompletionHandlersForTasksQueue.async(flags: .barrier) {
+            downloadCompletionHandlersForTasks[self.session.sessionDescription!]?[task.taskIdentifier] = { tempURL in
+                guard let httpResponse = task.response as? HTTPURLResponse , httpResponse.statusCode < 300 else {
+                    let code = FileProviderHTTPErrorCode(rawValue: (task.response as? HTTPURLResponse)?.statusCode ?? -1)
+                    let errorData : Data? = try? Data(contentsOf: tempURL)
+                    let serverError = code.flatMap { self.serverError(with: $0, path: path, data: errorData) }
+                    if serverError != nil {
+                        progress.cancel()
+                    }
+                    completionHandler(nil, serverError)
+                    self.delegateNotify(operation)
+                    return
                 }
-                completionHandler(nil, serverError)
-                self.delegateNotify(operation)
-                return
+                
+                completionHandler(tempURL, nil)
             }
-            
-            completionHandler(tempURL, nil)
         }
         task.taskDescription = operation.json
         sessionDelegate?.observerProgress(of: task, using: progress, kind: .download)
