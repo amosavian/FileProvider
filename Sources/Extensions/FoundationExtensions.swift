@@ -251,7 +251,7 @@ public struct ContentMIMEType: RawRepresentable, Hashable, Equatable {
     static public let googleVideo = ContentMIMEType(rawValue: "application/vnd.google-apps.video")
 }
 
-internal extension URLRequest {
+public extension URLRequest {
     mutating func setValue(authentication credential: URLCredential?, with type: AuthenticationType) {
         func base64(_ str: String) -> String {
             let plainData = str.data(using: .utf8)
@@ -392,6 +392,12 @@ internal extension URLRequest {
         jsonString = jsonString.asciiEscaped().replacingOccurrences(of: "\\/", with: "/")
         
         self.setValue(jsonString, forHTTPHeaderField: "Dropbox-API-Arg")
+    }
+    
+    mutating func setValues(forHTTPHeaderFields fields: [String : String]) {
+        for (key, value) in fields {
+            self.setValue(value, forHTTPHeaderField: key)
+        }
     }
 }
 

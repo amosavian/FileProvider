@@ -185,7 +185,7 @@ extension FileObject {
 }
 
 extension FileObject {
-    internal func mapPredicate() -> [String: Any] {
+    public func mapPredicate() -> [String: Any] {
         let mapDict: [URLResourceKey: String] = [.fileURLKey: "url", .nameKey: "name", .pathKey: "path",
                                                  .fileSizeKey: "fileSize", .creationDateKey: "creationDate",
                                                  .contentModificationDateKey: "modifiedDate", .isHiddenKey: "isHidden",
