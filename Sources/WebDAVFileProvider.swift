@@ -15,7 +15,7 @@ import CoreGraphics
  Allows accessing to WebDAV server files. This provider doesn't cache or save files internally, however you can
  set `useCache` and `cache` properties to use Foundation `NSURLCache` system.
  
- WebDAV system supported by many cloud services including [Box.com](https://www.box.com/home) 
+ WebDAV system supported by many cloud services including [Box.com](https://www.box.com/home)
  and [Yandex disk](https://disk.yandex.com) and [ownCloud](https://owncloud.org).
  
  - Important: Because this class uses `URLSession`, it's necessary to disable App Transport Security
@@ -28,6 +28,9 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
     /// An enum which defines HTTP Authentication method, usually you should it default `.digest`.
     /// If the server uses OAuth authentication, credential must be set with token as `password`, like Dropbox.
     public var credentialType: URLRequest.AuthenticationType = .digest
+    
+    public var timeoutInterval: TimeInterval = -1
+    public var headerFields: [String : String]?
     
     /**
      Initializes WebDAV provider.
@@ -321,7 +324,7 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         })
     }
     
-    override func request(for operation: FileOperationType, overwrite: Bool = true, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
+    override open func request(for operation: FileOperationType, overwrite: Bool = true, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
         let method: String
         let url: URL
         let sourceURL = self.url(of: operation.source)
@@ -366,6 +369,13 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         request.httpMethod = method
         request.setValue(authentication: credential, with: credentialType)
         request.setValue(overwrite ? "T" : "F", forHTTPHeaderField: "Overwrite")
+        
+        if let headerFields = headerFields {
+            request.setValues(forHTTPHeaderFields: headerFields)
+        }
+        if timeoutInterval != -1 {
+            request.timeoutInterval = timeoutInterval
+        }
         if let dest = operation.destination, !dest.hasPrefix("file://") {
             request.setValue(self.url(of:dest).absoluteString, forHTTPHeaderField: "Destination")
         }
@@ -373,11 +383,11 @@ open class WebDAVFileProvider: HTTPFileProvider, FileProviderSharing {
         return request
     }
     
-    override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+    override open func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
         return FileProviderWebDavError(code: code, path: path ?? "", serverDescription:  data.flatMap({ String(data: $0, encoding: .utf8) }), url: self.url(of: path ?? ""))
     }
     
-    override func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
+    override open func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
         let xresponses = DavResponse.parse(xmlResponse: data, baseURL: self.baseURL)
         for xresponse in xresponses where (xresponse.status ?? 0) >= 300 {
             let code = xresponse.status.flatMap { FileProviderHTTPErrorCode(rawValue: $0) } ?? .internalServerError
@@ -456,15 +466,15 @@ extension WebDAVFileProvider: ExtendedFileProvider {
 
 // MARK: WEBDAV XML response implementation
 
-struct DavResponse {
-    let href: URL
-    let hrefString: String
-    let status: Int?
-    let prop: [String: String]
+public struct DavResponse {
+    public let href: URL
+    public let hrefString: String
+    public let status: Int?
+    public let prop: [String: String]
     
-    static let urlAllowed = CharacterSet(charactersIn: " ").inverted
+    public static let urlAllowed = CharacterSet(charactersIn: " ").inverted
     
-    init? (_ node: AEXMLElement, baseURL: URL?) {
+    public init? (_ node: AEXMLElement, baseURL: URL?) {
         
         func standardizePath(_ str: String) -> String {
             let trimmedStr = str.hasPrefix("/") ? String(str[str.index(after: str.startIndex)...]) : str
@@ -524,25 +534,36 @@ struct DavResponse {
             proptag = tnode.name
             break
         }
-        for propItemNode in propStatNode[proptag].children {
-            let key = propItemNode.name.components(separatedBy: ":").last!.lowercased()
-            guard propDic.index(forKey: key) == nil else { continue }
-            propDic[key] = propItemNode.value
-            if key == "resourcetype" && propItemNode.xml.contains("collection") {
-                propDic["getcontenttype"] = ContentMIMEType.directory.rawValue
-            }
-        }
+        
+        DavResponse.parseNodeChildren(propStatNode[proptag].children, to: &propDic)
+        
         self.href = href
         self.hrefString = hrefString
         self.status = status
         self.prop = propDic
     }
     
-    static func parse(xmlResponse: Data, baseURL: URL?) -> [DavResponse] {
+    public static func parseNodeChildren(_ children: [AEXMLElement], to propDic: inout [String : String]) {
+        for propItemNode in children {
+            let key = propItemNode.name.components(separatedBy: ":").last!.lowercased()
+            guard propDic.index(forKey: key) == nil else { continue }
+            propDic[key] = propItemNode.value
+            
+            if key == "resourcetype" && propItemNode.xml.contains("collection") {
+                propDic["getcontenttype"] = ContentMIMEType.directory.rawValue
+            }
+            
+            if propItemNode.children.count > 0 {
+                parseNodeChildren(propItemNode.children, to: &propDic)
+            }
+        }
+    }
+    
+    public static func parse(xmlResponse: Data, baseURL: URL?, contentTag: String = "response") -> [DavResponse] {
         guard let xml = try? AEXMLDocument(xml: xmlResponse) else { return [] }
         var result = [DavResponse]()
         var rootnode = xml.root
-        var responsetag = "response"
+        var responsetag = contentTag
         for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("multistatus") {
             rootnode = node
         }
@@ -561,13 +582,14 @@ struct DavResponse {
 
 /// Containts path, url and attributes of a WebDAV file or resource.
 public final class WebDavFileObject: FileObject {
-    internal init(_ davResponse: DavResponse) {
+    public init(_ davResponse: DavResponse) {
         let href = davResponse.href
-        let name = davResponse.prop["displayname"] ?? davResponse.href.lastPathComponent
+        let name = davResponse.prop["displayname"] ?? davResponse.prop["trashbin-filename"] ?? davResponse.href.lastPathComponent
         let relativePath = href.relativePath
         let path = relativePath.hasPrefix("/") ? relativePath : ("/" + relativePath)
         super.init(url: href, name: name, path: path)
-        self.size = Int64(davResponse.prop["getcontentlength"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
+        self.fileID = davResponse.prop["fileid"]
+        self.size = Int64(davResponse.prop["getcontentlength"] ?? davResponse.prop["size"] ?? "-1") ?? NSURLSessionTransferSizeUnknown
         self.creationDate = davResponse.prop["creationdate"].flatMap { Date(rfcString: $0) }
         self.modifiedDate = davResponse.prop["getlastmodified"].flatMap { Date(rfcString: $0) }
         self.contentType = davResponse.prop["getcontenttype"].flatMap(ContentMIMEType.init(rawValue:)) ?? .stream
@@ -575,7 +597,17 @@ public final class WebDavFileObject: FileObject {
         self.isReadOnly = (Int(davResponse.prop["isreadonly"] ?? "0") ?? 0) > 0
         self.type = (self.contentType == .directory) ? .directory : .regular
         self.entryTag = davResponse.prop["getetag"]
+        self.isFavorite = Int(davResponse.prop["favorite"] ?? "0") == 1
+        self.shareType = Int(davResponse.prop["share-type"] ?? "")
+        self.sharePermission = Int(davResponse.prop["share-permissions"] ?? "")
+        self.isShared = (davResponse.prop["mount-type"] ?? "") == "shared"
+        self.ownerID = davResponse.prop["owner-id"]
+        self.ownerDisplayName = davResponse.prop["owner-display-name"]
+        self.deletionTime = Double(davResponse.prop["trashbin-deletion-time"] ?? "")
+        self.originalLocation = davResponse.prop["trashbin-original-location"]
     }
+    
+    public internal(set) var fileID: String?
     
     /// MIME type of the file.
     public internal(set) var contentType: ContentMIMEType {
@@ -597,7 +629,39 @@ public final class WebDavFileObject: FileObject {
         }
     }
     
-    internal class func resourceKeyToDAVProp(_ key: URLResourceKey) -> String? {
+    public internal(set) var ownerID: String?
+    
+    public internal(set) var ownerDisplayName: String?
+    
+    /// Favorite state of the file.
+    public internal(set) var isFavorite: Bool = false
+    
+    /// Share id of the file.
+    public var shareID: String?
+    
+    /// Share type of the file.
+    public internal(set) var shareType: Int?
+    
+    /// Share permission of the file.
+    public internal(set) var sharePermission: Int?
+    
+    /// Share link of the file.
+    public var shareURL: String?
+    
+    /// Share state of the file.
+    public internal(set) var isShared: Bool = false
+    
+    /// Invited shares of the file.
+    public var invitedShares: [WebDavSharedObject] = []
+    
+    /// Public share of the file.
+    public var publicShare: WebDavSharedObject?
+    
+    public internal(set) var deletionTime: Double?
+    
+    public internal(set) var originalLocation: String?
+    
+    public class func resourceKeyToDAVProp(_ key: URLResourceKey) -> String? {
         switch key {
         case URLResourceKey.fileSizeKey:
             return "getcontentlength"
@@ -621,7 +685,7 @@ public final class WebDavFileObject: FileObject {
         }
     }
     
-    internal class func propString(_ keys: [URLResourceKey]) -> String {
+    public class func propString(_ keys: [URLResourceKey]) -> String {
         var propKeys = ""
         for item in keys {
             if let prop = WebDavFileObject.resourceKeyToDAVProp(item) {
@@ -636,8 +700,188 @@ public final class WebDavFileObject: FileObject {
         return propKeys
     }
     
-    internal class func xmlProp(_ keys: [URLResourceKey]) -> Data {
+    public class func xmlProp(_ keys: [URLResourceKey]) -> Data {
         return "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<D:propfind xmlns:D=\"DAV:\">\n\(WebDavFileObject.propString(keys))\n</D:propfind>".data(using: .utf8)!
+    }
+}
+
+// MARK: WEBDAV shared XML response implementation
+
+public struct DavSharedResponse {
+    
+    public let prop: [String: String]
+    
+    public init? (_ node: AEXMLElement, baseURL: URL?) {
+        var propDic = [String: String]()
+        
+        DavResponse.parseNodeChildren(node.children, to: &propDic)
+        
+        self.prop = propDic
+    }
+    
+    public static func parse(xmlResponse: Data, baseURL: URL?, contentTag: String = "element") -> [DavSharedResponse] {
+        guard let xml = try? AEXMLDocument(xml: xmlResponse) else { return [] }
+        var result = [DavSharedResponse]()
+        var rootnode = xml.root
+        var responsetag = contentTag
+        for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("ocs") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("data") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("element") {
+            responsetag = node.name
+            break
+        }
+        for responseNode in rootnode[responsetag].all ?? [] {
+            if let davResponse = DavSharedResponse(responseNode, baseURL: baseURL) {
+                result.append(davResponse)
+            }
+        }
+        return result
+    }
+}
+
+/// Containts path, url and attributes of a WebDAV file or resource.
+public final class WebDavSharedObject: NSObject {
+    
+    /// Share id of the file.
+    public internal(set) var shareID: String
+    
+    /// Share type of the file.
+    public internal(set) var shareType: Int
+    
+    /// Share permission of the file.
+    public internal(set) var sharePermission: Int
+    
+    /// Share link of the file.
+    public internal(set) var shareURL: String?
+    
+    /// The user that the file is shared to.
+    public internal(set) var shareWith: String?
+    
+    /// The user that the file is shared to.
+    public internal(set) var shareWithDisplayName: String?
+    
+    /// Share time of the file.
+    public internal(set) var shareTimeInterval: TimeInterval
+    
+    public internal(set) var ownerID: String
+    
+    public internal(set) var ownerDisplayName: String
+    
+    /// Path of the file.
+    public internal(set) var path: String
+    
+    /// Type of the file.
+    public internal(set) var type: String
+    
+    /// MIME type of the file.
+    public internal(set) var contentType: ContentMIMEType
+    
+    public var shareTime: Date? {
+        return (shareTimeInterval > 0) ? Date(timeIntervalSince1970: shareTimeInterval) : nil
+    }
+    
+    public init(_ davResponse: DavSharedResponse) {
+        self.shareID = davResponse.prop["id"]!
+        self.shareType = Int(davResponse.prop["share_type"] ?? "3") ?? 3
+        self.sharePermission = Int(davResponse.prop["permissions"] ?? "1") ?? 1
+        self.shareURL = davResponse.prop["url"]
+        self.shareWith = davResponse.prop["share_with"]
+        self.shareWithDisplayName = davResponse.prop["share_with_displayname"]
+        self.shareTimeInterval = Double(davResponse.prop["stime"] ?? "-1") ?? -1
+        self.ownerID = davResponse.prop["uid_owner"]!
+        self.ownerDisplayName = davResponse.prop["displayname_owner"]!
+        self.path = davResponse.prop["path"]!
+        self.type = davResponse.prop["item_type"]!
+        self.contentType = ContentMIMEType(rawValue: davResponse.prop["mimetype"]!)
+        super.init()
+    }
+}
+
+// MARK: WEBDAV recent XML response implementation
+
+public struct DavRecentResponse {
+    
+    public let prop: [String: String]
+    
+    public init? (_ node: AEXMLElement, baseURL: URL?) {
+        var propDic = [String: String]()
+        
+        DavResponse.parseNodeChildren(node.children, to: &propDic)
+        
+        self.prop = propDic
+    }
+    
+    public static func parse(xmlResponse: Data, baseURL: URL?, contentTag: String = "element") -> [DavRecentResponse] {
+        guard let xml = try? AEXMLDocument(xml: xmlResponse) else { return [] }
+        var result = [DavRecentResponse]()
+        var rootnode = xml.root
+        var responsetag = contentTag
+        for node in rootnode.all ?? [] where node.name.lowercased().hasSuffix("ocs") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("data") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("files") {
+            rootnode = node
+        }
+        for node in rootnode.children where node.name.lowercased().hasSuffix("element") {
+            responsetag = node.name
+            break
+        }
+        for responseNode in rootnode[responsetag].all ?? [] {
+            if let davResponse = DavRecentResponse(responseNode, baseURL: baseURL) {
+                result.append(davResponse)
+            }
+        }
+        return result
+    }
+}
+
+/// Containts path, url and attributes of a WebDAV file or resource.
+public final class WebDavRecentObject: NSObject {
+    
+    /// Recent id of the file.
+    public internal(set) var recentID: String
+    
+    /// Share permission of the file.
+    public internal(set) var sharePermission: Int
+    
+    /// Recent time of the file.
+    public internal(set) var recentTimeInterval: TimeInterval
+    
+    public internal(set) var fileName: String
+    
+    /// Path of the file.
+    public internal(set) var path: String
+    
+    /// Type of the file.
+    public internal(set) var type: String
+    
+    /// Size of the file.
+    public internal(set) var size: String
+    
+    /// MIME type of the file.
+    public internal(set) var contentType: ContentMIMEType
+    
+    public var recentTime: Date? {
+        return (recentTimeInterval > 0) ? Date(timeIntervalSince1970: recentTimeInterval / 1000) : nil
+    }
+    
+    public init(_ davResponse: DavRecentResponse) {
+        self.recentID = davResponse.prop["id"]!
+        self.sharePermission = Int(davResponse.prop["permissions"] ?? "1") ?? 1
+        self.recentTimeInterval = Double(davResponse.prop["mtime"] ?? "-1") ?? -1
+        self.fileName = davResponse.prop["name"]!
+        self.path = davResponse.prop["path"]!
+        self.type = davResponse.prop["type"]!
+        self.size = davResponse.prop["size"]!
+        self.contentType = ContentMIMEType(rawValue: davResponse.prop["mimetype"]!)
+        super.init()
     }
 }
 

@@ -456,7 +456,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return upload_multipart_data(path, data: data ?? Data(), operation: operation, overwrite: overwrite, completionHandler: completionHandler)
     }
     
-    override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
+    override open func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
         
         func correctPath(_ path: String) -> String {
             if path.hasPrefix("id:") {
@@ -548,7 +548,7 @@ open class OneDriveFileProvider: HTTPFileProvider, FileProviderSharing {
         return request
     }
     
-    override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+    override open func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
         let errorDesc: String?
         if let response = data?.deserializeJSON() {
             errorDesc = (response["error"] as? [String: Any])?["message"] as? String

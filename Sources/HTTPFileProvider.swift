@@ -129,6 +129,23 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return true
     }
     
+    open func invalidateSession() {
+        _session?.invalidateAndCancel()
+        _session = nil
+    }
+    
+    open func configSession() {
+        if _session == nil {
+            self.sessionDelegate = SessionDelegate(fileProvider: self)
+            let config = URLSessionConfiguration.default
+            config.urlCache = cache
+            config.requestCachePolicy = .returnCacheDataElseLoad
+            _session = URLSession(configuration: config, delegate: sessionDelegate as URLSessionDelegate?, delegateQueue: self.operation_queue)
+            _session.sessionDescription = UUID().uuidString
+            initEmptySessionHandler(_session.sessionDescription!)
+        }
+    }
+    
     open func copy(with zone: NSZone? = nil) -> Any {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
@@ -353,15 +370,15 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return upload(path, request: request, stream: stream, size: Int64(data.count), operation: operation, completionHandler: completionHandler)
     }
     
-    internal func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
+    open func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey: Any] = [:]) -> URLRequest {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    internal func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+    open func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
         fatalError("HTTPFileProvider is an abstract class. Please implement \(#function) in subclass.")
     }
     
-    internal func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
+    open func multiStatusError(operation: FileOperationType, data: Data) -> FileProviderHTTPError? {
         // WebDAV will override this function
         return nil
     }
@@ -373,10 +390,10 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
      such as retrieving file id from file path. Then you must call `super.doOperation()`
      
      In case you have to call super method asyncronously, create a `Progress` object and pass ot to `progress` parameter.
-    */
+     */
     @discardableResult
-    internal func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil,
-                              completionHandler: SimpleCompletionHandler) -> Progress? {
+    func doOperation(_ operation: FileOperationType, overwrite: Bool = false, progress: Progress? = nil,
+                     completionHandler: SimpleCompletionHandler) -> Progress? {
         guard fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
             return nil
         }
@@ -400,7 +417,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
                     }
                     
                     if FileProviderHTTPErrorCode(rawValue: response.statusCode) == .multiStatus, let data = data,
-                        let ms_error = self.multiStatusError(operation: operation, data: data) {
+                       let ms_error = self.multiStatusError(operation: operation, data: data) {
                         throw ms_error
                     }
                 }
@@ -497,8 +514,8 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         task.resume()
     }
     // codebeat:enable[ARITY]
- 
-    internal var maxUploadSimpleSupported: Int64 { return Int64.max }
+    
+    var maxUploadSimpleSupported: Int64 { return Int64.max }
     
     func upload_task(_ targetPath: String, progress: Progress, task: URLSessionTask, operation: FileOperationType,
                      completionHandler: SimpleCompletionHandler) -> Void {
@@ -529,7 +546,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     func upload(_ targetPath: String, request: URLRequest, stream: InputStream, size: Int64, operation: FileOperationType,
-                     completionHandler: SimpleCompletionHandler) -> Progress? {
+                completionHandler: SimpleCompletionHandler) -> Progress? {
         if size > maxUploadSimpleSupported {
             let error = self.serverError(with: .payloadTooLarge, path: targetPath, data: nil)
             completionHandler?(error)
@@ -582,10 +599,10 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
         return progress
     }
     
-    internal func download(path: String, request: URLRequest, operation: FileOperationType,
-                           responseHandler: ((_ response: URLResponse) -> Void)? = nil,
-                           stream: OutputStream,
-                           completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
+    func download(path: String, request: URLRequest, operation: FileOperationType,
+                  responseHandler: ((_ response: URLResponse) -> Void)? = nil,
+                  stream: OutputStream,
+                  completionHandler: @escaping (_ error: Error?) -> Void) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file
@@ -670,7 +687,7 @@ open class HTTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOper
     }
     
     internal func download_file(path: String, request: URLRequest, operation: FileOperationType,
-                                  completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
+                                completionHandler: @escaping ((_ tempURL: URL?, _ error: Error?) -> Void)) -> Progress? {
         let progress = Progress(totalUnitCount: -1)
         progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
         progress.kind = .file

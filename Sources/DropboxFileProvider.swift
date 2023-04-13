@@ -190,7 +190,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         }, completionHandler: completionHandler)
     }
     
-    override func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
+    override open func request(for operation: FileOperationType, overwrite: Bool = false, attributes: [URLResourceKey : Any] = [:]) -> URLRequest {
         
         func uploadRequest(to path: String) -> URLRequest {
             var requestDictionary = [String: Any]()
@@ -264,7 +264,7 @@ open class DropboxFileProvider: HTTPFileProvider, FileProviderSharing {
         return request
     }
     
-    override func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
+    override open func serverError(with code: FileProviderHTTPErrorCode, path: String?, data: Data?) -> FileProviderHTTPError {
         let errorDesc: String?
         if let response = data?.deserializeJSON() {
             errorDesc = (response["user_message"] as? String) ?? ((response["error"] as? [String: Any])?["tag"] as? String)
