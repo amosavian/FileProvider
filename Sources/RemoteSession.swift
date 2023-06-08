@@ -31,23 +31,23 @@ extension FileProviderHTTPError {
     }
 }
 
-internal var completionHandlersForTasks = [String: [Int: SimpleCompletionHandler]]()
-internal var downloadCompletionHandlersForTasks = [String: [Int: (URL) -> Void]]()
-internal var dataCompletionHandlersForTasks = [String: [Int: (Data) -> Void]]()
-internal var responseCompletionHandlersForTasks = [String: [Int: (URLResponse) -> Void]]()
+internal var completionHandlersForTasks = FPSynchronizedDictionary<String, FPSynchronizedDictionary<Int, SimpleCompletionHandler>>()
+internal var downloadCompletionHandlersForTasks = FPSynchronizedDictionary<String, FPSynchronizedDictionary<Int, (URL) -> Void>>()
+internal var dataCompletionHandlersForTasks = FPSynchronizedDictionary<String, FPSynchronizedDictionary<Int, (Data) -> Void>>()
+internal var responseCompletionHandlersForTasks = FPSynchronizedDictionary<String, FPSynchronizedDictionary<Int, (URLResponse) -> Void>>()
 
 internal func initEmptySessionHandler(_ uuid: String) {
-    completionHandlersForTasks[uuid] = [:]
-    downloadCompletionHandlersForTasks[uuid] = [:]
-    dataCompletionHandlersForTasks[uuid] = [:]
-    responseCompletionHandlersForTasks[uuid] = [:]
+    completionHandlersForTasks[uuid] = FPSynchronizedDictionary<Int, SimpleCompletionHandler>()
+    downloadCompletionHandlersForTasks[uuid] = FPSynchronizedDictionary<Int, (URL) -> Void>()
+    dataCompletionHandlersForTasks[uuid] = FPSynchronizedDictionary<Int, (Data) -> Void>()
+    responseCompletionHandlersForTasks[uuid] = FPSynchronizedDictionary<Int, (URLResponse) -> Void>()
 }
 
 internal func removeSessionHandler(for uuid: String) {
-    _ = completionHandlersForTasks.removeValue(forKey: uuid)
-    _ = downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
-    _ = dataCompletionHandlersForTasks.removeValue(forKey: uuid)
-    _ = responseCompletionHandlersForTasks.removeValue(forKey: uuid)
+    completionHandlersForTasks.removeValue(forKey: uuid)
+    downloadCompletionHandlersForTasks.removeValue(forKey: uuid)
+    dataCompletionHandlersForTasks.removeValue(forKey: uuid)
+    responseCompletionHandlersForTasks.removeValue(forKey: uuid)
 }
 
 /// All objects set to `FileProviderRemote.session` must be an instance of this class
